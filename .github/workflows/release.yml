@@ -20,22 +20,7 @@ concurrency:
 
 jobs:
   checks:
-    runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: swatinem/rust-cache@v2
-        with:
-          workspaces: src-tauri
-      - run: npm ci
-      - run: npx tsc --noEmit -p .
-      - run: npx vitest run
-      - run: cargo test --lib
-        working-directory: src-tauri
+    uses: ./.github/workflows/ci.yml
 
   mac:
     needs: checks

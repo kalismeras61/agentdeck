@@ -30,7 +30,6 @@ export function SlashMenu({
   useEffect(() => {
     list.current?.querySelector(`[data-index="${active}"]`)?.scrollIntoView({ block: "nearest" });
   }, [active]);
-  let index = -1;
   return (
     <div
       ref={list}
@@ -59,8 +58,7 @@ export function SlashMenu({
               <Icon size={11} /> {label(agent)}
             </p>
             {group.map((c) => {
-              index = items.indexOf(c);
-              const i = index;
+              const i = items.indexOf(c);
               return (
                 <button
                   key={`${source}-${c.name}`}
