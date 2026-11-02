@@ -30,7 +30,13 @@ if ! gh auth status -h github.com >/dev/null 2>&1; then
   gh auth login -h github.com -p https -w -s repo,workflow
 fi
 PERM=$(gh api "repos/$REPO" -q .permissions.admin 2>/dev/null || echo false)
-[ "$PERM" = "true" ] || { echo "FAILED: the signed-in GitHub account can't change $REPO's settings. Sign in as kalismeras61 (gh auth login) and run this again."; exit 1; }
+if [ "$PERM" != "true" ]; then
+  echo "The GitHub CLI is signed in as $(gh api user -q .login 2>/dev/null || echo someone else), which can't manage $REPO."
+  echo "Sign in as the repo's owner: press Enter, then approve in the browser with the code shown."
+  gh auth login -h github.com -p https -w -s repo,workflow
+  PERM=$(gh api "repos/$REPO" -q .permissions.admin 2>/dev/null || echo false)
+  [ "$PERM" = "true" ] || { echo "FAILED: still no admin access to $REPO with $(gh api user -q .login 2>/dev/null)."; exit 1; }
+fi
 echo "Signed in to GitHub with access to $REPO."
 
 echo "-- 2/5 Signing certificate"

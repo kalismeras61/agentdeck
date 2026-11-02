@@ -1,19 +1,28 @@
 import * as Dropdown from "@radix-ui/react-dropdown-menu";
 import { Check, ChevronDown, RefreshCw } from "lucide-react";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { t } from "../lib/i18n";
-import { modelName, useModels } from "../lib/models";
+import { liveApi, type EffortStatus } from "../lib/live";
+import { effortName, effortsFor, modelName, useModels } from "../lib/models";
 import { cx, Tip } from "./ui";
 
 /**
  * The model for a live session: every model the agent reports, plus any model id typed in.
  * A change is used from the next message, even while the agent is running.
+ *
+ * With `onEffortChange`, also the reasoning effort: the levels the selected model takes, plus
+ * Default (the agent's own). For a live session (`sessionId`) the effort the agent uses right
+ * now is asked for whenever the menu opens or something changes.
  */
 export function ModelMenu({
   provider,
   agent,
   value,
   onChange,
+  effort,
+  onEffortChange,
+  sessionId,
+  status,
   tip = t("Model for this session"),
   note = t("Used from your next message."),
   side = "top",
@@ -23,6 +32,13 @@ export function ModelMenu({
   agent: string;
   value: string;
   onChange: (model: string) => void;
+  /** The picked effort; null = the agent's default. */
+  effort?: string | null;
+  onEffortChange?: (effort: string | null) => void;
+  /** A live session whose agent can say which effort it uses. */
+  sessionId?: string;
+  /** The session's status, so the effort in use is asked for again after a start. */
+  status?: string;
   tip?: string;
   note?: string;
   /** Where the list opens: above the message box, below a settings row. */
@@ -30,10 +46,18 @@ export function ModelMenu({
 }) {
   const [open, setOpen] = useState(false);
   const [typing, setTyping] = useState(false);
-  const { list, loading, refresh } = useModels(provider, open || value !== "default");
+  const { list, loading, refresh } = useModels(provider, open || value !== "default" || Boolean(effort));
   const models = list?.models ?? [];
   const input = useRef<HTMLInputElement>(null);
   const known = value === "default" || models.some((m) => m.id === value);
+  const levels = onEffortChange ? effortsFor(models, value) : [];
+  const now = useEffortInUse(open && levels.length > 0 ? sessionId : undefined, [effort, value, status]);
+  const modelDefault = models.find((m) => m.id === (value || "default"))?.defaultEffort;
+  // What Default means right now: what the running agent reports, else the model's own default.
+  const picked = effort ?? null;
+  const defaultIs = (!picked && now?.running ? now.effort : null) ?? modelDefault ?? null;
+  // A level the model doesn't list (picked for another model) stays visible so it can be changed.
+  const shown = picked && !levels.includes(picked) ? [...levels, picked] : levels;
 
   if (typing) {
     return (
@@ -67,8 +91,9 @@ export function ModelMenu({
   return (
     <Dropdown.Root open={open} onOpenChange={setOpen}>
       <Tip label={tip} side="top">
-        <Dropdown.Trigger className="inline-flex h-8 max-w-[200px] items-center gap-1.5 rounded-lg px-2 text-xs text-fg-2 hover:bg-elevated hover:text-fg data-[state=open]:bg-elevated">
+        <Dropdown.Trigger className="inline-flex h-8 max-w-[240px] items-center gap-1.5 rounded-lg px-2 text-xs text-fg-2 hover:bg-elevated hover:text-fg data-[state=open]:bg-elevated">
           <span className={cx("truncate", !known && "font-mono text-[11.5px]")}>{modelName(models, value)}</span>
+          {onEffortChange && picked && <span className="shrink-0 text-fg-3">· {effortName(picked)}</span>}
           <ChevronDown size={13} className="shrink-0" />
         </Dropdown.Trigger>
       </Tip>
@@ -109,6 +134,46 @@ export function ModelMenu({
               </Dropdown.Item>
             )}
           </div>
+          {shown.length > 0 && onEffortChange && (
+            <>
+              <Dropdown.Separator className="my-1 h-px bg-line-soft" />
+              <Dropdown.Label className="px-2 pb-1 pt-0.5 text-[11px] text-fg-3">{t("Effort")}</Dropdown.Label>
+              <Dropdown.RadioGroup
+                value={picked ?? "default"}
+                onValueChange={(v) => onEffortChange(v === "default" ? null : v)}
+                className="flex flex-wrap gap-1 px-2 pb-1"
+              >
+                {["default", ...shown].map((lvl) => (
+                  <Dropdown.RadioItem
+                    key={lvl}
+                    value={lvl}
+                    onSelect={(e) => e.preventDefault()}
+                    className="h-7 cursor-default rounded-md border border-line px-2 text-[12px] leading-[26px] text-fg-2 outline-none data-[highlighted]:bg-surface data-[state=checked]:border-[color-mix(in_srgb,var(--violet)_60%,var(--border))] data-[state=checked]:text-fg"
+                  >
+                    {lvl === "default"
+                      ? defaultIs
+                        ? t("Default ({effort})", { effort: effortName(defaultIs) })
+                        : t("Default")
+                      : effortName(lvl)}
+                  </Dropdown.RadioItem>
+                ))}
+              </Dropdown.RadioGroup>
+              {now?.env ? (
+                <p className="max-w-[290px] px-2 pb-1 text-[11px] leading-[1.5] text-warning">
+                  {t("{name} is set to {value} in your shell environment, so {agent} uses that whatever you pick here.", { name: now.env[0], value: now.env[1], agent })}
+                </p>
+              ) : (
+                now?.running &&
+                picked &&
+                now.effort &&
+                now.effort !== picked && (
+                  <p className="max-w-[290px] px-2 pb-1 text-[11px] leading-[1.5] text-fg-3">
+                    {t("{agent} is using {effort} right now.", { agent, effort: effortName(now.effort) })}
+                  </p>
+                )
+              )}
+            </>
+          )}
           <Dropdown.Separator className="my-1 h-px bg-line-soft" />
           <Dropdown.Item
             onSelect={() => setTyping(true)}
@@ -138,4 +203,22 @@ export function ModelMenu({
       </Dropdown.Portal>
     </Dropdown.Root>
   );
+}
+
+/** What a live session's agent says about its effort; asked again whenever `deps` change. */
+function useEffortInUse(sessionId: string | undefined, deps: unknown[]): EffortStatus | null {
+  const [now, setNow] = useState<EffortStatus | null>(null);
+  const key = JSON.stringify(deps);
+  useEffect(() => {
+    if (!sessionId || !liveApi.available) return;
+    let gone = false;
+    liveApi
+      .sessionEffort(sessionId)
+      .then((s) => !gone && setNow(s))
+      .catch(() => !gone && setNow(null));
+    return () => {
+      gone = true;
+    };
+  }, [sessionId, key]);
+  return sessionId ? now : null;
 }

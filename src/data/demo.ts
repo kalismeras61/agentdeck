@@ -39,6 +39,8 @@ export interface Session {
   /** The git worktree it works in (instead of the project folder), and its branch. */
   worktree?: string | null;
   branch?: string | null;
+  /** Reasoning effort picked for the session; null/absent = the agent's default. */
+  effort?: string | null;
 }
 
 export interface Workspace {

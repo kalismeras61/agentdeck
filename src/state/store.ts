@@ -66,6 +66,8 @@ interface UiState {
   viewed: Record<string, true>;
   defaultProvider: ProviderId;
   defaultModels: Partial<Record<ProviderId, string>>;
+  /** Reasoning effort for new sessions, per agent; absent = the agent's default. */
+  defaultEfforts: Partial<Record<ProviderId, string>>;
   notifications: NotificationPrefs;
 }
 
@@ -94,6 +96,8 @@ interface Actions {
   setMotion: (m: MotionPref) => void;
   setDefaultProvider: (p: ProviderId) => void;
   setDefaultModel: (p: ProviderId, model: string) => void;
+  /** null: new sessions use the agent's default effort. */
+  setDefaultEffort: (p: ProviderId, effort: string | null) => void;
   setNotification: (k: keyof NotificationPrefs, v: boolean) => void;
   resetPreferences: () => void;
   /** worktree: the session works in its own new git worktree of the project. */
@@ -127,6 +131,8 @@ interface Actions {
   profiles: ModelProfile[];
   loadProfiles: () => Promise<void>;
   setModel: (sessionId: string, model: string) => void;
+  /** null: the agent's default. A running Claude Code switches at once. */
+  setEffort: (sessionId: string, effort: string | null) => void;
   /** Picks another agent for a session that hasn't started yet. */
   setSessionAgent: (sessionId: string, provider: LiveProvider, profileId?: string) => void;
   sendPrompt: (sessionId: string, text: string, attachments: string[]) => void;
@@ -249,6 +255,7 @@ function toSession(row: LiveSessionRow, events: StoredEvent[], projectPath: stri
     profileId: row.profileId ?? null,
     worktree: row.worktree ?? null,
     branch: row.branch ?? null,
+    effort: row.effort ?? null,
   };
 }
 
@@ -266,6 +273,7 @@ const PREF_DEFAULTS = {
   reviewLayout: "split" as ReviewLayout,
   defaultProvider: "claude-code" as ProviderId,
   defaultModels: {} as Partial<Record<ProviderId, string>>,
+  defaultEfforts: {} as Partial<Record<ProviderId, string>>,
   notifications: { approval: true, finished: true, errors: true } as NotificationPrefs,
 };
 
@@ -365,6 +373,13 @@ export const useStore = create<UiState & Actions>()(
         setMotion: (m) => set({ motion: m }),
         setDefaultProvider: (p) => set({ defaultProvider: p }),
         setDefaultModel: (p, model) => set((s) => ({ defaultModels: { ...s.defaultModels, [p]: model } })),
+        setDefaultEffort: (p, effort) =>
+          set((s) => {
+            const next = { ...s.defaultEfforts };
+            if (effort) next[p] = effort;
+            else delete next[p];
+            return { defaultEfforts: next };
+          }),
         setNotification: (k, v) => set((s) => ({ notifications: { ...s.notifications, [k]: v } })),
         resetPreferences: () => set({ ...PREF_DEFAULTS }),
         clearSessionError: (sessionId) => set((s) => ({ sessionErrors: { ...s.sessionErrors, [sessionId]: undefined } })),
@@ -393,8 +408,9 @@ export const useStore = create<UiState & Actions>()(
             }
             const prov: LiveProvider = provider ?? st.defaultProvider;
             const model = profileId ? "default" : (st.defaultModels[prov] ?? "default");
+            const effort = profileId ? null : (st.defaultEfforts[prov] ?? null);
             liveApi
-              .createSession(pid, prov, model, profileId, worktree)
+              .createSession(pid, prov, model, profileId, worktree, effort)
               .then((row) => {
                 get().upsertLiveSession(row);
                 set((s) => ({ selectedId: row.id, view: "workspace", viewMode: "rich", search: "", composerFocusTick: s.composerFocusTick + 1 }));
@@ -411,6 +427,7 @@ export const useStore = create<UiState & Actions>()(
             title: "New session",
             provider: prov,
             model: st.defaultModels[prov] ?? providerModels[prov][0] ?? "Default",
+            effort: st.defaultEfforts[prov] ?? null,
             status: "idle",
             snippet: t("No messages yet"),
             startedAt: Date.now(),
@@ -439,6 +456,17 @@ export const useStore = create<UiState & Actions>()(
             return;
           }
           set((s) => ({ sessions: s.sessions.map((x) => (x.id === sessionId ? { ...x, model } : x)) }));
+        },
+
+        setEffort: (sessionId, effort) => {
+          if (sessionById(sessionId)?.live) {
+            liveApi
+              .setEffort(sessionId, effort)
+              .then((row) => get().upsertLiveSession(row))
+              .catch((e: unknown) => setError(sessionId, e));
+            return;
+          }
+          set((s) => ({ sessions: s.sessions.map((x) => (x.id === sessionId ? { ...x, effort } : x)) }));
         },
 
         sendPrompt: (sessionId, text, attachments) => {
@@ -772,6 +800,7 @@ export const useStore = create<UiState & Actions>()(
                   profileId: row.profileId ?? null,
                   worktree: row.worktree ?? null,
                   branch: row.branch ?? null,
+                  effort: row.effort ?? null,
                 }
               : toSession(row, s.liveEvents[row.id] ?? [], path);
             // A session made just now has no history to load.
@@ -818,8 +847,9 @@ export const useStore = create<UiState & Actions>()(
         setSessionAgent: (sessionId, provider, profileId) => {
           const st = get();
           const model = profileId ? "default" : (st.defaultModels[provider] ?? "default");
+          const effort = profileId ? null : (st.defaultEfforts[provider] ?? null);
           liveApi
-            .setAgent(sessionId, provider, model, profileId)
+            .setAgent(sessionId, provider, model, profileId, effort)
             .then((row) => {
               get().upsertLiveSession(row);
               set((s) => ({ composerFocusTick: s.composerFocusTick + 1 }));
@@ -933,6 +963,7 @@ export const useStore = create<UiState & Actions>()(
         reviewLayout: s.reviewLayout,
         defaultProvider: s.defaultProvider,
         defaultModels: s.defaultModels,
+        defaultEfforts: s.defaultEfforts,
         notifications: s.notifications,
       }),
       migrate: (persisted) => {

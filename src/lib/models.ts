@@ -45,3 +45,26 @@ export function modelName(models: ModelChoice[] | undefined, id: string): string
   const m = models?.find((x) => x.id === id);
   return m ? m.label.replace(/\s*\(recommended\)$/i, "") : id;
 }
+
+/** Names for the reasoning efforts agents report; anything else shows as the agent spells it. */
+const EFFORT_NAMES: Record<string, string> = /* i18n */ {
+  none: "None",
+  minimal: "Minimal",
+  low: "Low",
+  medium: "Medium",
+  high: "High",
+  xhigh: "Extra high",
+  max: "Max",
+  ultra: "Ultra",
+};
+
+/** A short name for an effort level ("xhigh" → "Extra high"). */
+export function effortName(effort: string): string {
+  const n = EFFORT_NAMES[effort];
+  return n ? t(n) : effort;
+}
+
+/** The efforts a model takes (empty: no effort setting). An unknown model id falls back to nothing. */
+export function effortsFor(models: ModelChoice[] | undefined, id: string): string[] {
+  return models?.find((m) => m.id === (id || "default"))?.efforts ?? [];
+}

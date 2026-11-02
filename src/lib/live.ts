@@ -31,6 +31,8 @@ export interface LiveSessionRow {
   /** A git worktree the session works in instead of the project folder. */
   worktree?: string | null;
   branch?: string | null;
+  /** Reasoning effort picked for the session; null = the agent's own default. */
+  effort?: string | null;
 }
 
 export type SessionMode = "default" | "plan";
@@ -96,8 +98,14 @@ export type ContextItem = {
 };
 export type ContextFile = { path: string; text: string; modified: number; exists: boolean };
 
-/** One model an agent offers. "default" leaves the agent's own setting. */
-export type ModelChoice = { id: string; label: string; description?: string };
+/**
+ * One model an agent offers. "default" leaves the agent's own setting.
+ * efforts: the reasoning efforts it takes, lowest first (absent: no effort setting).
+ * defaultEffort: the one the agent uses when none is picked, if it says.
+ */
+export type ModelChoice = { id: string; label: string; description?: string; efforts?: string[]; defaultEffort?: string };
+/** What a session's agent says about its effort. effort: in use now (null: not running or unknown). env: [name, value] of a variable that overrides any pick. */
+export type EffortStatus = { running: boolean; effort: string | null; env: [string, string] | null };
 /** source: "agent" = the agent reported it this run, "saved" = from an earlier run, "builtin" = couldn't ask. */
 export type ModelList = { provider: string; models: ModelChoice[]; source: "agent" | "saved" | "builtin"; error?: string };
 
@@ -230,17 +238,21 @@ export const liveApi = {
     call<{ sessions: LiveSessionRow[]; projects: LiveProject[]; skipped: number }>("import_sessions", { picks }),
   removeProject: (projectId: string) => call<void>("remove_project", { projectId }),
   listSessions: () => call<LiveSessionRow[]>("list_sessions"),
-  createSession: (projectId: string, provider: LiveProvider, model: string, profileId?: string, worktree?: boolean) =>
-    call<LiveSessionRow>("create_session", { projectId, provider, model, profileId: profileId ?? null, worktree: worktree ?? null }),
+  createSession: (projectId: string, provider: LiveProvider, model: string, profileId?: string, worktree?: boolean, effort?: string | null) =>
+    call<LiveSessionRow>("create_session", { projectId, provider, model, profileId: profileId ?? null, worktree: worktree ?? null, effort: effort ?? null }),
   listProfiles: () => call<ModelProfile[]>("list_profiles"),
   /** key: undefined keeps the saved key, "" removes it. */
   saveProfile: (profile: ModelProfile, key?: string) => call<ModelProfile>("save_profile", { profile, key: key ?? null }),
   deleteProfile: (profileId: string) => call<void>("delete_profile", { profileId }),
   testProfile: (profileId: string) => call<string>("test_profile", { profileId }),
   /** Changes the agent of a session that has no messages yet. */
-  setAgent: (sessionId: string, provider: LiveProvider, model: string, profileId?: string) =>
-    call<LiveSessionRow>("set_session_agent", { sessionId, provider, model, profileId: profileId ?? null }),
+  setAgent: (sessionId: string, provider: LiveProvider, model: string, profileId?: string, effort?: string | null) =>
+    call<LiveSessionRow>("set_session_agent", { sessionId, provider, model, profileId: profileId ?? null, effort: effort ?? null }),
   setModel: (sessionId: string, model: string) => call<LiveSessionRow>("set_session_model", { sessionId, model }),
+  /** null = the agent's default. A running Claude Code switches at once. */
+  setEffort: (sessionId: string, effort: string | null) => call<LiveSessionRow>("set_session_effort", { sessionId, effort }),
+  /** The effort the session's agent uses right now. */
+  sessionEffort: (sessionId: string) => call<EffortStatus>("session_effort", { sessionId }),
   scanContext: (projectId: string | null) => call<ContextItem[]>("scan_context", { projectId }),
   readContextFile: (path: string) => call<ContextFile>("read_context_file", { path }),
   /** expectedModified: what was loaded (0 = new file); refused if it changed on disk since. */

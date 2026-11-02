@@ -821,6 +821,23 @@ fn valid_model_id(model: &str) -> bool {
             .all(|c| c.is_ascii_alphanumeric() || "-._:/[]@".contains(c))
 }
 
+/// Checks an effort pick for an agent. None, "" and "default" mean the agent's own default.
+fn check_effort(provider: &str, effort: Option<&str>) -> Result<Option<String>, String> {
+    let Some(e) = effort.map(str::trim).filter(|e| !e.is_empty() && *e != "default") else {
+        return Ok(None);
+    };
+    let ok = match provider {
+        "claude-code" => claude::EFFORTS.contains(&e),
+        // Codex lists its own per model (minimal, low, medium, high, xhigh, …).
+        "codex" => e.len() <= 24 && e.chars().all(|c| c.is_ascii_lowercase()),
+        _ => return Err(format!("{} has no effort setting", provider_label(provider))),
+    };
+    if !ok {
+        return Err(format!("Unknown effort: {e}"));
+    }
+    Ok(Some(e.to_string()))
+}
+
 fn check_agent(
     db: &Db,
     provider: &str,
@@ -864,8 +881,14 @@ fn create_session(
     model: String,
     profile_id: Option<String>,
     worktree: Option<bool>,
+    effort: Option<String>,
 ) -> CmdResult<SessionRow> {
     let model = check_agent(&state.db, &provider, &model, profile_id.as_deref())?;
+    // A custom endpoint's model may have no effort levels: leave it to the profile.
+    let effort = match profile_id {
+        Some(_) => None,
+        None => check_effort(&provider, effort.as_deref())?,
+    };
     let project = state
         .db
         .project(&project_id)
@@ -885,6 +908,9 @@ fn create_session(
     if let Some((path, branch)) = &wt {
         state.db.set_session_worktree(&s.id, Some(path), Some(branch)).map_err(err)?;
     }
+    if effort.is_some() {
+        state.db.set_session_effort(&s.id, effort.as_deref()).map_err(err)?;
+    }
     state
         .db
         .set_session_profile(&s.id, profile_id.as_deref())
@@ -900,8 +926,13 @@ fn set_session_agent(
     provider: String,
     model: String,
     profile_id: Option<String>,
+    effort: Option<String>,
 ) -> CmdResult<SessionRow> {
     let model = check_agent(&state.db, &provider, &model, profile_id.as_deref())?;
+    let effort = match profile_id {
+        Some(_) => None,
+        None => check_effort(&provider, effort.as_deref())?,
+    };
     if state.agents.is_running(&session_id)
         || !state.db.events(&session_id).map_err(err)?.is_empty()
     {
@@ -911,7 +942,7 @@ fn set_session_agent(
     }
     state
         .db
-        .set_session_agent(&session_id, &provider, &model, profile_id.as_deref())
+        .set_session_agent(&session_id, &provider, &model, profile_id.as_deref(), effort.as_deref())
         .map_err(err)?
         .ok_or_else(|| "Session not found".into())
 }
@@ -936,6 +967,48 @@ fn set_session_model(
         state.agents.set_model(&session_id, &model)?;
     }
     Ok(row)
+}
+
+/// Picks a session's reasoning effort (None or "default": the agent's own). A running Claude
+/// Code switches at once; otherwise it's used from the next start (Codex: the next turn).
+/// Runs off the main thread: Claude Code is asked to confirm the change.
+#[tauri::command]
+async fn set_session_effort(
+    state: State<'_, AppState>,
+    session_id: String,
+    effort: Option<String>,
+) -> CmdResult<SessionRow> {
+    let s = state
+        .db
+        .session(&session_id)
+        .map_err(err)?
+        .ok_or("Session not found")?;
+    if s.profile_id.is_some() {
+        return Err("This session's effort comes from its model profile".into());
+    }
+    let effort = check_effort(&s.provider, effort.as_deref())?;
+    let row = state
+        .db
+        .set_session_effort(&session_id, effort.as_deref())
+        .map_err(err)?
+        .ok_or("Session not found")?;
+    let agents = state.agents.clone();
+    tauri::async_runtime::spawn_blocking(move || agents.set_effort(&session_id, effort.as_deref()))
+        .await
+        .map_err(|e| e.to_string())??;
+    Ok(row)
+}
+
+/// The effort a session's agent uses right now, as the agent reports it.
+#[tauri::command]
+async fn session_effort(
+    state: State<'_, AppState>,
+    session_id: String,
+) -> CmdResult<agents::EffortStatus> {
+    let agents = state.agents.clone();
+    tauri::async_runtime::spawn_blocking(move || agents.effort_status(&session_id))
+        .await
+        .map_err(|e| e.to_string())?
 }
 
 /// The models an agent offers, as the agent reports them. Runs off the main thread: asking
@@ -1745,6 +1818,8 @@ pub fn run() {
             create_session,
             set_session_agent,
             set_session_model,
+            set_session_effort,
+            session_effort,
             list_models,
             git_overview,
             git_log,
@@ -1890,5 +1965,23 @@ mod handoff_tests {
         assert_eq!(out[0].payload["toSessionId"], new.id);
         assert_eq!(out[0].payload["planRequestId"], "r1");
         assert_eq!(*seen.lock().unwrap(), vec!["handoff_in", "handoff_out"]);
+    }
+}
+
+#[cfg(test)]
+mod effort_tests {
+    use super::check_effort;
+
+    #[test]
+    fn efforts_are_checked_per_agent() {
+        assert_eq!(check_effort("claude-code", None), Ok(None));
+        assert_eq!(check_effort("claude-code", Some("default")), Ok(None));
+        assert_eq!(check_effort("claude-code", Some(" max ")), Ok(Some("max".into())));
+        assert!(check_effort("claude-code", Some("minimal")).is_err(), "not a Claude Code level");
+        assert!(check_effort("claude-code", Some("--model")).is_err());
+        assert_eq!(check_effort("codex", Some("minimal")), Ok(Some("minimal".into())));
+        assert!(check_effort("codex", Some("high; rm")).is_err());
+        assert!(check_effort("gemini-cli", Some("high")).is_err(), "no effort setting");
+        assert_eq!(check_effort("gemini-cli", None), Ok(None));
     }
 }

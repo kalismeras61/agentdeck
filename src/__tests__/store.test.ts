@@ -139,6 +139,29 @@ describe("store, live sessions", () => {
     expect(st.liveState).toBe("ready");
   });
 
+  it("keeps a live session's effort, sends a new pick to the desktop app and starts new sessions with the default", async () => {
+    const { liveApi } = await import("../lib/live");
+    const st = useStore.getState();
+    st.hydrateLive([proj], [{ ...row, effort: "high" }], { "s-live": [] });
+    expect(useStore.getState().sessions.find((s) => s.id === "s-live")?.effort).toBe("high");
+    const setEffort = vi.spyOn(liveApi, "setEffort").mockResolvedValue({ ...row, effort: null });
+    st.setEffort("s-live", null);
+    expect(setEffort).toHaveBeenCalledWith("s-live", null);
+    await vi.waitFor(() => expect(useStore.getState().sessions.find((s) => s.id === "s-live")?.effort).toBeNull());
+
+    st.setDefaultEffort("claude-code", "max");
+    expect(useStore.getState().defaultEfforts["claude-code"]).toBe("max");
+    const create = vi.spyOn(liveApi, "createSession").mockResolvedValue({ ...row, id: "s-new", effort: "max" });
+    useStore.setState({ workspaceId: "local" });
+    useStore.getState().newSession("p-live", "claude-code");
+    expect(create).toHaveBeenCalledWith("p-live", "claude-code", "default", undefined, undefined, "max");
+    await vi.waitFor(() => expect(useStore.getState().sessions.find((s) => s.id === "s-new")?.effort).toBe("max"));
+    useStore.getState().setDefaultEffort("claude-code", null);
+    expect(useStore.getState().defaultEfforts["claude-code"]).toBeUndefined();
+    setEffort.mockRestore();
+    create.mockRestore();
+  });
+
   it("loads an unopened session's history on demand, keeping events that arrive meanwhile", async () => {
     const { liveApi } = await import("../lib/live");
     let release: (v: ReturnType<typeof ev>[]) => void = () => {};

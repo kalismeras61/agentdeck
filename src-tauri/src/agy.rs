@@ -617,10 +617,8 @@ impl AgyManager {
                     return;
                 }
                 let queued: Vec<String> = proc.queued.lock().map(|mut q| q.drain(..).collect()).unwrap_or_default();
-                if !queued.is_empty() {
-                    if self.start_turn(proc, &queued.join("\n\n")).is_ok() {
-                        self.set_status(sid, "running", Some("Working"));
-                    }
+                if !queued.is_empty() && self.start_turn(proc, &queued.join("\n\n")).is_ok() {
+                    self.set_status(sid, "running", Some("Working"));
                 }
             }
             _ => {}
@@ -968,6 +966,7 @@ mod tests {
             profile_id: None,
             worktree: None,
             branch: None,
+            effort: None,
             created_at: 0,
             updated_at: 0,
         };

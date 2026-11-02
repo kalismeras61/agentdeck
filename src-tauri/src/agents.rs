@@ -30,6 +30,17 @@ pub fn label(provider: &str) -> &'static str {
     }
 }
 
+/// What a session's agent says about its reasoning effort.
+#[derive(serde::Serialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct EffortStatus {
+    pub running: bool,
+    /// The effort in use (None: not running, or the agent didn't say).
+    pub effort: Option<String>,
+    /// An environment variable that overrides any pick, and its value.
+    pub env: Option<(String, String)>,
+}
+
 pub struct Agents {
     pub db: Arc<Db>,
     pub claude: Arc<Manager>,
@@ -196,6 +207,33 @@ impl Agents {
                 Ok(())
             }
         }
+    }
+
+    /// Applies an effort change: a running Claude Code switches at once, Codex reads it on every
+    /// turn. Other agents have no effort setting.
+    pub fn set_effort(&self, sid: &str, effort: Option<&str>) -> Result<(), String> {
+        match self.kind(sid)? {
+            Kind::Claude => self.claude.set_effort(sid, effort),
+            Kind::Codex => Ok(()),
+            _ => Err("This agent has no effort setting".into()),
+        }
+    }
+
+    /// The effort the session's agent uses right now, as far as it says.
+    pub fn effort_status(&self, sid: &str) -> Result<EffortStatus, String> {
+        Ok(match self.kind(sid)? {
+            Kind::Claude => EffortStatus {
+                running: self.claude.is_running(sid),
+                effort: self.claude.applied_effort(sid)?,
+                env: self.claude.effort_env().map(|v| (crate::claude::EFFORT_ENV.to_string(), v)),
+            },
+            Kind::Codex => EffortStatus {
+                running: self.codex.is_running(sid),
+                effort: self.codex.current_effort(sid),
+                env: None,
+            },
+            _ => EffortStatus { running: self.is_running(sid), effort: None, env: None },
+        })
     }
 
     /// Applies a mode change to a running process; stopped sessions pick it up on start.

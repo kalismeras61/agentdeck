@@ -2,7 +2,7 @@ import { AVAILABLE, LOCALES, systemLocale, t } from "../lib/i18n";
 import { setupApi } from "../lib/setup";
 import { UpdateSettings } from "../components/UpdateNotice";
 import { Check, Copy, FolderPlus, RefreshCw } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { AgentMark, cx, Kbd } from "../components/ui";
 import { liveProviders, providerLabel } from "../data/demo";
 import { ModelMenu } from "../components/ModelMenu";
@@ -11,6 +11,7 @@ import { usePermissions } from "../hooks/useDerived";
 import { getParsed } from "../hooks/useSession";
 import type { ProviderId } from "../lib/events";
 import { errorText, liveApi } from "../lib/live";
+import { effortName, effortsFor, useModels } from "../lib/models";
 import { appInfo, detectProviders, isTauri, type AppInfo, type ProviderProbe } from "../lib/native";
 import { SHORTCUTS } from "../lib/shortcuts";
 import { useStore, type MotionPref, type NotificationPrefs, type ThemePref } from "../state/store";
@@ -62,14 +63,21 @@ function Segmented<T extends string>({
   options,
   onChange,
   label,
+  wrap = false,
 }: {
   value: T;
   options: readonly (readonly [T, string])[];
   onChange: (v: T) => void;
   label: string;
+  /** Many options: wrap onto more lines instead of pushing the row wider. */
+  wrap?: boolean;
 }) {
   return (
-    <div role="radiogroup" aria-label={label} className="inline-flex shrink-0 rounded-lg border border-line bg-bg/40 p-0.5">
+    <div
+      role="radiogroup"
+      aria-label={label}
+      className={cx("rounded-lg border border-line bg-bg/40 p-0.5", wrap ? "flex max-w-[340px] shrink flex-wrap justify-end" : "inline-flex shrink-0")}
+    >
       {options.map(([v, l]) => (
         <button
           key={v}
@@ -83,6 +91,41 @@ function Segmented<T extends string>({
         </button>
       ))}
     </div>
+  );
+}
+
+/** The reasoning effort new sessions of an agent start with: the levels its default model takes. */
+function DefaultEffortRow({ provider }: { provider: "claude-code" | "codex" }) {
+  const agent = providerLabel[provider];
+  const model = useStore((s) => s.defaultModels[provider] ?? "default");
+  const effort = useStore((s) => s.defaultEfforts[provider] ?? null);
+  const setDefaultEffort = useStore((s) => s.setDefaultEffort);
+  const { list, loading } = useModels(provider, liveApi.available);
+  const levels = effortsFor(list?.models, model);
+  const shown = effort && !levels.includes(effort) ? [...levels, effort] : levels;
+  const modelDefault = list?.models.find((m) => m.id === model)?.defaultEffort;
+  return (
+    <Row
+      title={t("{agent} effort", { agent })}
+      hint={t("How hard {agent} thinks in new sessions. Default uses whatever {agent} is set to; each session can still change it next to the model.", { agent })}
+    >
+      {!liveApi.available ? (
+        <span className="text-[12.5px] text-fg-3">{t("In the desktop app")}</span>
+      ) : shown.length === 0 ? (
+        <span className="text-[12.5px] text-fg-3">{loading ? t("Loading") : t("This model has no effort levels")}</span>
+      ) : (
+        <Segmented<string>
+          wrap
+          label={t("{agent} effort", { agent })}
+          value={effort ?? "default"}
+          onChange={(v) => setDefaultEffort(provider, v === "default" ? null : v)}
+          options={[
+            ["default", modelDefault ? t("Default ({effort})", { effort: effortName(modelDefault) }) : t("Default")] as const,
+            ...shown.map((l) => [l, effortName(l)] as const),
+          ]}
+        />
+      )}
+    </Row>
   );
 }
 
@@ -378,25 +421,27 @@ export function Settings() {
               lede={t("Used when you start a new session. Each session can still change its model from the message box.")}
             >
               {liveProviders.map((p) => (
-                <Row
-                  key={p}
-                  title={t("{agent} model", { agent: providerLabel[p] })}
-                  hint={t("For new {agent} sessions. The list comes from {agent} itself; Default uses whatever it's set to.", { agent: providerLabel[p] })}
-                >
-                  {liveApi.available ? (
-                    <ModelMenu
-                      provider={p}
-                      agent={providerLabel[p]}
-                      value={st.defaultModels[p] ?? "default"}
-                      onChange={(m) => st.setDefaultModel(p, m)}
-                      tip={t("Model for new {agent} sessions", { agent: providerLabel[p] })}
-                      note={t("Used for new sessions. Each session can still change it from the message box.")}
-                      side="bottom"
-                    />
-                  ) : (
-                    <span className="text-[12.5px] text-fg-3">{t("In the desktop app")}</span>
-                  )}
-                </Row>
+                <Fragment key={p}>
+                  <Row
+                    title={t("{agent} model", { agent: providerLabel[p] })}
+                    hint={t("For new {agent} sessions. The list comes from {agent} itself; Default uses whatever it's set to.", { agent: providerLabel[p] })}
+                  >
+                    {liveApi.available ? (
+                      <ModelMenu
+                        provider={p}
+                        agent={providerLabel[p]}
+                        value={st.defaultModels[p] ?? "default"}
+                        onChange={(m) => st.setDefaultModel(p, m)}
+                        tip={t("Model for new {agent} sessions", { agent: providerLabel[p] })}
+                        note={t("Used for new sessions. Each session can still change it from the message box.")}
+                        side="bottom"
+                      />
+                    ) : (
+                      <span className="text-[12.5px] text-fg-3">{t("In the desktop app")}</span>
+                    )}
+                  </Row>
+                  {(p === "claude-code" || p === "codex") && <DefaultEffortRow provider={p} />}
+                </Fragment>
               ))}
               <Row title={t("Default agent")} hint={t("Used by New session and {shortcut}. The arrow next to New session picks another one.", { shortcut: "⌘N" })}>
                 <Segmented<ProviderId>

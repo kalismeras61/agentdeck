@@ -20,6 +20,7 @@ export function Composer({ session }: { session: Session }) {
   const setDraft = useStore((s) => s.setDraft);
   const send = useStore((s) => s.sendPrompt);
   const setModel = useStore((s) => s.setModel);
+  const setEffort = useStore((s) => s.setEffort);
   const interrupt = useStore((s) => s.interrupt);
   const focusTick = useStore((s) => s.composerFocusTick);
   /** Absolute paths in the desktop app; names only in the browser demo. */
@@ -347,7 +348,15 @@ export function Composer({ session }: { session: Session }) {
                 </span>
               </Tip>
             ) : session.live && session.provider !== "api" ? (
-              <ModelMenu provider={session.provider} agent={agentLabel(session)} value={session.model} onChange={(m) => setModel(session.id, m)} />
+              <ModelMenu
+                provider={session.provider}
+                agent={agentLabel(session)}
+                value={session.model}
+                onChange={(m) => setModel(session.id, m)}
+                {...(session.provider === "claude-code" || session.provider === "codex"
+                  ? { effort: session.effort ?? null, onEffortChange: (e: string | null) => setEffort(session.id, e), sessionId: session.id, status: session.status }
+                  : {})}
+              />
             ) : models.length > 0 ? (
               <Dropdown.Root>
                 <Tip label={t("Model for this session")} side="top">

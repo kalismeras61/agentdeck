@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 use std::path::Path;
 use std::sync::{LazyLock, Mutex};
 
-pub const SCHEMA_VERSION: i64 = 6;
+pub const SCHEMA_VERSION: i64 = 7;
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -46,6 +46,8 @@ pub struct SessionRow {
     pub worktree: Option<String>,
     /// The worktree's branch.
     pub branch: Option<String>,
+    /// Reasoning effort picked for this session ("high", …). None: the agent's own default.
+    pub effort: Option<String>,
 }
 
 /// A custom model endpoint. The API key is not here: it lives in the OS keychain.
@@ -261,10 +263,11 @@ fn row_to_session(r: &rusqlite::Row<'_>) -> rusqlite::Result<SessionRow> {
         profile_id: r.get(11)?,
         worktree: r.get(12)?,
         branch: r.get(13)?,
+        effort: r.get(14)?,
     })
 }
 
-const SESSION_COLS: &str = "id, project_id, provider, model, title, status, snippet, provider_session_id, created_at, updated_at, mode, profile_id, worktree, branch";
+const SESSION_COLS: &str = "id, project_id, provider, model, title, status, snippet, provider_session_id, created_at, updated_at, mode, profile_id, worktree, branch, effort";
 
 impl Db {
     pub fn open(path: &Path) -> rusqlite::Result<Self> {
@@ -339,6 +342,13 @@ impl Db {
             .exists([])?;
         if !has_worktree {
             conn.execute_batch("ALTER TABLE sessions ADD COLUMN worktree TEXT; ALTER TABLE sessions ADD COLUMN branch TEXT;")?;
+        }
+        // v7: per-session reasoning effort (NULL: the agent's default).
+        let has_effort = conn
+            .prepare("SELECT 1 FROM pragma_table_info('sessions') WHERE name = 'effort'")?
+            .exists([])?;
+        if !has_effort {
+            conn.execute("ALTER TABLE sessions ADD COLUMN effort TEXT", [])?;
         }
         // v5: the Chats place for sessions without a project.
         let has_kind = conn
@@ -496,10 +506,11 @@ impl Db {
             profile_id: None,
             worktree: None,
             branch: None,
+            effort: None,
         };
         self.conn().execute(
-            &format!("INSERT INTO sessions({SESSION_COLS}) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)"),
-            params![s.id, s.project_id, s.provider, s.model, s.title, s.status, s.snippet, s.provider_session_id, s.created_at, s.updated_at, s.mode, s.profile_id, s.worktree, s.branch],
+            &format!("INSERT INTO sessions({SESSION_COLS}) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15)"),
+            params![s.id, s.project_id, s.provider, s.model, s.title, s.status, s.snippet, s.provider_session_id, s.created_at, s.updated_at, s.mode, s.profile_id, s.worktree, s.branch, s.effort],
         )?;
         Ok(s)
     }
@@ -589,10 +600,20 @@ impl Db {
         provider: &str,
         model: &str,
         profile_id: Option<&str>,
+        effort: Option<&str>,
     ) -> rusqlite::Result<Option<SessionRow>> {
         self.conn().execute(
-            "UPDATE sessions SET provider = ?2, model = ?3, profile_id = ?4, provider_session_id = NULL, updated_at = ?5 WHERE id = ?1",
-            params![id, provider, model, profile_id, now_ms()],
+            "UPDATE sessions SET provider = ?2, model = ?3, profile_id = ?4, effort = ?6, provider_session_id = NULL, updated_at = ?5 WHERE id = ?1",
+            params![id, provider, model, profile_id, now_ms(), effort],
+        )?;
+        self.session(id)
+    }
+
+    /// Sets (or with None clears) a session's reasoning effort.
+    pub fn set_session_effort(&self, id: &str, effort: Option<&str>) -> rusqlite::Result<Option<SessionRow>> {
+        self.conn().execute(
+            "UPDATE sessions SET effort = ?2, updated_at = ?3 WHERE id = ?1",
+            params![id, effort, now_ms()],
         )?;
         self.session(id)
     }
@@ -949,10 +970,11 @@ impl Db {
             profile_id: None,
             worktree: None,
             branch: None,
+            effort: None,
         };
         self.conn().execute(
-            &format!("INSERT INTO sessions({SESSION_COLS}) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)"),
-            params![s.id, s.project_id, s.provider, s.model, s.title, s.status, s.snippet, s.provider_session_id, s.created_at, s.updated_at, s.mode, s.profile_id, s.worktree, s.branch],
+            &format!("INSERT INTO sessions({SESSION_COLS}) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15)"),
+            params![s.id, s.project_id, s.provider, s.model, s.title, s.status, s.snippet, s.provider_session_id, s.created_at, s.updated_at, s.mode, s.profile_id, s.worktree, s.branch, s.effort],
         )?;
         Ok(s)
     }
@@ -1111,6 +1133,12 @@ mod tests {
             db.set_session_mode("s1", "plan").unwrap().unwrap().mode,
             "plan"
         );
+        assert_eq!(s.effort, None, "older sessions use the agent's default effort");
+        assert_eq!(
+            db.set_session_effort("s1", Some("high")).unwrap().unwrap().effort.as_deref(),
+            Some("high")
+        );
+        assert_eq!(db.set_session_effort("s1", None).unwrap().unwrap().effort, None);
     }
 
     #[test]

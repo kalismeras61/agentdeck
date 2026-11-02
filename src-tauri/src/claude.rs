@@ -4,11 +4,16 @@
 //! unmodified CLI in the project folder:
 //!
 //!   claude -p --input-format stream-json --output-format stream-json --verbose
-//!          --include-partial-messages --permission-prompt-tool stdio [--model M] [--resume ID]
+//!          --include-partial-messages --permission-prompt-tool stdio [--model M] [--effort E]
+//!          [--resume ID]
 //!
 //! Prompts go in on stdin as stream-json user messages. Permission prompts arrive on stdout as
 //! `control_request` / `can_use_tool` and are answered on stdin with a `control_response` for that
 //! exact `request_id`. AgentDeck never touches Claude credentials: sign-in stays in Claude Code.
+//!
+//! Reasoning effort: `--effort` on start; while running, an `apply_flag_settings` control
+//! request with `effortLevel` (null goes back to Claude Code's default). What Claude Code
+//! actually uses is `applied.effort` in the answer to a `get_settings` control request.
 
 use crate::db::{now_ms, Db, SessionRow, StoredEvent};
 use serde::Serialize;
@@ -25,6 +30,13 @@ use std::time::Duration;
 const MAX_LINE_BYTES: usize = 16 * 1024 * 1024;
 const STDERR_TAIL_BYTES: usize = 16 * 1024;
 const STOP_GRACE: Duration = Duration::from_secs(3);
+/// How long to wait for Claude Code to answer one of our own control requests.
+const CONTROL_TIMEOUT: Duration = Duration::from_secs(8);
+
+/// The reasoning efforts Claude Code knows; each model lists the ones it takes.
+pub const EFFORTS: &[&str] = &["low", "medium", "high", "xhigh", "max"];
+/// Overrides any effort picked in Claude Code (or here) when set in the environment.
+pub const EFFORT_ENV: &str = "CLAUDE_CODE_EFFORT_LEVEL";
 
 /// Provider lines that are pure UI chatter and not worth persisting.
 const SKIP_KINDS: &[&str] = &[
@@ -103,6 +115,8 @@ struct Proc {
     stdin: Mutex<Option<ChildStdin>>,
     pending: Mutex<HashMap<String, Value>>,
     stopping: AtomicBool,
+    /// Our own control requests waiting for Claude Code's answer, by request id.
+    waiters: Mutex<HashMap<String, std::sync::mpsc::Sender<Value>>>,
 }
 
 impl Proc {
@@ -284,6 +298,36 @@ pub fn augmented_path() -> std::ffi::OsString {
     std::env::join_paths(all).unwrap_or_default()
 }
 
+/// The `claude` command line for a session.
+fn args(session: &SessionRow) -> Vec<String> {
+    let mut a: Vec<String> = [
+        "-p",
+        "--input-format",
+        "stream-json",
+        "--output-format",
+        "stream-json",
+        "--verbose",
+        "--include-partial-messages",
+        "--permission-prompt-tool",
+        "stdio",
+    ]
+    .map(String::from)
+    .to_vec();
+    if !session.model.is_empty() && session.model != "default" {
+        a.extend(["--model".into(), session.model.clone()]);
+    }
+    if let Some(e) = session.effort.as_deref().filter(|e| EFFORTS.contains(e)) {
+        a.extend(["--effort".into(), e.into()]);
+    }
+    if let Some(id) = &session.provider_session_id {
+        a.extend(["--resume".into(), id.clone()]);
+    }
+    if session.mode == "plan" {
+        a.extend(["--permission-mode".into(), "plan".into()]);
+    }
+    a
+}
+
 impl Manager {
     pub fn new(db: Arc<Db>, sink: Sink) -> Self {
         Self {
@@ -344,26 +388,7 @@ impl Manager {
     fn spawn(self: &Arc<Self>, session: &SessionRow, cwd: &str) -> Result<Arc<Proc>, String> {
         let bin = self.binary()?;
         let mut cmd = Command::new(&bin);
-        cmd.args([
-            "-p",
-            "--input-format",
-            "stream-json",
-            "--output-format",
-            "stream-json",
-            "--verbose",
-            "--include-partial-messages",
-            "--permission-prompt-tool",
-            "stdio",
-        ]);
-        if !session.model.is_empty() && session.model != "default" {
-            cmd.args(["--model", &session.model]);
-        }
-        if let Some(id) = &session.provider_session_id {
-            cmd.args(["--resume", id]);
-        }
-        if session.mode == "plan" {
-            cmd.args(["--permission-mode", "plan"]);
-        }
+        cmd.args(args(session));
         cmd.current_dir(cwd)
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
@@ -406,6 +431,7 @@ impl Manager {
             stdin: Mutex::new(stdin),
             pending: Mutex::new(HashMap::new()),
             stopping: AtomicBool::new(false),
+            waiters: Mutex::new(HashMap::new()),
         });
         proc.write_line(&json!({ "type": "control_request", "request_id": format!("agentdeck-init-{}", now_ms()), "request": { "subtype": "initialize" } }))?;
 
@@ -532,6 +558,12 @@ impl Manager {
                 return;
             }
             k if k.starts_with("control_response") => {
+                // An answer someone is waiting for (`get_settings`, `apply_flag_settings`).
+                let rid = v.pointer("/response/request_id").and_then(Value::as_str);
+                if let Some(tx) = rid.and_then(|r| proc.waiters.lock().ok()?.remove(r)) {
+                    let _ = tx.send(v["response"].clone());
+                    return;
+                }
                 // The answer to our `initialize`: keep the models this Claude Code offers.
                 let ours = v
                     .pointer("/response/request_id")
@@ -912,6 +944,68 @@ impl Manager {
         Ok(())
     }
 
+    /// Sends a control request to a running Claude Code and waits for its answer.
+    fn control(&self, session_id: &str, purpose: &str, request: Value) -> Result<Value, String> {
+        let proc = self.proc(session_id).ok_or("This session isn't running")?;
+        let rid = format!("agentdeck-{purpose}-{}-{}", now_ms(), uuid::Uuid::new_v4().simple());
+        let (tx, rx) = std::sync::mpsc::channel();
+        if let Ok(mut w) = proc.waiters.lock() {
+            w.insert(rid.clone(), tx);
+        }
+        let sent = proc.write_line(&json!({ "type": "control_request", "request_id": rid, "request": request }));
+        let answer = sent.and_then(|_| {
+            rx.recv_timeout(CONTROL_TIMEOUT)
+                .map_err(|_| "Claude Code didn't answer in time".to_string())
+        });
+        if let Ok(mut w) = proc.waiters.lock() {
+            w.remove(&rid);
+        }
+        let answer = answer?;
+        match answer["subtype"].as_str() {
+            Some("success") => Ok(answer.get("response").cloned().unwrap_or(Value::Null)),
+            _ => Err(answer["error"]
+                .as_str()
+                .unwrap_or("Claude Code returned an error")
+                .to_string()),
+        }
+    }
+
+    /// Changes the effort of a running Claude Code at once (None: back to its default).
+    /// A session that isn't running gets `--effort` when it next starts.
+    pub fn set_effort(&self, session_id: &str, effort: Option<&str>) -> Result<(), String> {
+        if self.proc(session_id).is_none() {
+            return Ok(());
+        }
+        self.control(
+            session_id,
+            "effort",
+            json!({ "subtype": "apply_flag_settings", "settings": { "effortLevel": effort } }),
+        )
+        .map(|_| ())
+    }
+
+    /// The effort a running Claude Code uses right now (`applied.effort` from `get_settings`).
+    /// None while the session isn't running, or for a model without effort levels.
+    pub fn applied_effort(&self, session_id: &str) -> Result<Option<String>, String> {
+        if self.proc(session_id).is_none() {
+            return Ok(None);
+        }
+        let r = self.control(session_id, "settings", json!({ "subtype": "get_settings" }))?;
+        Ok(r.pointer("/applied/effort")
+            .and_then(Value::as_str)
+            .map(str::to_owned))
+    }
+
+    /// `CLAUDE_CODE_EFFORT_LEVEL` as Claude Code gets it from AgentDeck: it wins over any pick.
+    pub fn effort_env(&self) -> Option<String> {
+        self.extra_env
+            .iter()
+            .find(|(k, _)| k == EFFORT_ENV)
+            .map(|(_, v)| v.clone())
+            .or_else(|| crate::shellenv::get().get(EFFORT_ENV).cloned())
+            .filter(|v| !v.trim().is_empty())
+    }
+
     /// Ends the agent process: closes stdin, then kills it if it hasn't exited after a short grace period.
     pub fn stop(&self, session_id: &str) {
         if let Some(proc) = self.proc(session_id) {
@@ -995,6 +1089,36 @@ mod tests {
             "Harbor 2.0 is a fitness app"
         );
         assert_eq!(first_line("abcdef", 3), "abc…");
+    }
+
+    #[test]
+    fn command_line_carries_model_effort_resume_and_plan() {
+        let mut s = SessionRow {
+            id: "s".into(),
+            project_id: "p".into(),
+            provider: "claude-code".into(),
+            model: "default".into(),
+            title: "t".into(),
+            status: "idle".into(),
+            snippet: String::new(),
+            provider_session_id: None,
+            created_at: 0,
+            updated_at: 0,
+            mode: "default".into(),
+            profile_id: None,
+            worktree: None,
+            branch: None,
+            effort: None,
+        };
+        let a = args(&s).join(" ");
+        assert!(!a.contains("--model") && !a.contains("--effort"), "defaults are left to Claude Code: {a}");
+        s.model = "opus".into();
+        s.effort = Some("xhigh".into());
+        s.provider_session_id = Some("abc".into());
+        s.mode = "plan".into();
+        assert!(args(&s).join(" ").ends_with("--model opus --effort xhigh --resume abc --permission-mode plan"));
+        s.effort = Some("--danger".into());
+        assert!(!args(&s).iter().any(|x| x == "--effort" || x == "--danger"), "only known levels are passed");
     }
 
     #[test]
@@ -1376,6 +1500,24 @@ mod integration {
             "interrupt ends the turn, not the process"
         );
         assert!(res.payload.get("subtype").is_some());
+        h.mgr.shutdown_all();
+    }
+
+    #[test]
+    #[ignore]
+    fn effort_is_started_read_and_changed_while_running() {
+        let Some(h) = harness() else { return };
+        h.db.set_session_effort(&h.sid, Some("low")).unwrap();
+        h.mgr.send_message(&h.sid, "hello").unwrap();
+        h.wait_event("result");
+        assert_eq!(h.mgr.applied_effort(&h.sid).unwrap().as_deref(), Some("low"), "--effort on start");
+        h.mgr.set_effort(&h.sid, Some("max")).unwrap();
+        assert_eq!(h.mgr.applied_effort(&h.sid).unwrap().as_deref(), Some("max"), "changed without a restart");
+        h.mgr.set_effort(&h.sid, None).unwrap();
+        let back = h.mgr.applied_effort(&h.sid).unwrap();
+        assert!(back.is_some() && back.as_deref() != Some("max"), "back to Claude Code's default: {back:?}");
+        h.mgr.send_message(&h.sid, "hello again").unwrap();
+        h.wait_event("result");
         h.mgr.shutdown_all();
     }
 

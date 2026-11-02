@@ -6,6 +6,9 @@
 //! thread id). Each prompt is a `turn/start`. Approval requests arrive as server requests
 //! (`item/commandExecution/requestApproval`, `item/fileChange/requestApproval`, …) and are
 //! answered with a JSON-RPC response to that exact request id. Codex handles its own sign-in.
+//!
+//! Reasoning effort is the `effort` of each `turn/start` (it sticks for later turns); what the
+//! thread uses otherwise is the `reasoningEffort` in the `thread/start` answer.
 
 use crate::claude::{
     augmented_path, first_line, read_line_bounded, Decision, Delta, Outbound, Sink,
@@ -60,6 +63,10 @@ struct Proc {
     /// Prompts typed before the thread was ready.
     queued: Mutex<Vec<(String, Vec<Value>)>>,
     stopping: AtomicBool,
+    /// The thread's own effort (Codex's setting), from the `thread/start` answer.
+    base_effort: Mutex<Option<String>>,
+    /// An effort was sent with a turn; it sticks, so going back to Default sends `base_effort`.
+    effort_sent: AtomicBool,
     /// Prefix that keeps request ids unique across restarts of the same session
     /// (Codex numbers its requests from 0 in every process).
     gen: String,
@@ -120,6 +127,7 @@ fn turn_params(
     mode: &str,
     cwd: &str,
     model: &str,
+    effort: Option<&str>,
 ) -> Value {
     let plan = mode == "plan";
     let mut input = if plan {
@@ -143,6 +151,10 @@ fn turn_params(
     // A model picked in AgentDeck applies from the next turn on, even with the agent running.
     if !model.is_empty() && model != "default" {
         p["model"] = json!(model);
+    }
+    // Likewise the effort; it also sticks, so it's sent whenever one applies.
+    if let Some(e) = effort.filter(|e| !e.is_empty()) {
+        p["effort"] = json!(e);
     }
     p
 }
@@ -234,6 +246,8 @@ impl CodexManager {
             turn_id: Mutex::new(None),
             queued: Mutex::new(Vec::new()),
             stopping: AtomicBool::new(false),
+            base_effort: Mutex::new(None),
+            effort_sent: AtomicBool::new(false),
             gen: uuid::Uuid::new_v4().simple().to_string()[..8].to_string(),
         });
         proc.request(
@@ -286,6 +300,24 @@ impl CodexManager {
             .as_ref()
             .and_then(|s| self.db.session_dir(s).ok().flatten())
             .unwrap_or_default();
+        let picked = session.as_ref().and_then(|s| s.effort.clone());
+        let effort = match picked {
+            Some(e) => {
+                proc.effort_sent.store(true, Ordering::SeqCst);
+                Some(e)
+            }
+            // Back to Default after a pick: the picked effort would stick, so send Codex's own.
+            None if proc.effort_sent.load(Ordering::SeqCst) => proc
+                .base_effort
+                .lock()
+                .ok()
+                .and_then(|b| b.clone())
+                .or_else(|| {
+                    let model = session.as_ref().map(|s| s.model.as_str()).unwrap_or("");
+                    crate::models::default_effort("codex", model)
+                }),
+            None => None,
+        };
         proc.request(
             "turn/start",
             turn_params(
@@ -295,6 +327,7 @@ impl CodexManager {
                 mode,
                 &cwd,
                 session.as_ref().map(|s| s.model.as_str()).unwrap_or(""),
+                effort.as_deref(),
             ),
             Pending::TurnStart,
         )
@@ -427,6 +460,12 @@ impl CodexManager {
                         .pointer("/result/thread/id")
                         .and_then(Value::as_str)
                         .map(str::to_owned);
+                    if let Ok(mut b) = proc.base_effort.lock() {
+                        *b = v
+                            .pointer("/result/reasoningEffort")
+                            .and_then(Value::as_str)
+                            .map(str::to_owned);
+                    }
                     if let Some(tid) = tid {
                         if let Ok(mut t) = proc.thread_id.lock() {
                             *t = Some(tid.clone());
@@ -737,7 +776,7 @@ impl CodexManager {
                 shown.insert(qid, json!(chosen));
             }
         }
-        if answers.is_some() && out.values().all(|v| v["answers"].as_array().is_none_or(|a| a.is_empty())) {
+        if answers.is_some() && out.values().all(|v| v["answers"].as_array().map_or(true, |a| a.is_empty())) {
             return Err("Pick or write an answer first".into());
         }
         proc.write(&json!({ "id": req["id"], "result": { "answers": out } }))?;
@@ -821,6 +860,18 @@ impl CodexManager {
             Some("Working"),
         );
         Ok(())
+    }
+
+    /// The effort Codex uses for this session's next turn, while it runs: the one picked here,
+    /// else the thread's own. None when not running or Codex didn't say.
+    pub fn current_effort(&self, sid: &str) -> Option<String> {
+        let proc = self.proc(sid)?;
+        self.db
+            .session(sid)
+            .ok()
+            .flatten()
+            .and_then(|s| s.effort)
+            .or_else(|| proc.base_effort.lock().ok().and_then(|b| b.clone()))
     }
 
     pub fn interrupt(&self, sid: &str) -> Result<(), String> {
@@ -1004,6 +1055,39 @@ mod integration {
         }
     }
 
+    /// The `reasoning.effort` of the last Responses request Codex sent the mock.
+    fn last_effort() -> Option<String> {
+        let log = std::fs::read_to_string("/tmp/mock_openai_requests.jsonl").unwrap_or_default();
+        log.lines()
+            .rev()
+            .filter_map(|l| serde_json::from_str::<Value>(l).ok())
+            .filter_map(|l| l.get("body").cloned())
+            .find(|b| b.get("input").is_some())
+            .and_then(|b| b.pointer("/reasoning/effort").and_then(Value::as_str).map(str::to_owned))
+    }
+
+    #[test]
+    #[ignore]
+    fn an_effort_picked_while_codex_runs_is_used_from_the_next_turn() {
+        let Some(h) = harness() else { return };
+        h.mgr.send_message(&h.sid, "hello").unwrap();
+        h.wait("turn/completed");
+        let base = h.mgr.current_effort(&h.sid);
+        eprintln!("thread effort: {base:?}, sent: {:?}", last_effort());
+        h.db.set_session_effort(&h.sid, Some("high")).unwrap();
+        h.mgr.send_message(&h.sid, "hello again").unwrap();
+        h.wait("turn/completed");
+        assert_eq!(last_effort().as_deref(), Some("high"));
+        assert_eq!(h.mgr.current_effort(&h.sid).as_deref(), Some("high"));
+        h.db.set_session_effort(&h.sid, None).unwrap();
+        h.mgr.send_message(&h.sid, "and back").unwrap();
+        h.wait("turn/completed");
+        if let Some(b) = base {
+            assert_eq!(last_effort(), Some(b), "back to the thread's own effort");
+        }
+        h.mgr.stop(&h.sid);
+    }
+
     #[test]
     #[ignore]
     fn codex_plan_mode_declines_without_asking() {
@@ -1097,5 +1181,20 @@ mod integration {
             .unwrap();
         }
         h.mgr.shutdown_all();
+    }
+}
+
+#[cfg(test)]
+mod unit_tests {
+    use super::*;
+
+    #[test]
+    fn turns_carry_the_picked_model_and_effort() {
+        let p = turn_params("t", "hi", &[], "default", "/p", "default", None);
+        assert!(p.get("model").is_none() && p.get("effort").is_none(), "defaults are left to Codex");
+        let p = turn_params("t", "hi", &[], "default", "/p", "gpt-6.1-sol", Some("xhigh"));
+        assert_eq!(p["model"], "gpt-6.1-sol");
+        assert_eq!(p["effort"], "xhigh");
+        assert_eq!(p["sandboxPolicy"]["type"], "workspaceWrite");
     }
 }

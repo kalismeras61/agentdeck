@@ -136,7 +136,7 @@ pub struct FilePair {
 
 fn parse_track(t: &str) -> (u32, u32) {
     let num = |key: &str| {
-        t.split(|c| c == ',' || c == '[' || c == ']')
+        t.split([',', '[', ']'])
             .map(str::trim)
             .find_map(|p| p.strip_prefix(key).and_then(|n| n.trim().parse().ok()))
             .unwrap_or(0)

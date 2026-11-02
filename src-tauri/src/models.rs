@@ -7,6 +7,9 @@
 //! Lists are asked for with a short-lived agent process (no prompt is sent, nothing is billed),
 //! and also picked up whenever a real session starts. The last list is saved so the picker is
 //! filled at once on the next launch.
+//!
+//! Each model also says which reasoning efforts it takes, when the agent tells: Claude Code's
+//! `supportedEffortLevels`, Codex's `supportedReasoningEfforts` and `defaultReasoningEffort`.
 
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -20,7 +23,7 @@ use std::time::{Duration, Instant};
 
 use crate::db::Db;
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ModelChoice {
     /// What is passed to the agent. "default" leaves the agent's own setting.
@@ -28,6 +31,13 @@ pub struct ModelChoice {
     pub label: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
+    /// Reasoning efforts this model takes, lowest first. None: the model has no effort setting
+    /// (or the agent didn't say).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub efforts: Option<Vec<String>>,
+    /// The effort the agent uses for this model when none is picked, if it says.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub default_effort: Option<String>,
 }
 
 #[derive(Serialize, Clone, Debug)]
@@ -50,7 +60,14 @@ fn default_choice(agent: &str) -> ModelChoice {
         id: "default".into(),
         label: "Default".into(),
         description: Some(format!("Whatever {agent} is set to use")),
+        ..Default::default()
     }
+}
+
+/// The non-empty strings of a JSON list, or None when there are none.
+fn strings(v: impl Iterator<Item = Option<String>>) -> Option<Vec<String>> {
+    let out: Vec<String> = v.flatten().collect();
+    (!out.is_empty()).then_some(out)
 }
 
 fn clean(s: Option<&str>) -> Option<String> {
@@ -65,10 +82,23 @@ pub fn from_claude(response: &Value) -> Vec<ModelChoice> {
         .flatten()
         .filter_map(|m| {
             let id = clean(m["value"].as_str())?;
+            let efforts = (m["supportsEffort"].as_bool() == Some(true))
+                .then(|| {
+                    strings(
+                        m["supportedEffortLevels"]
+                            .as_array()
+                            .into_iter()
+                            .flatten()
+                            .map(|e| clean(e.as_str())),
+                    )
+                })
+                .flatten();
             Some(ModelChoice {
                 label: clean(m["displayName"].as_str()).unwrap_or_else(|| id.clone()),
                 description: clean(m["description"].as_str()),
                 id,
+                efforts,
+                default_effort: None,
             })
         })
         .collect();
@@ -95,10 +125,25 @@ pub fn from_codex(result: &Value) -> Vec<ModelChoice> {
                 None => "Codex's default".into(),
             });
         }
+        let efforts = strings(
+            m["supportedReasoningEfforts"]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .map(|e| clean(e["reasoningEffort"].as_str()).or_else(|| clean(e.as_str()))),
+        );
+        let default_effort = clean(m["defaultReasoningEffort"].as_str());
+        if m["isDefault"].as_bool() == Some(true) {
+            // "Default" runs this model, so it takes the same efforts.
+            out[0].efforts = efforts.clone();
+            out[0].default_effort = default_effort.clone();
+        }
         out.push(ModelChoice {
             label: clean(m["displayName"].as_str()).unwrap_or_else(|| id.clone()),
             description,
             id,
+            efforts,
+            default_effort,
         });
     }
     if out.len() == 1 {
@@ -124,6 +169,7 @@ pub fn from_acp(result: &Value, agent: &str) -> Vec<ModelChoice> {
             label: clean(m["name"].as_str()).unwrap_or_else(|| id.clone()),
             description: clean(m["description"].as_str()),
             id,
+            ..Default::default()
         });
     }
     if out.len() == 1 {
@@ -158,7 +204,7 @@ pub fn from_agy(v: &Value) -> Vec<ModelChoice> {
         if out.iter().any(|x| x.id == id) {
             continue;
         }
-        out.push(ModelChoice { label: label.unwrap_or_else(|| id.clone()), description, id });
+        out.push(ModelChoice { label: label.unwrap_or_else(|| id.clone()), description, id, ..Default::default() });
     }
     if out.len() == 1 {
         out.clear();
@@ -191,6 +237,12 @@ fn cached(provider: &str) -> Option<Vec<ModelChoice>> {
         .and_then(|c| c.as_ref().and_then(|m| m.get(provider).cloned()))
 }
 
+/// The effort an agent uses for a model when none is picked, from this run's list.
+pub fn default_effort(provider: &str, model: &str) -> Option<String> {
+    let id = if model.is_empty() { "default" } else { model };
+    cached(provider)?.into_iter().find(|m| m.id == id)?.default_effort
+}
+
 fn saved(db: &Db, provider: &str) -> Option<Vec<ModelChoice>> {
     db.meta(&key(provider))
         .ok()
@@ -200,7 +252,7 @@ fn saved(db: &Db, provider: &str) -> Option<Vec<ModelChoice>> {
 }
 
 fn builtin(provider: &str) -> Vec<ModelChoice> {
-    let c = |id: &str, label: &str| ModelChoice { id: id.into(), label: label.into(), description: None };
+    let c = |id: &str, label: &str| ModelChoice { id: id.into(), label: label.into(), ..Default::default() };
     match provider {
         "claude-code" => vec![
             default_choice("Claude Code"),
@@ -429,18 +481,32 @@ mod tests {
     #[test]
     fn reads_each_agents_model_list() {
         let claude = from_claude(&json!({ "models": [
-            { "value": "default", "displayName": "Default (recommended)", "description": "Opus 5.5" },
-            { "value": "fable", "displayName": "Fable", "description": "Fable 5.1" },
+            { "value": "default", "displayName": "Default (recommended)", "description": "Opus 5.5", "supportsEffort": true, "supportedEffortLevels": ["low", "medium", "high", "xhigh", "max"] },
+            { "value": "fable", "displayName": "Fable", "description": "Fable 5.1", "supportsEffort": true, "supportedEffortLevels": ["low", "medium", "high"] },
+            { "value": "haiku", "displayName": "Haiku" },
             { "value": "", "displayName": "broken" }
         ] }));
-        assert_eq!(claude.iter().map(|m| m.id.as_str()).collect::<Vec<_>>(), ["default", "fable"]);
+        assert_eq!(claude.iter().map(|m| m.id.as_str()).collect::<Vec<_>>(), ["default", "fable", "haiku"]);
+        assert_eq!(claude[0].efforts.as_ref().map(Vec::len), Some(5));
+        assert_eq!(claude[1].efforts, Some(vec!["low".into(), "medium".into(), "high".into()]));
+        assert_eq!(claude[2].efforts, None, "no effort setting for this model");
 
         let codex = from_codex(&json!({ "data": [
-            { "id": "gpt-6.1-sol", "model": "gpt-6.1-sol", "displayName": "GPT-6.1-Sol", "description": "Workhorse", "isDefault": true, "hidden": false },
+            { "id": "gpt-6.1-sol", "model": "gpt-6.1-sol", "displayName": "GPT-6.1-Sol", "description": "Workhorse", "isDefault": true, "hidden": false,
+              "supportedReasoningEfforts": [{ "reasoningEffort": "low", "description": "Fast" }, { "reasoningEffort": "high", "description": "Deep" }],
+              "defaultReasoningEffort": "high" },
+            { "id": "mini", "model": "mini", "displayName": "Mini", "isDefault": false, "hidden": false, "supportedReasoningEfforts": [], "defaultReasoningEffort": "medium" },
             { "id": "secret", "model": "secret", "hidden": true }
         ] }));
-        assert_eq!(codex.iter().map(|m| m.id.as_str()).collect::<Vec<_>>(), ["default", "gpt-6.1-sol"]);
+        assert_eq!(codex.iter().map(|m| m.id.as_str()).collect::<Vec<_>>(), ["default", "gpt-6.1-sol", "mini"]);
         assert_eq!(codex[1].description.as_deref(), Some("Workhorse (Codex's default)"));
+        assert_eq!(codex[1].efforts, Some(vec!["low".into(), "high".into()]));
+        assert_eq!(codex[0].efforts, codex[1].efforts, "Default takes the default model's efforts");
+        assert_eq!(codex[0].default_effort.as_deref(), Some("high"));
+        assert_eq!(codex[2].efforts, None);
+        // Lists saved by an older version have no effort fields.
+        let old: Vec<ModelChoice> = serde_json::from_str(r#"[{"id":"opus","label":"Opus"}]"#).unwrap();
+        assert_eq!(old[0].efforts, None);
 
         let gemini = from_acp(&json!({ "sessionId": "s", "models": { "currentModelId": "auto", "availableModels": [
             { "modelId": "auto", "name": "Auto", "description": "Picks for you" },
@@ -466,10 +532,10 @@ mod live_tests {
     #[ignore]
     fn the_installed_agents_list_their_models() {
         let claude = probe("claude-code").expect("claude");
-        eprintln!("claude: {:?}", claude.iter().map(|m| &m.id).collect::<Vec<_>>());
+        eprintln!("claude: {:?}", claude.iter().map(|m| (&m.id, &m.efforts)).collect::<Vec<_>>());
         assert!(claude.iter().any(|m| m.id == "default") && claude.len() > 2);
         let codex = probe("codex").expect("codex");
-        eprintln!("codex: {:?}", codex.iter().map(|m| &m.id).collect::<Vec<_>>());
+        eprintln!("codex: {:?}", codex.iter().map(|m| (&m.id, &m.efforts, &m.default_effort)).collect::<Vec<_>>());
         assert!(codex.len() > 2);
     }
 }
