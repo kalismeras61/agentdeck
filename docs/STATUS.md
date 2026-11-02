@@ -88,7 +88,7 @@ Updated 2026-11-02. All five milestones are built and tested on Linux with the r
 | Interface (WebView) | 207 MB | 146 MB |
 | Graphics + networking helpers | 18 MB | 10 MB |
 | CPU while idle | 0.1 %, 0 idle wake-ups | 0.4 % |
-| Download / installed | 8 MB .dmg / 20 MB app | 28 MB binary |
+| Download / installed | 22 MB .dmg / 50 MB app (universal, 0.2.0; Apple Silicon only was 8 MB / 20 MB) | 28 MB binary |
 | Claude Code process (per busy session) | — | 188 MB |
 | Codex process | — | 159 MB |
 | Gemini CLI processes | — | 138 + 206 MB |

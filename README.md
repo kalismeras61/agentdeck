@@ -75,6 +75,20 @@ Type `/` in the message box for the agent's own commands in that folder (Claude 
 - **Sign in where it fails.** When an agent needs a login, a button runs its own sign-in in a built-in terminal and sends your message again.
 - **Updates itself.** Signed updates, checked against a key built into the app.
 
+## Light on your Mac
+
+AgentDeck is a native Tauri app: a small Rust core and macOS's own WebKit, no bundled browser engine.
+
+| | Measured on a Mac (release build, Activity Monitor) |
+|---|---|
+| Download | 22 MB disk image (Apple Silicon + Intel in one app) |
+| Installed | 50 MB |
+| Memory, AgentDeck itself | ~31 MB app + ~207 MB interface + ~18 MB system helpers ≈ **256 MB** |
+| CPU while idle | **0.1 %**, no idle wake-ups |
+| Startup | Interface loads a 446 KB main bundle; review, terminal, gallery and settings load when opened |
+
+The agents run as their own processes and use their own memory, roughly 140–210 MB each while working (measured on Linux: Claude Code ~188 MB, Codex ~159 MB). To keep that in check, an agent that has been idle for 10 minutes is closed (its conversation continues when you write again), at most 6 stay open at once, and long histories load 80 turns at a time.
+
 ## Supported agents
 
 | Agent | How AgentDeck talks to it | Sign-in |
