@@ -1,3 +1,4 @@
+import { AVAILABLE, LOCALES, systemLocale } from "../lib/i18n";
 import { setupApi } from "../lib/setup";
 import { UpdateSettings } from "../components/UpdateNotice";
 import { Check, Copy, FolderPlus, RefreshCw } from "lucide-react";
@@ -198,6 +199,22 @@ export function Settings() {
             </div>
 
             <Section id="appearance" title="Appearance">
+              {AVAILABLE.length > 1 && <Row title="Language" hint="Menus, buttons and messages from AgentDeck. Agents answer in whatever language you write to them.">
+                <select
+                  aria-label="Language"
+                  value={st.language}
+                  onChange={(e) => st.setLanguage(e.target.value as typeof st.language)}
+                  className="h-8 rounded-lg border border-line bg-surface px-2 text-[13px] text-fg"
+                >
+                  <option value="system">System ({LOCALES.find((l) => l.id === systemLocale())?.name})</option>
+                  {AVAILABLE.map((l) => (
+                    <option key={l.id} value={l.id}>
+                      {l.name}
+                      {l.id !== "en" ? ` · ${l.english}` : ""}
+                    </option>
+                  ))}
+                </select>
+              </Row>}
               <Row title="Theme" hint="Dark is the default. System follows your Mac.">
                 <Segmented<ThemePref>
                   label="Theme"

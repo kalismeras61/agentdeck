@@ -1,3 +1,4 @@
+import type { LocaleId } from "../lib/i18n";
 import { create } from "zustand";
 import { createJSONStorage, persist, type StateStorage } from "zustand/middleware";
 import { demoProjects, demoSessions, providerModels, type Project, type Session, type WorkspaceId } from "../data/demo";
@@ -50,6 +51,8 @@ interface UiState {
   viewMode: ViewMode;
   search: string;
   theme: ThemePref;
+  /** Interface language: "system" follows the Mac. */
+  language: "system" | LocaleId;
   motion: MotionPref;
   /** Permission requests sent to the provider and awaiting its confirmation. */
   permissionInFlight: Record<string, PermissionDecision>;
@@ -87,6 +90,7 @@ interface Actions {
   setViewMode: (m: ViewMode) => void;
   setSearch: (q: string) => void;
   setTheme: (t: ThemePref) => void;
+  setLanguage: (l: "system" | LocaleId) => void;
   setMotion: (m: MotionPref) => void;
   setDefaultProvider: (p: ProviderId) => void;
   setDefaultModel: (p: ProviderId, model: string) => void;
@@ -256,6 +260,7 @@ const PREF_DEFAULTS = {
   contextOpen: true,
   contextWidth: CONTEXT.def,
   theme: "dark" as ThemePref,
+  language: "system" as "system" | LocaleId,
   motion: "system" as MotionPref,
   viewed: {} as Record<string, true>,
   reviewLayout: "split" as ReviewLayout,
@@ -356,6 +361,7 @@ export const useStore = create<UiState & Actions>()(
         setViewMode: (m) => set({ viewMode: m, view: "workspace" }),
         setSearch: (q) => set({ search: q }),
         setTheme: (t) => set({ theme: t }),
+        setLanguage: (language) => set({ language }),
         setMotion: (m) => set({ motion: m }),
         setDefaultProvider: (p) => set({ defaultProvider: p }),
         setDefaultModel: (p, model) => set((s) => ({ defaultModels: { ...s.defaultModels, [p]: model } })),
@@ -921,6 +927,7 @@ export const useStore = create<UiState & Actions>()(
         contextOpen: s.contextOpen,
         contextWidth: s.contextWidth,
         theme: s.theme,
+        language: s.language,
         motion: s.motion,
         workspaceId: s.workspaceId,
         viewed: s.viewed,

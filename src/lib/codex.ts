@@ -1,3 +1,4 @@
+import { screenshotPath } from "./images";
 /**
  * Codex App Server notifications → AgentDeck's normalized events.
  * Same contract as the Claude normalizer: a pure function of the stored log, validated afterwards.
@@ -208,6 +209,15 @@ export function normalizeCodex(events: StoredEvent[], ctx: NormalizeContext): un
       case "item/completed": {
         const raw = obj(p.item);
         const type = str(raw.type);
+        if (type === "imageView" && str(raw.path)?.startsWith("/")) {
+          const path = str(raw.path)!;
+          push({ ...base(e, `img-${str(raw.id) ?? e.seq}`), type: "image", payload: { path, alt: "Image Codex looked at", caption: relPath(path, root) || path } });
+          break;
+        }
+        if (type === "commandExecution" && str(raw.status) === "completed") {
+          const shot = screenshotPath(str(raw.command) ?? "", str(raw.cwd) ?? root);
+          if (shot) out.push({ ...base(e, `shot-${str(raw.id) ?? e.seq}`), type: "image", payload: { path: shot, alt: "Screenshot", caption: relPath(shot, root) || shot } });
+        }
         if (type === "agentMessage") {
           const text = str(raw.text);
           if (text?.trim()) push({ ...base(e, `a-${str(raw.id) ?? e.seq}`), type: "assistant_text", payload: { markdown: text } });

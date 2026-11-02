@@ -16,7 +16,7 @@ const safeText = (max: number) => z.string().transform((s) => (s.length > max ? 
 /** Only inline raster/svg data or bundled assets. Never remote URLs or script schemes. */
 const SafeImageSrc = z
   .string()
-  .max(2_000_000)
+  .max(20_000_000)
   .refine((s) => /^data:image\/(png|jpe?g|webp|gif|svg\+xml)[;,]/i.test(s) || /^\/[\w\-./]+\.(png|jpe?g|webp|svg)$/i.test(s), {
     message: "Image source must be inline data or a bundled asset",
   });
@@ -87,7 +87,22 @@ export const AgentEvent = z.discriminatedUnion("type", [
   z.object({
     ...base,
     type: z.literal("image"),
-    payload: z.object({ src: SafeImageSrc, alt: safeText(500), caption: safeText(500).optional(), width: z.number(), height: z.number() }),
+    payload: z
+      .object({
+        /** Inline image data, or… */
+        src: SafeImageSrc.optional(),
+        /** …an image file on this Mac the agent made or opened, loaded when shown. */
+        path: z
+          .string()
+          .max(1024)
+          .refine((p) => p.startsWith("/") && /\.(png|jpe?g|gif|webp)$/i.test(p), { message: "Only absolute paths to images" })
+          .optional(),
+        alt: safeText(500),
+        caption: safeText(500).optional(),
+        width: z.number().optional(),
+        height: z.number().optional(),
+      })
+      .refine((p) => p.src || p.path, { message: "An image needs data or a file" }),
   }),
   z.object({
     ...base,

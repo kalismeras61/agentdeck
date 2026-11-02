@@ -1,3 +1,4 @@
+import { imageFromBlock, screenshotPath } from "./images";
 /**
  * Claude Code stream-json → AgentDeck's normalized events.
  *
@@ -416,6 +417,17 @@ export function normalizeClaude(events: StoredEvent[], ctx: NormalizeContext): u
           }
           if (text && (ref.item.kind === "command" || ref.item.kind === "test" || isError)) {
             ref.item.output = text.length > MAX_OUTPUT ? `${text.slice(0, MAX_OUTPUT)}\n… output truncated` : text;
+          }
+          // Pictures the agent looked at (Read on an image, screenshot tools) and screenshots it saved.
+          if (!isError) {
+            const file = str(ref.input.file_path);
+            const caption = (file && relPath(file, root)) || file || ref.name;
+            arr(b.content).forEach((c, i) => {
+              const img = imageFromBlock(obj(c));
+              if (img) out.push({ ...base(e, `img-${e.seq}-${String(b.tool_use_id)}-${i}`), type: "image", payload: { ...img, alt: `Image from ${ref.name}`, caption } });
+            });
+            const shot = ref.name === "Bash" ? screenshotPath(str(ref.input.command) ?? "", root) : null;
+            if (shot) out.push({ ...base(e, `shot-${e.seq}-${String(b.tool_use_id)}`), type: "image", payload: { path: shot, alt: "Screenshot", caption: relPath(shot, root) || shot } });
           }
           if (!isError && EDIT_TOOLS.has(ref.name)) {
             const file = str(result.filePath) ?? str(ref.input.file_path) ?? str(ref.input.notebook_path);

@@ -1,3 +1,4 @@
+import { imageFromBlock, screenshotPath } from "./images";
 import { attachmentsOf, addedFileDiff, diffFromStrings, groupTitle, relPath, type NormalizeContext, type StoredEvent } from "./claude";
 import type { ProviderId, ToolItem } from "./events";
 
@@ -71,7 +72,7 @@ export function normalizeAcp(provider: ProviderId, events: StoredEvent[], ctx: N
   const root = ctx.projectPath;
   const name = LABEL[provider] ?? "The agent";
   const out: Json[] = [];
-  const items = new Map<string, { item: Item; raw: Json; changed: boolean }>();
+  const items = new Map<string, { item: Item; raw: Json; changed: boolean; shown: boolean }>();
   const perms = new Map<string, Json>();
   let group: Json | null = null;
   let opened = 0;
@@ -115,7 +116,7 @@ export function normalizeAcp(provider: ProviderId, events: StoredEvent[], ctx: N
         out.push(group);
       }
       (obj(group.payload).items as Item[]).push(item);
-      items.set(id, { item, raw: u, changed: false });
+      items.set(id, { item, raw: u, changed: false, shown: false });
     }
     const ref = items.get(id)!;
     if (str(u.title)) ref.item.label = str(u.title)!;
@@ -123,6 +124,16 @@ export function normalizeAcp(provider: ProviderId, events: StoredEvent[], ctx: N
     const text = textOf(content);
     if (text) ref.item.output = text.length > MAX_OUTPUT ? `${text.slice(0, MAX_OUTPUT)}\n… output truncated` : text;
     if (ref.item.status === "error" && /cancel|denied|reject/i.test(text)) ref.item.meta = "Denied";
+    if (ref.item.status === "ok" && !ref.shown) {
+      ref.shown = true;
+      content.forEach((c, i) => {
+        const inner = obj(obj(c).content);
+        const img = imageFromBlock(obj(c).type === "content" ? inner : obj(c));
+        if (img) out.push({ ...base(e, `img-${e.seq}-${id}-${i}`), type: "image", payload: { ...img, alt: `Image from ${ref.item.label}`, caption: ref.item.target ?? ref.item.label } });
+      });
+      const shot = ref.item.kind === "command" ? screenshotPath(ref.item.target ?? "", root) : null;
+      if (shot) out.push({ ...base(e, `shot-${e.seq}-${id}`), type: "image", payload: { path: shot, alt: "Screenshot", caption: relPath(shot, root) || shot } });
+    }
     if (ref.item.status === "ok" && !ref.changed) {
       const files = diffs
         .filter((d) => d.rel && d.rel !== "." && d.diff)

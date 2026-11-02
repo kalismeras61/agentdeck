@@ -1,3 +1,4 @@
+import { useImageSrc } from "../lib/images";
 import { agentLabel } from "../lib/agentName";
 import * as Tabs from "@radix-ui/react-tabs";
 import { ChevronDown, ChevronRight, ChevronUp, File, FileCode2, Folder, FolderOpen, ImageIcon, Maximize2, PanelRightClose } from "lucide-react";
@@ -270,14 +271,22 @@ function ChangesTab({ changes, sessionId }: { changes: FileChange[]; sessionId: 
 
 function PreviewTab({ image }: { image: EventOf<"image"> | undefined }) {
   if (!image) return <Empty icon={ImageIcon} title="Nothing to preview" body="Screenshots and images the agent produces appear here." />;
-  const { src, alt, caption, width, height } = image.payload;
+  return <PreviewImage key={image.eventId} image={image} />;
+}
+
+function PreviewImage({ image }: { image: EventOf<"image"> }) {
+  const { alt, caption, width, height } = image.payload;
+  const { src, error } = useImageSrc(image.payload);
+  if (!src) return <Empty icon={ImageIcon} title={error ? "Couldn't show the image" : "Loading image…"} body={error ?? image.payload.path ?? ""} />;
   return (
     <div className="flex h-full flex-col">
       <div className="flex shrink-0 items-center gap-2 border-b border-line-soft py-1.5 pl-3 pr-1.5">
         <span className="min-w-0 flex-1 truncate font-mono text-[11.5px] text-fg-3">{caption}</span>
-        <span className="text-[11px] tabular-nums text-fg-3">
-          {width}×{height}
-        </span>
+        {width && height ? (
+          <span className="text-[11px] tabular-nums text-fg-3">
+            {width}×{height}
+          </span>
+        ) : null}
         <ImageZoom src={src} alt={alt} caption={caption} naturalWidth={width}>
           <IconButton label="Open full size" size="sm">
             <Maximize2 size={14} />
@@ -285,7 +294,11 @@ function PreviewTab({ image }: { image: EventOf<"image"> | undefined }) {
         </ImageZoom>
       </div>
       <div className="scroll-quiet flex min-h-0 flex-1 items-start justify-center overflow-auto bg-[radial-gradient(var(--border-soft)_1px,transparent_1px)] p-6 [background-size:14px_14px]">
-        <img src={src} alt={alt} className="h-auto max-h-full w-auto max-w-full rounded-xl shadow-pop" draggable={false} />
+        <ImageZoom src={src} alt={alt} caption={caption} naturalWidth={width}>
+          <button type="button" className="cursor-zoom-in" aria-label={`Zoom ${caption ?? alt}`}>
+            <img src={src} alt={alt} className="h-auto max-h-full w-auto max-w-full rounded-xl shadow-pop" draggable={false} />
+          </button>
+        </ImageZoom>
       </div>
     </div>
   );

@@ -1,3 +1,4 @@
+import { useImageSrc } from "../../lib/images";
 import * as Dialog from "@radix-ui/react-dialog";
 import {
   AlertTriangle,
@@ -375,16 +376,21 @@ export function ProgressCard({ e }: { e: EventOf<"progress"> }) {
 /* ---------------------------------------------------------------- image */
 
 export function ImageBlock({ e }: { e: EventOf<"image"> }) {
-  const { src, alt, caption, width, height } = e.payload;
+  const { alt, caption, width, height } = e.payload;
+  const { src, error } = useImageSrc(e.payload);
   const setTab = useStore((s) => s.setContextTab);
   return (
-    <figure className="inline-block">
+    <figure className="inline-block max-w-full">
       <div className="group relative overflow-hidden rounded-xl border border-line bg-surface p-3 shadow-card">
-        <ImageZoom src={src} alt={alt} caption={caption} naturalWidth={width}>
-          <button type="button" className="block rounded-lg" aria-label={`Zoom ${caption ?? alt}`}>
-            <img src={src} alt={alt} width={width} height={height} className="h-[340px] w-auto rounded-lg" draggable={false} />
-          </button>
-        </ImageZoom>
+        {src ? (
+          <ImageZoom src={src} alt={alt} caption={caption} naturalWidth={width}>
+            <button type="button" className="block cursor-zoom-in rounded-lg" aria-label={`Zoom ${caption ?? alt}`}>
+              <img src={src} alt={alt} width={width} height={height} className="h-auto max-h-[340px] w-auto max-w-full rounded-lg" draggable={false} />
+            </button>
+          </ImageZoom>
+        ) : (
+          <div className="flex h-24 w-64 items-center justify-center text-center text-[12px] text-fg-3">{error ?? "Loading image…"}</div>
+        )}
       </div>
       <figcaption className="mt-2 flex items-center gap-3 text-xs text-fg-3">
         <span className="font-mono">{caption}</span>
@@ -396,8 +402,9 @@ export function ImageBlock({ e }: { e: EventOf<"image"> }) {
   );
 }
 
-export function ImageZoom({ src, alt, caption, naturalWidth, children }: { src: string; alt: string; caption?: string; naturalWidth: number; children: ReactNode }) {
+export function ImageZoom({ src, alt, caption, naturalWidth, children }: { src: string; alt: string; caption?: string; naturalWidth?: number; children: ReactNode }) {
   const [scale, setScale] = useState(1);
+  const [natural, setNatural] = useState(naturalWidth ?? 0);
   return (
     <Dialog.Root onOpenChange={(o) => o && setScale(1)}>
       <Dialog.Trigger asChild>{children}</Dialog.Trigger>
@@ -423,7 +430,14 @@ export function ImageZoom({ src, alt, caption, naturalWidth, children }: { src: 
             </div>
           </div>
           <div className="scroll-quiet flex flex-1 items-start justify-center overflow-auto p-8">
-            <img src={src} alt={alt} style={{ width: naturalWidth * scale }} className="max-w-none rounded-lg shadow-pop" draggable={false} />
+            <img
+              src={src}
+              alt={alt}
+              onLoad={(ev) => !naturalWidth && setNatural(ev.currentTarget.naturalWidth)}
+              style={natural ? { width: natural * scale } : undefined}
+              className="max-w-none rounded-lg shadow-pop"
+              draggable={false}
+            />
           </div>
         </Dialog.Content>
       </Dialog.Portal>

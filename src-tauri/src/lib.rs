@@ -1574,6 +1574,35 @@ async fn list_commands(app: tauri::AppHandle, state: State<'_, AppState>, sessio
     .map_err(err)?
 }
 
+/// An image an agent made or looked at (a screenshot it saved, a picture it opened), as a data
+/// URI for the conversation and the preview. Only image files, up to 15 MB.
+#[tauri::command]
+async fn read_image(path: String) -> CmdResult<String> {
+    use base64::Engine as _;
+    tauri::async_runtime::spawn_blocking(move || {
+        let p = PathBuf::from(&path);
+        if !p.is_absolute() {
+            return Err("Not an absolute path".to_string());
+        }
+        let ext = p.extension().and_then(|e| e.to_str()).map(str::to_lowercase).unwrap_or_default();
+        let mime = match ext.as_str() {
+            "png" => "image/png",
+            "jpg" | "jpeg" => "image/jpeg",
+            "gif" => "image/gif",
+            "webp" => "image/webp",
+            _ => return Err("Only PNG, JPEG, GIF and WebP images can be shown".to_string()),
+        };
+        let meta = std::fs::metadata(&p).map_err(|_| format!("{path} isn't there anymore"))?;
+        if !meta.is_file() || meta.len() > 15 * 1024 * 1024 {
+            return Err("That image is too large to show".to_string());
+        }
+        let bytes = std::fs::read(&p).map_err(err)?;
+        Ok(format!("data:{mime};base64,{}", base64::engine::general_purpose::STANDARD.encode(bytes)))
+    })
+    .await
+    .map_err(err)?
+}
+
 /// Answers an agent's question; no answers skips it.
 #[tauri::command]
 fn answer_question(
@@ -1704,6 +1733,7 @@ pub fn run() {
             rename_session,
             check_update,
             answer_question,
+            read_image,
             list_commands,
             setup_status,
             open_setup_terminal,

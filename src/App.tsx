@@ -24,6 +24,7 @@ import { CONTEXT, SIDEBAR, useStore } from "./state/store";
 import { Overview } from "./views/Overview";
 import { Permissions } from "./views/Permissions";
 import { startUpdateChecks } from "./lib/updates";
+import { systemLocale, useI18n } from "./lib/i18n";
 import { setupApi } from "./lib/setup";
 
 const CENTER_MIN = 560;
@@ -217,7 +218,13 @@ export default function App() {
   const width = useWidth();
   const [fit, setFit] = useState(false);
   const isTauri = "__TAURI_INTERNALS__" in window;
-  if (isTauri || width >= SMALL) return <Workspace width={width} />;
+  // The interface language: the whole tree renders again in it once its catalog has loaded.
+  const language = useStore((s) => s.language);
+  const version = useI18n((s) => s.version);
+  useEffect(() => {
+    void useI18n.getState().load(language === "system" ? systemLocale() : language);
+  }, [language]);
+  if (isTauri || width >= SMALL) return <Workspace key={version} width={width} />;
 
   if (!fit) {
     return (
