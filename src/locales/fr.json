@@ -489,7 +489,7 @@
   "Focus the message box": "Activer le champ de message",
   "Folder": "Dossier",
   "Folders on this Mac where agents can run.": "Dossiers de ce Mac où les agents peuvent s'exécuter.",
-  "For new {agent} sessions. The list comes from {agent} itself; Default uses whatever it's set to.": "Pour les nouvelles sessions {agent}. La liste provient de {agent} lui-même ; Par défaut utilise sa configuration actuelle.",
+  "For new {agent} sessions. The list comes from {agent} itself; Default uses whatever it's set to.": "Pour les nouvelles sessions {agent}. La liste provient de {agent} lui-même ; « Default » utilise sa configuration actuelle.",
   "Found": "Trouvé",
   "Found, but didn't respond": "Trouvé, mais sans réponse",
   "fresh context": "nouveau contexte",
