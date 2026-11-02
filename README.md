@@ -74,6 +74,7 @@ Type `/` in the message box for the agent's own commands in that folder (Claude 
 - **Your own models.** DeepSeek, Kimi, GLM (Z.ai), Ollama, LM Studio, OpenRouter or any OpenAI- or Anthropic-compatible endpoint, with the same approvals, plan mode and workflows.
 - **Sign in where it fails.** When an agent needs a login, a button runs its own sign-in in a built-in terminal and sends your message again.
 - **Updates itself.** Signed updates, checked against a key built into the app.
+- **Your language.** English, Türkçe, Deutsch, Русский, Español, Français, Português, 简体中文, 日本語, 한국어 and العربية (right-to-left). It follows your Mac's language, or pick one in Settings. Agent output and code are never translated.
 
 ## Light on your Mac
 

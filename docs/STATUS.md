@@ -245,6 +245,13 @@ Confirmed on a Mac with a real signed-in Claude Code.
 - Signed and notarized build (needs an Apple Developer ID)
 - Grok Build tested against the real CLI
 
+## Languages
+
+- Interface in 11 languages: en, tr, de, ru, es, fr, pt, zh, ja, ko, ar. English text is the key (`t()`, `tn()` in `src/lib/i18n.ts`); catalogs load on demand.
+- `node scripts/i18n-extract.mjs` lists every key into `src/locales/en.json`; `node scripts/i18n-validate.mjs` checks each catalog has every key, the same placeholders and its language's plural forms.
+- Arabic is right-to-left: logical spacing utilities mirror each column; the sidebar, conversation and context panel keep their order because macOS keeps the window buttons top-left. Code, paths, diffs and terminals stay left-to-right; agent text takes each paragraph's own direction.
+- Translations are machine-made and reviewed by checks only; native speakers are welcome to correct them.
+
 ## Known limitations
 
 - Codex and Gemini are tested on Linux; the Mac uses the same code.
@@ -257,4 +264,3 @@ Confirmed on a Mac with a real signed-in Claude Code.
 ## Next
 
 1. Run Codex, Gemini, plan mode, relay and the terminal on the Mac with real sign-ins
-2. Sign and notarize once there is a Developer ID
