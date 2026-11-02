@@ -538,7 +538,7 @@ export function PermissionCard({
             ))}
           </dd>
           <dt className={cx("font-medium", risk.cls)}>{t(risk.label)}</dt>
-          <dd className="text-fg-2">{p.reason}</dd>
+          <dd dir="auto" className="text-fg-2">{p.reason}</dd>
         </dl>
       </div>
       <footer className="flex flex-wrap items-center gap-2 border-t border-line-soft px-4 py-3">

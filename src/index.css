@@ -356,3 +356,7 @@ input,
 textarea {
   unicode-bidi: plaintext;
 }
+/* Titles and snippets from agents pick their own direction (dir="auto") but stay aligned with the column. */
+[dir="rtl"] [dir="auto"] {
+  text-align: right;
+}

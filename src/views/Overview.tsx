@@ -105,7 +105,7 @@ export function Overview() {
                               <p className="mt-0.5 text-xs text-fg-3">
                                 {project?.name}, {providerLabel[s.provider]} {s.model}
                               </p>
-                              {s.status === "error" && <p className="mt-1 text-xs text-error">{s.snippet}</p>}
+                              {s.status === "error" && <p dir="auto" className="mt-1 text-xs text-error">{s.snippet}</p>}
                             </div>
                           </div>
                           <div className="hidden lg:block">

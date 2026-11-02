@@ -110,7 +110,7 @@ export function Sidebar() {
     <nav aria-label={t("Sessions")} className="flex h-full flex-col bg-sidebar">
       {/* Title bar row: space for macOS window controls */}
       <div data-tauri-drag-region className="drag relative flex h-12 shrink-0 items-center pl-[78px] pr-2">
-        <span aria-hidden className="absolute left-4 top-[18px] flex gap-2 opacity-90" data-web-only>
+        <span aria-hidden dir="ltr" className="absolute left-4 top-[18px] flex gap-2 opacity-90" data-web-only>
           <span className="h-3 w-3 rounded-full bg-[#ff5f57]" />
           <span className="h-3 w-3 rounded-full bg-[#febc2e]" />
           <span className="h-3 w-3 rounded-full bg-[#28c840]" />
@@ -154,7 +154,7 @@ export function Sidebar() {
           >
             <Plus size={16} strokeWidth={2.2} />
             {t("New session")}
-            <span className="ms-auto text-[11px] font-normal text-white/70">{MOD}N</span>
+            <span dir="ltr" className="ms-auto text-[11px] font-normal text-white/70">{MOD}N</span>
           </button>
           <Dropdown.Root>
             <Tip label={t("Choose agent")}>
@@ -412,7 +412,7 @@ export function Sidebar() {
         >
           <Settings size={15} />
           {t("Settings")}
-          <span className="ms-auto text-[11px] text-fg-3">{MOD},</span>
+          <span dir="ltr" className="ms-auto text-[11px] text-fg-3">{MOD},</span>
         </button>
       </div>
       <NewProjectDialog />
@@ -509,13 +509,13 @@ function SessionRow({ s, selected, onSelect }: { s: Session; selected: boolean; 
         </span>
         <span className="min-w-0 flex-1">
           <span className="flex items-center gap-2">
-            <span className={cx("truncate text-[13px]", selected ? "font-medium text-fg" : "text-fg/90")}>{s.title}</span>
+            <span dir="auto" className={cx("truncate text-[13px]", selected ? "font-medium text-fg" : "text-fg/90")}>{s.title === "New session" ? t("New session") : s.title}</span>
             {s.worktree && <GitBranch size={11} aria-label={t("In worktree {branch}", { branch: s.branch ?? "" })} className="shrink-0 text-violet-text" />}
             <span className="ms-auto shrink-0 text-[11px] tabular-nums text-fg-3">{ago(s.updatedAt)}</span>
           </span>
           <span className="mt-0.5 flex items-center gap-1.5">
             <StatusDot status={s.status} className="h-1.5 w-1.5" />
-            <span className={cx("truncate text-xs", s.status === "error" ? "text-error/90" : s.status === "waiting" ? "text-warning/90" : "text-fg-3")}>
+            <span dir="auto" className={cx("truncate text-xs", s.status === "error" ? "text-error/90" : s.status === "waiting" ? "text-warning/90" : "text-fg-3")}>
               {s.snippet}
             </span>
           </span>

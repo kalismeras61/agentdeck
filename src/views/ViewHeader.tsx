@@ -14,7 +14,7 @@ export function ViewHeader({ title, children }: { title: string; children?: Reac
     <header data-tauri-drag-region className="drag relative flex h-12 shrink-0 items-center gap-3 border-b border-line-soft px-3">
       {!sidebarOpen && (
         <div className="flex items-center gap-2 pl-[66px] rtl:order-last">
-          <span aria-hidden className="absolute left-4 top-[18px] flex gap-2" data-web-only>
+          <span aria-hidden dir="ltr" className="absolute left-4 top-[18px] flex gap-2" data-web-only>
             <span className="h-3 w-3 rounded-full bg-[#ff5f57]" />
             <span className="h-3 w-3 rounded-full bg-[#febc2e]" />
             <span className="h-3 w-3 rounded-full bg-[#28c840]" />
