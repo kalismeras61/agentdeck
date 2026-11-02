@@ -1,4 +1,5 @@
 {
+  ", ": ", ",
   "(hidden)": "(masqué)",
   "{agent} didn't list any models.": "{agent} n'a listé aucun modèle.",
   "{agent} has a question|{agent} has {n} questions": {

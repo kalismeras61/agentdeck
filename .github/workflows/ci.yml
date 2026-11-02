@@ -33,6 +33,11 @@ jobs:
       - run: npm run typecheck
       - run: npm run lint
       - run: npm test
+      - name: Translations
+        run: |
+          node scripts/i18n-extract.mjs
+          git diff --exit-code src/locales/en.json || (echo "Run node scripts/i18n-extract.mjs and commit src/locales/en.json" && exit 1)
+          node scripts/i18n-validate.mjs
       - name: Rust tests
         working-directory: src-tauri
         run: |

@@ -540,7 +540,7 @@ export function FlowBlock({ e, session }: { e: FlowEvent; session: Session }) {
           <WorkflowIcon size={15} className="text-violet-text" />
           <span className="text-fg">{p.name}</span>
           <span className="text-fg-3">
-            {p.stages.map((s) => agentDoes(s.stage, s.name)).join(", ")}. {thisDoes(mine.id)}
+            {p.stages.map((s) => agentDoes(s.stage, s.name)).join(t(", "))}. {thisDoes(mine.id)}
           </span>
           <button
             type="button"

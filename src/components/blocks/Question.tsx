@@ -116,7 +116,7 @@ export function QuestionCard({ e, session }: { e: EventOf<"question">; session: 
             {p.questions.map((q) => (
               <li key={q.id} className="text-[12.5px] leading-[1.5] text-fg-2">
                 <span className="text-fg-3">{q.header ?? q.question}: </span>
-                {q.secret ? t("(hidden)") : (answers[q.id] ?? []).join(", ") || "—"}
+                {q.secret ? t("(hidden)") : (answers[q.id] ?? []).join(t(", ")) || "—"}
               </li>
             ))}
           </ul>

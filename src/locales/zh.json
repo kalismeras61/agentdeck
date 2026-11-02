@@ -1,4 +1,5 @@
 {
+  ", ": "，",
   "(hidden)": "（已隐藏）",
   "{agent} didn't list any models.": "{agent} 没有列出任何模型。",
   "{agent} has a question|{agent} has {n} questions": {

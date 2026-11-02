@@ -1,4 +1,5 @@
 {
+  ", ": "، ",
   "(hidden)": "(مخفي)",
   "{agent} didn't list any models.": "لم يُدرج {agent} أي نماذج.",
   "{agent} has a question|{agent} has {n} questions": {

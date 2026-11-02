@@ -1,4 +1,5 @@
 {
+  ", ": ", ",
   "(hidden)": "(숨김)",
   "{agent} didn't list any models.": "{agent}에서 제공한 모델 목록이 없습니다.",
   "{agent} has a question|{agent} has {n} questions": {

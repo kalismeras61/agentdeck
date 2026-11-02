@@ -1,4 +1,5 @@
 {
+  ", ": "、",
   "(hidden)": "（非表示）",
   "{agent} didn't list any models.": "{agent}からモデルの一覧が返されませんでした。",
   "{agent} has a question|{agent} has {n} questions": {

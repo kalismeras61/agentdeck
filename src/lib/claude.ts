@@ -146,7 +146,7 @@ export function groupTitle(all: Item[]): string {
   if (other) parts.push(tn(other, "{n} other step", "{n} other steps"));
   if (failed) parts.push(tn(failed, "{n} step didn't run", "{n} steps didn't run"));
   if (running) parts.push(tn(running, "{n} in progress", "{n} in progress"));
-  return capitalize(parts.join(", ") || t("Used tools"));
+  return capitalize(parts.join(t(", ")) || t("Used tools"));
 }
 
 /** Group titles start with a capital; the pieces are lower case so they can be joined. */

@@ -65,7 +65,7 @@ function groupTitle(all: Item[]): string {
   if (other) parts.push(tn(other, "{n} other step", "{n} other steps"));
   if (notRun) parts.push(tn(notRun, "{n} step didn't run", "{n} steps didn't run"));
   if (running) parts.push(tn(running, "{n} in progress", "{n} in progress"));
-  return capitalize(parts.join(", ") || (running ? t("Starting a step") : t("Used tools")));
+  return capitalize(parts.join(t(", ")) || (running ? t("Starting a step") : t("Used tools")));
 }
 
 export function normalizeCodex(events: StoredEvent[], ctx: NormalizeContext): unknown[] {
