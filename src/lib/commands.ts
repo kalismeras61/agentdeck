@@ -12,7 +12,7 @@ export interface SlashCommand {
 }
 
 /** Commands AgentDeck carries out itself, for every agent. */
-export const APP_COMMANDS: SlashCommand[] = [
+export const APP_COMMANDS: SlashCommand[] = /* i18n */ [
   { name: "plan", description: "Turn plan mode on or off: the agent reads and plans, nothing changes until you approve", hint: null, source: "agentdeck", expand: null },
   { name: "terminal", description: "Switch to the terminal view of this session", hint: null, source: "agentdeck", expand: null },
   { name: "rename", description: "Rename this session", hint: null, source: "agentdeck", expand: null },

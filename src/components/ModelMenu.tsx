@@ -1,6 +1,7 @@
 import * as Dropdown from "@radix-ui/react-dropdown-menu";
 import { Check, ChevronDown, RefreshCw } from "lucide-react";
 import { useRef, useState } from "react";
+import { t } from "../lib/i18n";
 import { modelName, useModels } from "../lib/models";
 import { cx, Tip } from "./ui";
 
@@ -13,8 +14,8 @@ export function ModelMenu({
   agent,
   value,
   onChange,
-  tip = "Model for this session",
-  note = "Used from your next message.",
+  tip = t("Model for this session"),
+  note = t("Used from your next message."),
   side = "top",
 }: {
   provider: string;
@@ -48,16 +49,16 @@ export function ModelMenu({
         <input
           ref={input}
           autoFocus
-          aria-label={`${agent} model id`}
+          aria-label={t("{agent} model id", { agent })}
           defaultValue={known ? "" : value}
-          placeholder="Model id"
+          placeholder={t("Model id")}
           spellCheck={false}
           onKeyDown={(e) => e.key === "Escape" && setTyping(false)}
           onBlur={(e) => !e.relatedTarget && setTyping(false)}
           className="h-7 w-[180px] rounded-md border border-line bg-bg px-2 font-mono text-[11.5px] text-fg outline-none focus:border-[color-mix(in_srgb,var(--violet)_60%,var(--border))]"
         />
         <button type="submit" className="h-7 rounded-md px-2 text-[12px] text-violet-text hover:bg-elevated">
-          Use
+          {t("Use")}
         </button>
       </form>
     );
@@ -80,12 +81,12 @@ export function ModelMenu({
           className="z-50 flex max-h-[min(460px,var(--radix-dropdown-menu-content-available-height))] w-[300px] flex-col rounded-xl border border-line bg-elevated p-1 shadow-pop"
         >
           <div className="flex items-center justify-between px-2 pb-1 pt-1.5">
-            <Dropdown.Label className="text-[11px] text-fg-3">{agent} models</Dropdown.Label>
-            {loading && <RefreshCw size={12} aria-label="Loading" className="animate-spin text-fg-3 motion-reduce:animate-none" />}
+            <Dropdown.Label className="text-[11px] text-fg-3">{t("{agent} models", { agent })}</Dropdown.Label>
+            {loading && <RefreshCw size={12} aria-label={t("Loading")} className="animate-spin text-fg-3 motion-reduce:animate-none" />}
           </div>
           <div className="scroll-quiet min-h-0 flex-1 overflow-y-auto">
             {models.length === 0 && (
-              <p className="px-2 py-2 text-[12.5px] text-fg-3">{loading ? `Asking ${agent} which models it offers…` : `${agent} didn't list any models.`}</p>
+              <p className="px-2 py-2 text-[12.5px] text-fg-3">{loading ? t("Asking {agent} which models it offers…", { agent }) : t("{agent} didn't list any models.", { agent })}</p>
             )}
             {models.map((m) => (
               <Dropdown.Item
@@ -113,7 +114,7 @@ export function ModelMenu({
             onSelect={() => setTyping(true)}
             className="rounded-lg px-2 py-1.5 text-[12.5px] text-fg-2 outline-none data-[highlighted]:bg-surface data-[highlighted]:text-fg"
           >
-            Use another model id…
+            {t("Use another model id…")}
           </Dropdown.Item>
           <Dropdown.Item
             disabled={loading}
@@ -123,13 +124,13 @@ export function ModelMenu({
             }}
             className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-[12.5px] text-fg-2 outline-none data-[disabled]:opacity-50 data-[highlighted]:bg-surface data-[highlighted]:text-fg"
           >
-            <RefreshCw size={12} /> Ask {agent} again
+            <RefreshCw size={12} /> {t("Ask {agent} again", { agent })}
           </Dropdown.Item>
           <p className="max-w-[290px] px-2 pb-1 pt-1.5 text-[11px] leading-[1.5] text-fg-3">
             {list?.error && list.source !== "agent"
               ? list.source === "saved"
-                ? `Couldn't reach ${agent} just now, so this is the list from last time. `
-                : `Couldn't ask ${agent} for its models: ${list.error}. `
+                ? `${t("Couldn't reach {agent} just now, so this is the list from last time.", { agent })} `
+                : `${t("Couldn't ask {agent} for its models: {error}.", { agent, error: list.error })} `
               : ""}
             {note}
           </p>

@@ -1,4 +1,4 @@
-import { AVAILABLE, LOCALES, systemLocale } from "../lib/i18n";
+import { AVAILABLE, LOCALES, systemLocale, t } from "../lib/i18n";
 import { setupApi } from "../lib/setup";
 import { UpdateSettings } from "../components/UpdateNotice";
 import { Check, Copy, FolderPlus, RefreshCw } from "lucide-react";
@@ -18,7 +18,7 @@ import { ModelsSettings } from "./ModelsSettings";
 import { WorkflowsSettings } from "./WorkflowsSettings";
 import { ViewHeader } from "./ViewHeader";
 
-const SECTIONS = [
+const SECTIONS = /* i18n */ [
   ["appearance", "Appearance"],
   ["providers", "Providers"],
   ["models", "Models"],
@@ -31,7 +31,17 @@ const SECTIONS = [
   ["diagnostics", "Diagnostics"],
 ] as const;
 
-const ROUTES: Record<ProviderId, string> = {
+/** What the provider check found, and how each result reads. */
+type ProbeStatus = "unchecked" | "checking" | "missing" | "broken" | "found";
+const STATUS_TEXT: Record<ProbeStatus, string> = /* i18n */ {
+  unchecked: "Not checked",
+  checking: "Checking…",
+  missing: "Not found",
+  broken: "Found, but didn't respond",
+  found: "Found",
+};
+
+const ROUTES: Record<ProviderId, string> = /* i18n */ {
   "claude-code":
     "Runs your installed claude CLI unmodified and reads its structured JSON stream. Sign-in stays in Claude Code's own flow; AgentDeck never sees your credentials.",
   codex:
@@ -171,9 +181,9 @@ export function Settings() {
 
   return (
     <div className="flex h-full flex-col">
-      <ViewHeader title="Settings" />
+      <ViewHeader title={t("Settings")} />
       <div className="flex min-h-0 flex-1">
-        <nav aria-label="Settings sections" className="hidden w-[200px] shrink-0 border-r border-line-soft p-3 lg:block">
+        <nav aria-label={t("Settings sections")} className="hidden w-[200px] shrink-0 border-r border-line-soft p-3 lg:block">
           <ul className="space-y-px">
             {SECTIONS.map(([id, label]) => (
               <li key={id}>
@@ -185,7 +195,7 @@ export function Settings() {
                   }}
                   className="flex h-8 items-center rounded-lg px-2 text-[13px] text-fg-2 hover:bg-surface hover:text-fg"
                 >
-                  {label}
+                  {t(label)}
                 </a>
               </li>
             ))}
@@ -194,19 +204,19 @@ export function Settings() {
         <div className="scroll-quiet relative min-w-0 flex-1 overflow-y-auto">
           <div className="max-w-[820px] space-y-12 px-10 pb-20 pt-8">
             <div>
-              <h2 className="text-[22px] font-semibold tracking-[-0.015em]">Settings</h2>
-              <p className="mt-1.5 text-[14px] text-fg-2">Preferences stay on this device. Tokens and API keys are never shown or stored by AgentDeck.</p>
+              <h2 className="text-[22px] font-semibold tracking-[-0.015em]">{t("Settings")}</h2>
+              <p className="mt-1.5 text-[14px] text-fg-2">{t("Preferences stay on this device. Tokens and API keys are never shown or stored by AgentDeck.")}</p>
             </div>
 
-            <Section id="appearance" title="Appearance">
-              {AVAILABLE.length > 1 && <Row title="Language" hint="Menus, buttons and messages from AgentDeck. Agents answer in whatever language you write to them.">
+            <Section id="appearance" title={t("Appearance")}>
+              {AVAILABLE.length > 1 && <Row title={t("Language")} hint={t("Menus, buttons and messages from AgentDeck. Agents answer in whatever language you write to them.")}>
                 <select
-                  aria-label="Language"
+                  aria-label={t("Language")}
                   value={st.language}
                   onChange={(e) => st.setLanguage(e.target.value as typeof st.language)}
                   className="h-8 rounded-lg border border-line bg-surface px-2 text-[13px] text-fg"
                 >
-                  <option value="system">System ({LOCALES.find((l) => l.id === systemLocale())?.name})</option>
+                  <option value="system">{t("System ({language})", { language: LOCALES.find((l) => l.id === systemLocale())?.name ?? "" })}</option>
                   {AVAILABLE.map((l) => (
                     <option key={l.id} value={l.id}>
                       {l.name}
@@ -215,27 +225,27 @@ export function Settings() {
                   ))}
                 </select>
               </Row>}
-              <Row title="Theme" hint="Dark is the default. System follows your Mac.">
+              <Row title={t("Theme")} hint={t("Dark is the default. System follows your Mac.")}>
                 <Segmented<ThemePref>
-                  label="Theme"
+                  label={t("Theme")}
                   value={st.theme}
                   onChange={st.setTheme}
                   options={[
-                    ["dark", "Dark"],
-                    ["light", "Light"],
-                    ["system", "System"],
+                    ["dark", t("Dark")],
+                    ["light", t("Light")],
+                    ["system", t("System")],
                   ]}
                 />
               </Row>
-              <Row title="Motion" hint="Reduced makes state changes instant and stops the activity pulse.">
+              <Row title={t("Motion")} hint={t("Reduced makes state changes instant and stops the activity pulse.")}>
                 <Segmented<MotionPref>
-                  label="Motion"
+                  label={t("Motion")}
                   value={st.motion}
                   onChange={st.setMotion}
                   options={[
-                    ["system", "System"],
-                    ["reduced", "Reduced"],
-                    ["full", "Full"],
+                    ["system", t("System")],
+                    ["reduced", t("Reduced")],
+                    ["full", t("Full")],
                   ]}
                 />
               </Row>
@@ -243,11 +253,11 @@ export function Settings() {
 
             <Section
               id="providers"
-              title="Providers"
+              title={t("Providers")}
               lede={
                 isTauri
-                  ? "AgentDeck looks for each CLI on your PATH and in common install folders, then asks it for its version. Sign-in status is reported by each CLI when a session starts."
-                  : "Detection runs in the desktop app. This web preview can't look at your computer, so nothing below has been checked."
+                  ? t("AgentDeck looks for each CLI on your PATH and in common install folders, then asks it for its version. Sign-in status is reported by each CLI when a session starts.")
+                  : t("Detection runs in the desktop app. This web preview can't look at your computer, so nothing below has been checked.")
               }
             >
               {isTauri && (
@@ -256,20 +266,20 @@ export function Settings() {
                   onClick={() => st.setView("welcome")}
                   className="mb-1 mt-1 inline-flex h-8 items-center gap-2 rounded-lg border border-line px-3 text-[13px] hover:bg-elevated"
                 >
-                  Install or sign in to an agent…
+                  {t("Install or sign in to an agent…")}
                 </button>
               )}
               {(["claude-code", "codex", "gemini-cli", "grok-build", "kimi-code", "antigravity"] as const).map((id) => {
                 const p = probes?.find((x) => x.id === id);
-                const status = !isTauri
-                  ? "Not checked"
+                const status: ProbeStatus = !isTauri
+                  ? "unchecked"
                   : checking && !p
-                    ? "Checking…"
+                    ? "checking"
                     : !p?.path
-                      ? "Not found"
+                      ? "missing"
                       : p.error
-                        ? "Found, but didn't respond"
-                        : "Found";
+                        ? "broken"
+                        : "found";
                 return (
                   <div key={id} className="border-b border-line-soft py-4 last:border-b-0">
                     <div className="flex items-center gap-3">
@@ -278,36 +288,36 @@ export function Settings() {
                       <span
                         className={cx(
                           "ml-auto rounded-full px-2 py-0.5 text-xs",
-                          status === "Found"
+                          status === "found"
                             ? "bg-success/12 text-success"
-                            : status === "Not found" || status.startsWith("Found,")
+                            : status === "missing" || status === "broken"
                               ? "bg-warning/12 text-warning"
                               : "bg-elevated text-fg-3",
                         )}
                       >
-                        {status}
+                        {t(STATUS_TEXT[status])}
                       </span>
                     </div>
                     <dl className="mt-2.5 grid grid-cols-[96px_minmax(0,1fr)] gap-x-3 gap-y-1.5 pl-[34px] text-[12.5px]">
-                      <dt className="text-fg-3">Command</dt>
+                      <dt className="text-fg-3">{t("Command")}</dt>
                       <dd className="font-mono text-fg-2">
                         {p?.binary ?? ({ "claude-code": "claude", codex: "codex", "gemini-cli": "gemini", "grok-build": "grok", "kimi-code": "kimi", antigravity: "agy" } as const)[id]}
                       </dd>
-                      <dt className="text-fg-3">Path</dt>
+                      <dt className="text-fg-3">{t("Path")}</dt>
                       <dd className="break-all font-mono text-fg-2">{p?.path ?? "—"}</dd>
-                      <dt className="text-fg-3">Version</dt>
+                      <dt className="text-fg-3">{t("Version")}</dt>
                       <dd className="text-fg-2">{p?.version ?? p?.error ?? "—"}</dd>
-                      <dt className="text-fg-3">How it connects</dt>
-                      <dd className="leading-[1.55] text-fg-2">{ROUTES[id]}</dd>
+                      <dt className="text-fg-3">{t("How it connects")}</dt>
+                      <dd className="leading-[1.55] text-fg-2">{t(ROUTES[id])}</dd>
                       {id === "antigravity" && (
                         <>
-                          <dt className="text-fg-3">In AgentDeck</dt>
+                          <dt className="text-fg-3">{t("In AgentDeck")}</dt>
                           <dd>
                             <AntigravitySwitch />
                           </dd>
                           {st.agyEnabled && (
                             <>
-                              <dt className="text-fg-3">Approvals</dt>
+                              <dt className="text-fg-3">{t("Approvals")}</dt>
                               <dd>
                                 <AgyApprovalsMenu side="bottom" />
                               </dd>
@@ -317,7 +327,7 @@ export function Settings() {
                       )}
                       {(id === "gemini-cli" || id === "grok-build") && (
                         <>
-                          <dt className="text-fg-3">API key</dt>
+                          <dt className="text-fg-3">{t("API key")}</dt>
                           <dd>
                             <AgentKey provider={id} />
                           </dd>
@@ -334,13 +344,13 @@ export function Settings() {
                   onClick={() => void check()}
                   className="inline-flex h-8 items-center gap-2 rounded-lg border border-line px-3 text-[13px] text-fg hover:bg-elevated disabled:opacity-50"
                 >
-                  <RefreshCw size={14} className={cx(checking && "animate-spin motion-reduce:animate-none")} /> Check again
+                  <RefreshCw size={14} className={cx(checking && "animate-spin motion-reduce:animate-none")} /> {t("Check again")}
                 </button>
                 <span className="text-xs text-fg-3">
                   {!isTauri
-                    ? "Available in the desktop app"
+                    ? t("Available in the desktop app")
                     : checkedAt
-                      ? `Last checked ${new Date(checkedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
+                      ? t("Last checked {time}", { time: new Date(checkedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) })
                       : ""}
                 </span>
               </div>
@@ -348,30 +358,30 @@ export function Settings() {
 
             <Section
               id="models"
-              title="Models"
-              lede="Run DeepSeek, Kimi, local models (Ollama, LM Studio) or any compatible endpoint the same way as the built-in agents: sessions, plans, approvals, hand-offs and relays all work. An Anthropic-compatible endpoint runs inside your Claude Code; an OpenAI-compatible one runs on AgentDeck's own agent."
+              title={t("Models")}
+              lede={t("Run DeepSeek, Kimi, local models (Ollama, LM Studio) or any compatible endpoint the same way as the built-in agents: sessions, plans, approvals, hand-offs and relays all work. An Anthropic-compatible endpoint runs inside your Claude Code; an OpenAI-compatible one runs on AgentDeck's own agent.")}
             >
               <ModelsSettings />
             </Section>
 
             <Section
               id="workflows"
-              title="Workflows"
-              lede="Who plans, who builds and who reviews. Any agent on this Mac or any of your models can take any stage. The planner and the reviewer only read; the reviewer sends notes back to the builder until it writes APPROVED. Start one from a session with Work with…"
+              title={t("Workflows")}
+              lede={t("Who plans, who builds and who reviews. Any agent on this Mac or any of your models can take any stage. The planner and the reviewer only read; the reviewer sends notes back to the builder until it writes {approved}. Start one from a session with Work with…", { approved: "APPROVED" })}
             >
               <WorkflowsSettings />
             </Section>
 
             <Section
               id="defaults"
-              title="Workspace defaults"
-              lede="Used when you start a new session. Each session can still change its model from the message box."
+              title={t("Workspace defaults")}
+              lede={t("Used when you start a new session. Each session can still change its model from the message box.")}
             >
               {liveProviders.map((p) => (
                 <Row
                   key={p}
-                  title={`${providerLabel[p]} model`}
-                  hint={`For new ${providerLabel[p]} sessions. The list comes from ${providerLabel[p]} itself; Default uses whatever it's set to.`}
+                  title={t("{agent} model", { agent: providerLabel[p] })}
+                  hint={t("For new {agent} sessions. The list comes from {agent} itself; Default uses whatever it's set to.", { agent: providerLabel[p] })}
                 >
                   {liveApi.available ? (
                     <ModelMenu
@@ -379,18 +389,18 @@ export function Settings() {
                       agent={providerLabel[p]}
                       value={st.defaultModels[p] ?? "default"}
                       onChange={(m) => st.setDefaultModel(p, m)}
-                      tip={`Model for new ${providerLabel[p]} sessions`}
-                      note="Used for new sessions. Each session can still change it from the message box."
+                      tip={t("Model for new {agent} sessions", { agent: providerLabel[p] })}
+                      note={t("Used for new sessions. Each session can still change it from the message box.")}
                       side="bottom"
                     />
                   ) : (
-                    <span className="text-[12.5px] text-fg-3">In the desktop app</span>
+                    <span className="text-[12.5px] text-fg-3">{t("In the desktop app")}</span>
                   )}
                 </Row>
               ))}
-              <Row title="Default agent" hint="Used by New session and ⌘N. The arrow next to New session picks another one.">
+              <Row title={t("Default agent")} hint={t("Used by New session and {shortcut}. The arrow next to New session picks another one.", { shortcut: "⌘N" })}>
                 <Segmented<ProviderId>
-                  label="Default agent"
+                  label={t("Default agent")}
                   value={liveProviders.includes(st.defaultProvider) ? st.defaultProvider : "claude-code"}
                   onChange={st.setDefaultProvider}
                   options={liveProviders.map((p) => [p, providerLabel[p]] as const)}
@@ -399,8 +409,8 @@ export function Settings() {
               <div className="border-b border-line-soft py-4">
                 <div className="flex items-center justify-between gap-6">
                   <div>
-                    <p className="text-[13.5px] text-fg">Project folders</p>
-                    <p className="mt-0.5 text-xs text-fg-3">{isTauri ? "Folders on this Mac where agents can run." : "Available in the desktop app."}</p>
+                    <p className="text-[13.5px] text-fg">{t("Project folders")}</p>
+                    <p className="mt-0.5 text-xs text-fg-3">{isTauri ? t("Folders on this Mac where agents can run.") : t("Available in the desktop app.")}</p>
                   </div>
                   <button
                     type="button"
@@ -408,7 +418,7 @@ export function Settings() {
                     onClick={() => void st.addProjectFolder()}
                     className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg border border-line px-3 text-[13px] hover:bg-elevated disabled:opacity-50"
                   >
-                    <FolderPlus size={14} /> Add folder
+                    <FolderPlus size={14} /> {t("Add folder")}
                   </button>
                 </div>
                 {localProjects.length > 0 && (
@@ -426,7 +436,7 @@ export function Settings() {
                               onClick={() => setRemoving(null)}
                               className="h-7 rounded-md border border-line px-2 text-xs hover:bg-elevated"
                             >
-                              Keep
+                              {t("Keep")}
                             </button>
                             <button
                               type="button"
@@ -436,7 +446,7 @@ export function Settings() {
                               }}
                               className="h-7 rounded-md bg-error/90 px-2 text-xs font-medium text-white hover:bg-error"
                             >
-                              Remove from AgentDeck
+                              {t("Remove from AgentDeck")}
                             </button>
                           </span>
                         ) : (
@@ -445,7 +455,7 @@ export function Settings() {
                             onClick={() => setRemoving(p.id)}
                             className="h-7 shrink-0 rounded-md px-2 text-xs text-fg-2 hover:bg-elevated hover:text-fg"
                           >
-                            Remove…
+                            {t("Remove…")}
                           </button>
                         )}
                       </li>
@@ -453,21 +463,21 @@ export function Settings() {
                   </ul>
                 )}
                 {removing && (
-                  <p className="mt-2 text-xs text-fg-3">Removing a folder deletes its sessions from AgentDeck. Nothing in the folder itself is touched.</p>
+                  <p className="mt-2 text-xs text-fg-3">{t("Removing a folder deletes its sessions from AgentDeck. Nothing in the folder itself is touched.")}</p>
                 )}
               </div>
             </Section>
 
             <Section
               id="notifications"
-              title="Notifications"
-              lede="System notifications appear only while AgentDeck isn't the window you're using. The sidebar badges always show what needs you."
+              title={t("Notifications")}
+              lede={t("System notifications appear only while AgentDeck isn't the window you're using. The sidebar badges always show what needs you.")}
             >
               {(
                 [
-                  ["approval", "An agent needs approval"],
-                  ["finished", "A session finishes"],
-                  ["errors", "A session stops with an error"],
+                  ["approval", t("An agent needs approval")],
+                  ["finished", t("A session finishes")],
+                  ["errors", t("A session stops with an error")],
                 ] as [keyof NotificationPrefs, string][]
               ).map(([k, label]) => (
                 <Row key={k} title={label}>
@@ -476,15 +486,15 @@ export function Settings() {
               ))}
             </Section>
 
-            <Section id="shortcuts" title="Shortcuts" lede="Approving a permission request has no shortcut on purpose.">
+            <Section id="shortcuts" title={t("Shortcuts")} lede={t("Approving a permission request has no shortcut on purpose.")}>
               <div className="grid gap-x-10 gap-y-6 md:grid-cols-2">
                 {SHORTCUTS.map((g) => (
                   <div key={g.group}>
-                    <p className="mb-1 text-xs font-medium text-fg-3">{g.group}</p>
+                    <p className="mb-1 text-xs font-medium text-fg-3">{t(g.group)}</p>
                     <ul>
                       {g.items.map(([what, keys]) => (
                         <li key={what} className="flex items-center justify-between gap-4 border-b border-line-soft py-2 text-[13px] last:border-b-0">
-                          <span className="text-fg-2">{what}</span>
+                          <span className="text-fg-2">{t(what)}</span>
                           <Kbd>{keys}</Kbd>
                         </li>
                       ))}
@@ -494,15 +504,15 @@ export function Settings() {
               </div>
             </Section>
 
-            <Section id="privacy" title="Data and privacy">
-              <Row title="Preferences and viewed marks" hint="Stored in this app's local storage on this device." />
+            <Section id="privacy" title={t("Data and privacy")}>
+              <Row title={t("Preferences and viewed marks")} hint={t("Stored in this app's local storage on this device.")} />
               <Row
-                title="Session history"
-                hint="Stored in a local SQLite database in AgentDeck's app data folder. Well-known key formats (Anthropic, OpenAI, GitHub, AWS, Slack, private keys) are masked before anything is written. Demo sessions are never stored."
+                title={t("Session history")}
+                hint={t("Stored in a local SQLite database in AgentDeck's app data folder. Well-known key formats (Anthropic, OpenAI, GitHub, AWS, Slack, private keys) are masked before anything is written. Demo sessions are never stored.")}
               />
-              <Row title="Credentials" hint="Never stored or read. Claude Code and Codex keep their own sign-in." />
-              <Row title="Network" hint="AgentDeck itself sends nothing anywhere. The CLIs you run talk to their own providers." />
-              <Row title="Reset preferences" hint="Restores layout, theme, defaults and notifications, and clears viewed marks.">
+              <Row title={t("Credentials")} hint={t("Never stored or read. Claude Code and Codex keep their own sign-in.")} />
+              <Row title={t("Network")} hint={t("AgentDeck itself sends nothing anywhere. The CLIs you run talk to their own providers.")} />
+              <Row title={t("Reset preferences")} hint={t("Restores layout, theme, defaults and notifications, and clears viewed marks.")}>
                 {confirmReset ? (
                   <div className="flex shrink-0 gap-2">
                     <button
@@ -510,7 +520,7 @@ export function Settings() {
                       onClick={() => setConfirmReset(false)}
                       className="h-8 rounded-lg border border-line px-3 text-[13px] hover:bg-elevated"
                     >
-                      Cancel
+                      {t("Cancel")}
                     </button>
                     <button
                       type="button"
@@ -520,7 +530,7 @@ export function Settings() {
                       }}
                       className="h-8 rounded-lg bg-error/90 px-3 text-[13px] font-medium text-white hover:bg-error"
                     >
-                      Reset now
+                      {t("Reset now")}
                     </button>
                   </div>
                 ) : (
@@ -529,17 +539,17 @@ export function Settings() {
                     onClick={() => setConfirmReset(true)}
                     className="h-8 shrink-0 rounded-lg border border-line px-3 text-[13px] hover:bg-elevated"
                   >
-                    Reset preferences
+                    {t("Reset preferences")}
                   </button>
                 )}
               </Row>
             </Section>
 
-            <Section id="updates" title="Updates">
+            <Section id="updates" title={t("Updates")}>
               <UpdateSettings />
             </Section>
 
-            <Section id="diagnostics" title="Diagnostics" lede="Safe to share: no paths to your files, prompts, or credentials are included.">
+            <Section id="diagnostics" title={t("Diagnostics")} lede={t("Safe to share: no paths to your files, prompts, or credentials are included.")}>
               <pre className="scroll-quiet overflow-x-auto rounded-xl border border-line bg-surface px-4 py-3 font-mono text-[12px] leading-[1.6] text-fg-2">
                 {JSON.stringify(diagnostics, null, 2)}
               </pre>
@@ -556,7 +566,7 @@ export function Settings() {
                 }}
                 className="mt-3 inline-flex h-8 items-center gap-2 rounded-lg border border-line px-3 text-[13px] hover:bg-elevated"
               >
-                {copied ? <Check size={14} className="text-success" /> : <Copy size={14} />} {copied ? "Copied" : "Copy diagnostics"}
+                {copied ? <Check size={14} className="text-success" /> : <Copy size={14} />} {copied ? t("Copied") : t("Copy diagnostics")}
               </button>
             </Section>
           </div>
@@ -580,22 +590,24 @@ function AntigravitySwitch() {
       setMsg(errorText(e));
     }
   };
+  const [agyBefore, agyAfter = ""] = t("AgentDeck only starts Google's own {agy} unmodified and never touches its sign-in, but Google hasn't said whether that's allowed.").split("{agy}");
   return (
     <div className="space-y-2">
       <p className="max-w-[60ch] leading-[1.55] text-fg-2">
-        Google's Antigravity terms forbid using third-party software to access the service, and Google has suspended Antigravity and Gemini CLI accounts
-        over it. AgentDeck only starts Google's own <code className="font-mono">agy</code> unmodified and never touches its sign-in, but Google hasn't said
-        whether that's allowed. Use it at your own risk.
+        {t("Google's Antigravity terms forbid using third-party software to access the service, and Google has suspended Antigravity and Gemini CLI accounts over it.")}{" "}
+        {agyBefore}
+        <code className="font-mono">agy</code>
+        {agyAfter} {t("Use it at your own risk.")}
       </p>
       {enabled ? (
         <button type="button" onClick={() => void change(false)} className="inline-flex h-7 items-center rounded-lg border border-line px-2.5 text-[12.5px] hover:bg-elevated">
-          Turn Antigravity off
+          {t("Turn Antigravity off")}
         </button>
       ) : (
         <div className="flex flex-wrap items-center gap-3">
           <label className="flex items-center gap-2 text-[12.5px] text-fg-2">
             <input type="checkbox" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} className="accent-[var(--violet)]" />
-            I understand the risk to my Google account
+            {t("I understand the risk to my Google account")}
           </label>
           <button
             type="button"
@@ -603,7 +615,7 @@ function AntigravitySwitch() {
             onClick={() => void change(true)}
             className="inline-flex h-7 items-center rounded-lg bg-violet-strong px-2.5 text-[12.5px] font-medium text-white hover:brightness-110 disabled:opacity-45"
           >
-            Turn Antigravity on
+            {t("Turn Antigravity on")}
           </button>
         </div>
       )}
@@ -612,7 +624,7 @@ function AntigravitySwitch() {
   );
 }
 
-const KEY_HINT: Record<string, string> = {
+const KEY_HINT: Record<"gemini-cli" | "grok-build", string> = /* i18n */ {
   "gemini-cli":
     "Optional. Gemini CLI signs in here the same way it does in your Terminal. Add a key only if that sign-in stops working: one from aistudio.google.com/apikey, kept in your Keychain and used only when AgentDeck starts Gemini CLI.",
   "grok-build": "Optional: an xAI API key from console.x.ai, used instead of Grok's own sign-in. Kept in your Keychain.",
@@ -638,7 +650,7 @@ function AgentKey({ provider }: { provider: "gemini-cli" | "grok-build" }) {
       const has = await liveApi.setAgentKey(provider, key);
       setSaved(has);
       setValue("");
-      setMsg({ ok: true, text: has ? "Saved in your Keychain. The next message starts the agent with it." : "Removed." });
+      setMsg({ ok: true, text: has ? t("Saved in your Keychain. The next message starts the agent with it.") : t("Removed.") });
     } catch (e: unknown) {
       setMsg({ ok: false, text: errorText(e) });
     }
@@ -660,8 +672,8 @@ function AgentKey({ provider }: { provider: "gemini-cli" | "grok-build" }) {
           disabled={!isTauri}
           value={value}
           onChange={(e) => setValue(e.target.value)}
-          placeholder={saved ? "Saved ••••••••  (type to replace)" : "Paste the key"}
-          aria-label={`${provider === "gemini-cli" ? "Gemini" : "xAI"} API key`}
+          placeholder={saved ? t("Saved ••••••••  (type to replace)") : t("Paste the key")}
+          aria-label={t("{provider} API key", { provider: provider === "gemini-cli" ? "Gemini" : "xAI" })}
           className="h-8 w-[260px] rounded-lg border border-line bg-surface px-2.5 font-mono text-[12px] text-fg outline-none focus-visible:border-[color-mix(in_srgb,var(--violet)_60%,var(--border))]"
         />
         <button
@@ -669,7 +681,7 @@ function AgentKey({ provider }: { provider: "gemini-cli" | "grok-build" }) {
           disabled={busy || !value.trim()}
           className="h-8 rounded-lg border border-line px-3 text-[12.5px] text-fg hover:bg-elevated disabled:opacity-50"
         >
-          Save
+          {t("Save")}
         </button>
         {saved && (
           <button
@@ -678,12 +690,12 @@ function AgentKey({ provider }: { provider: "gemini-cli" | "grok-build" }) {
             onClick={() => void save("")}
             className="h-8 rounded-lg px-2 text-[12.5px] text-fg-2 hover:bg-elevated hover:text-fg"
           >
-            Remove
+            {t("Remove")}
           </button>
         )}
       </form>
       {msg && <p className={cx("text-[12px]", msg.ok ? "text-success" : "text-error")}>{msg.text}</p>}
-      <p className="max-w-[60ch] text-[12px] leading-[1.5] text-fg-3">{KEY_HINT[provider]}</p>
+      <p className="max-w-[60ch] text-[12px] leading-[1.5] text-fg-3">{t(KEY_HINT[provider])}</p>
     </div>
   );
 }

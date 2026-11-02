@@ -25,6 +25,7 @@ import {
 import { useEffect, useMemo, useRef, useState } from "react";
 import { providerLabel, workspaces, type Session } from "../data/demo";
 import { useWorkspaceProjects, useWorkspaceSessions } from "../hooks/useWorkspace";
+import { t } from "../lib/i18n";
 import { liveApi } from "../lib/live";
 import { ago, MOD } from "../lib/format";
 import { useAllChanges, usePermissions } from "../hooks/useDerived";
@@ -106,7 +107,7 @@ export function Sidebar() {
   }, [sessions, projects, search, isLocal]);
 
   return (
-    <nav aria-label="Sessions" className="flex h-full flex-col bg-sidebar">
+    <nav aria-label={t("Sessions")} className="flex h-full flex-col bg-sidebar">
       {/* Title bar row: space for macOS window controls */}
       <div data-tauri-drag-region className="drag relative flex h-12 shrink-0 items-center pl-[78px] pr-2">
         <span aria-hidden className="absolute left-4 top-[18px] flex gap-2 opacity-90" data-web-only>
@@ -114,7 +115,7 @@ export function Sidebar() {
           <span className="h-3 w-3 rounded-full bg-[#febc2e]" />
           <span className="h-3 w-3 rounded-full bg-[#28c840]" />
         </span>
-        <IconButton label="Hide sidebar" shortcut={`${MOD}B`} onClick={toggleSidebar} className="ml-auto" size="sm">
+        <IconButton label={t("Hide sidebar")} shortcut={`${MOD}B`} onClick={toggleSidebar} className="ml-auto" size="sm">
           <PanelLeftClose size={16} />
         </IconButton>
       </div>
@@ -125,18 +126,18 @@ export function Sidebar() {
             <Logo />
             <span className="min-w-0 flex-1">
               <span className="block text-[13.5px] font-semibold leading-tight">AgentDeck</span>
-              <span className="block truncate text-xs text-fg-3">{isLocal ? "Live sessions on this Mac" : "Demo workspace, sample data"}</span>
+              <span className="block truncate text-xs text-fg-3">{isLocal ? t("Live sessions on this Mac") : t("Demo workspace, sample data")}</span>
             </span>
             <ChevronDown size={14} className="text-fg-3" />
           </Dropdown.Trigger>
           <Dropdown.Portal>
             <Dropdown.Content align="start" sideOffset={6} className="z-50 w-[232px] rounded-xl border border-line bg-elevated p-1 shadow-pop">
-              <Dropdown.Label className="px-2 pb-1 pt-1.5 text-[11px] text-fg-3">Workspaces</Dropdown.Label>
+              <Dropdown.Label className="px-2 pb-1 pt-1.5 text-[11px] text-fg-3">{t("Workspaces")}</Dropdown.Label>
               {workspaces.map((w) => (
                 <Dropdown.Item key={w.id} disabled={w.id === "local" && !liveApi.available} onSelect={() => setWorkspace(w.id)} className={itemCls}>
                   {w.id === "local" ? <Monitor size={14} className="text-fg-3" /> : <FolderGit2 size={14} className="text-fg-3" />}
-                  {w.name}
-                  {w.id === "local" && !liveApi.available && <span className="ml-auto text-[11px] text-fg-3">Desktop app</span>}
+                  {t(w.name)}
+                  {w.id === "local" && !liveApi.available && <span className="ml-auto text-[11px] text-fg-3">{t("Desktop app")}</span>}
                   {w.id === ws.id && <Check size={14} className="ml-auto text-violet-text" />}
                 </Dropdown.Item>
               ))}
@@ -152,14 +153,14 @@ export function Sidebar() {
             className="flex h-9 flex-1 items-center gap-2 rounded-lg bg-violet-strong px-3 text-[13px] font-medium text-white shadow-[0_1px_0_rgb(255_255_255/0.15)_inset] hover:brightness-110 disabled:opacity-50"
           >
             <Plus size={16} strokeWidth={2.2} />
-            New session
+            {t("New session")}
             <span className="ml-auto text-[11px] font-normal text-white/70">{MOD}N</span>
           </button>
           <Dropdown.Root>
-            <Tip label="Choose agent">
+            <Tip label={t("Choose agent")}>
               <Dropdown.Trigger
                 disabled={!canStart}
-                aria-label="New session with a specific agent"
+                aria-label={t("New session with a specific agent")}
                 className="flex h-9 w-9 items-center justify-center rounded-lg border border-line text-fg-2 hover:bg-surface hover:text-fg disabled:opacity-50 data-[state=open]:bg-surface"
               >
                 <ChevronDown size={15} />
@@ -170,26 +171,26 @@ export function Sidebar() {
                 {isLocal && (
                   <>
                     <Dropdown.Item onSelect={() => newChat()} className={itemCls}>
-                      <MessageCircle size={14} className="text-fg-3" /> Chat without a project
+                      <MessageCircle size={14} className="text-fg-3" /> {t("Chat without a project")}
                     </Dropdown.Item>
                     <Dropdown.Item onSelect={() => setNewProjectOpen(true)} className={itemCls}>
-                      <FolderPlus size={14} className="text-fg-3" /> New project…
+                      <FolderPlus size={14} className="text-fg-3" /> {t("New project…")}
                     </Dropdown.Item>
                     <Dropdown.Item onSelect={() => setImportOpen(true)} className={itemCls}>
-                      <Download size={14} className="text-fg-3" /> Import sessions…
+                      <Download size={14} className="text-fg-3" /> {t("Import sessions…")}
                     </Dropdown.Item>
                     <Dropdown.Item onSelect={() => newSession(undefined, undefined, undefined, true)} className={itemCls}>
-                      <GitBranch size={14} className="text-fg-3" /> New session in a worktree
+                      <GitBranch size={14} className="text-fg-3" /> {t("New session in a worktree")}
                     </Dropdown.Item>
                     <Dropdown.Separator className="my-1 h-px bg-line" />
                   </>
                 )}
                 <Dropdown.Item onSelect={() => newSession(undefined, "claude-code")} className={itemCls}>
-                  <AgentMark provider="claude-code" size={18} /> Claude Code session
+                  <AgentMark provider="claude-code" size={18} /> {t("{agent} session", { agent: "Claude Code" })}
                 </Dropdown.Item>
                 {projects.length > 1 && (
                   <>
-                    <Dropdown.Label className="px-2 pb-1 pt-1.5 text-[11px] text-fg-3">Claude Code in</Dropdown.Label>
+                    <Dropdown.Label className="px-2 pb-1 pt-1.5 text-[11px] text-fg-3">{t("{agent} in", { agent: "Claude Code" })}</Dropdown.Label>
                     {projects.map((p) => (
                       <Dropdown.Item key={p.id} onSelect={() => newSession(p.id, "claude-code")} className={itemCls}>
                         <FolderGit2 size={14} className="text-fg-3" /> <span className="truncate">{p.name}</span>
@@ -202,15 +203,15 @@ export function Sidebar() {
                   const liveOnly = p !== "codex" && !isLocal;
                   return (
                     <Dropdown.Item key={p} disabled={liveOnly} onSelect={() => newSession(undefined, p)} className={itemCls}>
-                      <AgentMark provider={p} size={18} /> {providerLabel[p]} session
-                      {liveOnly && <span className="ml-auto text-[11px] text-fg-3">This Mac only</span>}
+                      <AgentMark provider={p} size={18} /> {t("{agent} session", { agent: providerLabel[p] })}
+                      {liveOnly && <span className="ml-auto text-[11px] text-fg-3">{t("This Mac only")}</span>}
                     </Dropdown.Item>
                   );
                 })}
                 {isLocal && (
                   <>
                     <Dropdown.Separator className="my-1 h-px bg-line" />
-                    <Dropdown.Label className="px-2 pb-1 pt-1.5 text-[11px] text-fg-3">Your models</Dropdown.Label>
+                    <Dropdown.Label className="px-2 pb-1 pt-1.5 text-[11px] text-fg-3">{t("Your models")}</Dropdown.Label>
                     {profiles.map((m) => (
                       <Dropdown.Item
                         key={m.id}
@@ -219,11 +220,11 @@ export function Sidebar() {
                       >
                         <AgentMark provider={m.kind === "anthropic" ? "claude-code" : "api"} size={18} />
                         <span className="truncate">{m.name}</span>
-                        <span className="ml-auto shrink-0 text-[11px] text-fg-3">{m.kind === "anthropic" ? "in Claude Code" : "agent"}</span>
+                        <span className="ml-auto shrink-0 text-[11px] text-fg-3">{m.kind === "anthropic" ? t("in {agent}", { agent: "Claude Code" }) : t("agent")}</span>
                       </Dropdown.Item>
                     ))}
                     <Dropdown.Item onSelect={() => setView("settings")} className={itemCls}>
-                      <Plus size={14} className="text-fg-3" /> {profiles.length ? "Manage models…" : "Add DeepSeek, Kimi or a local model…"}
+                      <Plus size={14} className="text-fg-3" /> {profiles.length ? t("Manage models…") : t("Add DeepSeek, Kimi or a local model…")}
                     </Dropdown.Item>
                   </>
                 )}
@@ -244,14 +245,14 @@ export function Sidebar() {
                 (e.target as HTMLInputElement).blur();
               }
             }}
-            placeholder="Search sessions"
-            aria-label="Search sessions"
+            placeholder={t("Search sessions")}
+            aria-label={t("Search sessions")}
             className="h-8 w-full rounded-lg border border-line-soft bg-bg/40 pl-8 pr-14 text-[13px] text-fg outline-none placeholder:text-fg-3 focus:border-[color-mix(in_srgb,var(--violet)_60%,var(--border))] focus:shadow-[0_0_0_3px_var(--violet-soft)]"
           />
           {search ? (
             <button
               type="button"
-              aria-label="Clear search"
+              aria-label={t("Clear search")}
               onClick={() => setSearch("")}
               className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded p-1 text-fg-3 hover:text-fg"
             >
@@ -265,42 +266,42 @@ export function Sidebar() {
         </div>
       </div>
 
-      <ul aria-label="Views" className="space-y-px px-2 pb-2">
-        <NavItem view="overview" current={view} onSelect={setView} icon={LayoutList} label="All sessions" count={sessions.length} shortcut={`${MOD}⇧S`} />
-        <NavItem view="review" current={view} onSelect={setView} icon={GitCompareArrows} label="Review changes" count={changedFiles} shortcut={`${MOD}⇧D`} />
+      <ul aria-label={t("Views")} className="space-y-px px-2 pb-2">
+        <NavItem view="overview" current={view} onSelect={setView} icon={LayoutList} label={t("All sessions")} count={sessions.length} shortcut={`${MOD}⇧S`} />
+        <NavItem view="review" current={view} onSelect={setView} icon={GitCompareArrows} label={t("Review changes")} count={changedFiles} shortcut={`${MOD}⇧D`} />
         <NavItem
           view="permissions"
           current={view}
           onSelect={setView}
           icon={ShieldAlert}
-          label="Permissions"
+          label={t("Permissions")}
           count={pending.length}
           attention={pending.length > 0}
           shortcut={`${MOD}⇧A`}
         />
         <NavItem view="git" current={view} onSelect={() => openGit(null)} icon={GitGraph} label="Git" shortcut={`${MOD}⇧H`} />
-        <NavItem view="setup" current={view} onSelect={() => openSetup(null)} icon={BookOpenText} label="Agent setup" shortcut={`${MOD}⇧E`} />
-        <NavItem view="gallery" current={view} onSelect={setView} icon={Shapes} label="Output gallery" shortcut={`${MOD}⇧G`} />
+        <NavItem view="setup" current={view} onSelect={() => openSetup(null)} icon={BookOpenText} label={t("Agent setup")} shortcut={`${MOD}⇧E`} />
+        <NavItem view="gallery" current={view} onSelect={setView} icon={Shapes} label={t("Output gallery")} shortcut={`${MOD}⇧G`} />
       </ul>
       <div className="mx-4 mb-1 border-t border-line-soft" />
 
       <div className="scroll-quiet min-h-0 flex-1 overflow-y-auto px-2 pb-3">
         {isLocal && liveState === "loading" ? (
-          <p className="px-3 py-8 text-center text-[13px] text-fg-3">Loading sessions…</p>
+          <p className="px-3 py-8 text-center text-[13px] text-fg-3">{t("Loading sessions…")}</p>
         ) : isLocal && liveState === "error" ? (
           <div className="px-3 py-8 text-center">
-            <p className="text-[13px] text-error">Couldn't open the session store.</p>
+            <p className="text-[13px] text-error">{t("Couldn't open the session store.")}</p>
             <p className="mt-1 break-words text-xs text-fg-3">{liveError}</p>
           </div>
         ) : !hasProjects && !isLocal ? (
           <div className="px-3 py-8 text-center">
-            <p className="text-[13px] text-fg-2">No sample projects here.</p>
+            <p className="text-[13px] text-fg-2">{t("No sample projects here.")}</p>
           </div>
         ) : groups.length === 0 ? (
           <div className="px-3 py-8 text-center">
-            <p className="text-[13px] text-fg-2">No sessions match “{search}”.</p>
+            <p className="text-[13px] text-fg-2">{t("No sessions match “{search}”.", { search })}</p>
             <button type="button" onClick={() => setSearch("")} className="mt-2 rounded text-xs text-violet-text hover:underline">
-              Clear search
+              {t("Clear search")}
             </button>
           </div>
         ) : (
@@ -321,15 +322,15 @@ export function Sidebar() {
                   >
                     <ChevronRight size={12} className={cx("shrink-0 transition-transform", !isCollapsed && "rotate-90")} />
                     {isChats && <MessageCircle size={12} className="shrink-0" />}
-                    <span className="truncate font-medium">{isChats ? "Chats" : project!.name}</span>
+                    <span className="truncate font-medium">{isChats ? t("Chats") : project!.name}</span>
                     <span className="ml-auto tabular-nums opacity-0 transition-opacity group-hover:opacity-100">{list.length || ""}</span>
                   </button>
                   {isLocal && !isChats && (
-                    <Tip label={`Instructions, skills and commands for ${project!.name}`}>
+                    <Tip label={t("Instructions, skills and commands for {name}", { name: project!.name })}>
                       <button
                         type="button"
                         onClick={() => openSetup(project!.id)}
-                        aria-label={`Agent setup for ${project!.name}`}
+                        aria-label={t("Agent setup for {name}", { name: project!.name })}
                         className="mt-1 rounded p-0.5 text-fg-3 opacity-0 hover:bg-surface hover:text-fg focus-visible:opacity-100 group-hover:opacity-100"
                       >
                         <BookOpenText size={13} />
@@ -337,11 +338,11 @@ export function Sidebar() {
                     </Tip>
                   )}
                   {isLocal && (
-                    <Tip label={isChats ? "New chat without a project" : `New session in ${project!.name}`}>
+                    <Tip label={isChats ? t("New chat without a project") : t("New session in {name}", { name: project!.name })}>
                       <button
                         type="button"
                         onClick={start}
-                        aria-label={isChats ? "New chat" : `New session in ${project!.name}`}
+                        aria-label={isChats ? t("New chat") : t("New session in {name}", { name: project!.name })}
                         className="mr-1 mt-1 rounded p-0.5 text-fg-3 opacity-0 hover:bg-surface hover:text-fg focus-visible:opacity-100 group-hover:opacity-100"
                       >
                         <Plus size={13} />
@@ -356,7 +357,7 @@ export function Sidebar() {
                       onClick={start}
                       className="ml-5 mt-0.5 rounded-md px-2 py-1 text-left text-xs text-fg-3 hover:bg-surface hover:text-fg"
                     >
-                      {isChats ? "Ask something, no project needed" : "Start the first session"}
+                      {isChats ? t("Ask something, no project needed") : t("Start the first session")}
                     </button>
                   ) : (
                     <ul className="space-y-px">
@@ -376,22 +377,22 @@ export function Sidebar() {
               onClick={() => setNewProjectOpen(true)}
               className="flex items-center gap-1.5 rounded-md px-2 py-1.5 text-left text-xs text-fg-3 hover:bg-surface hover:text-fg-2"
             >
-              <Plus size={13} /> New project
+              <Plus size={13} /> {t("New project")}
             </button>
             <button
               type="button"
               onClick={() => void addProjectFolder()}
               className="flex items-center gap-1.5 rounded-md px-2 py-1.5 text-left text-xs text-fg-3 hover:bg-surface hover:text-fg-2"
             >
-              <FolderPlus size={13} /> Add folder
+              <FolderPlus size={13} /> {t("Add folder")}
             </button>
             <button
               type="button"
               onClick={() => setImportOpen(true)}
-              title="Bring in sessions from Claude Code, Codex and Gemini CLI"
+              title={t("Bring in sessions from Claude Code, Codex and Gemini CLI")}
               className="flex items-center gap-1.5 rounded-md px-2 py-1.5 text-left text-xs text-fg-3 hover:bg-surface hover:text-fg-2"
             >
-              <Download size={13} /> Import
+              <Download size={13} /> {t("Import")}
             </button>
           </div>
         )}
@@ -410,7 +411,7 @@ export function Sidebar() {
           )}
         >
           <Settings size={15} />
-          Settings
+          {t("Settings")}
           <span className="ml-auto text-[11px] text-fg-3">{MOD},</span>
         </button>
       </div>
@@ -494,7 +495,7 @@ function SessionRow({ s, selected, onSelect }: { s: Session; selected: boolean; 
             setRenaming({ id: s.id, at: "sidebar" });
           }
         }}
-        title="Double-click or press F2 to rename"
+        title={t("Double-click or press F2 to rename")}
         aria-current={selected ? "page" : undefined}
         aria-label={`${s.title}, ${providerLabel[s.provider]}, ${statusLabel(s.status)}`}
         className={cx(
@@ -509,7 +510,7 @@ function SessionRow({ s, selected, onSelect }: { s: Session; selected: boolean; 
         <span className="min-w-0 flex-1">
           <span className="flex items-center gap-2">
             <span className={cx("truncate text-[13px]", selected ? "font-medium text-fg" : "text-fg/90")}>{s.title}</span>
-            {s.worktree && <GitBranch size={11} aria-label={`In worktree ${s.branch ?? ""}`} className="shrink-0 text-violet-text" />}
+            {s.worktree && <GitBranch size={11} aria-label={t("In worktree {branch}", { branch: s.branch ?? "" })} className="shrink-0 text-violet-text" />}
             <span className="ml-auto shrink-0 text-[11px] tabular-nums text-fg-3">{ago(s.updatedAt)}</span>
           </span>
           <span className="mt-0.5 flex items-center gap-1.5">

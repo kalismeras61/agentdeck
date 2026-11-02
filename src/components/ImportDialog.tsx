@@ -3,6 +3,7 @@ import { Download, MessageCircle, RefreshCw } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { providerLabel } from "../data/demo";
 import { ago } from "../lib/format";
+import { t, tn } from "../lib/i18n";
 import { errorText, liveApi, type ImportFound } from "../lib/live";
 import { useStore } from "../state/store";
 import { AgentMark, cx } from "./ui";
@@ -64,9 +65,9 @@ export function ImportDialog() {
   const count = (a: string) => (found ?? []).filter((f) => (a === "all" || f.provider === a) && !f.existing).length;
 
   const destination = (f: ImportFound) => {
-    if (!f.cwd || !f.folderExists) return { name: "Chats", note: f.cwd ? "its folder is gone" : "no folder recorded", chats: true };
+    if (!f.cwd || !f.folderExists) return { name: t("Chats"), note: f.cwd ? t("its folder is gone") : t("no folder recorded"), chats: true };
     const known = projects.find((p) => p.path === f.cwd);
-    return { name: known?.name ?? folderName(f.cwd), note: known ? "" : "new project", chats: false };
+    return { name: known?.name ?? folderName(f.cwd), note: known ? "" : t("new project"), chats: false };
   };
 
   const run = async () => {
@@ -78,7 +79,11 @@ export function ImportDialog() {
       await reload();
       const n = res.sessions.length;
       const places = res.projects.length;
-      setDone(n ? `Imported ${n} ${n === 1 ? "session" : "sessions"} into ${places} ${places === 1 ? "place" : "places"}.` : "Nothing new to import.");
+      setDone(
+        n
+          ? tn(n, "Imported {n} session into {places}.", "Imported {n} sessions into {places}.", { places: tn(places, "{n} place", "{n} places") })
+          : t("Nothing new to import."),
+      );
       if (res.sessions[0]) select(res.sessions[0].id);
       setFound((cur) => (cur ?? []).map((f) => (picked.has(f.file) ? { ...f, existing: f.existing ?? "imported" } : f)));
       setPicked(new Set());
@@ -105,25 +110,26 @@ export function ImportDialog() {
           <div className="flex items-start gap-3">
             <div className="min-w-0 flex-1">
               <Dialog.Title className="flex items-center gap-2 text-[15px] font-semibold">
-                <Download size={16} className="text-violet-text" /> Import sessions
+                <Download size={16} className="text-violet-text" /> {t("Import sessions")}
               </Dialog.Title>
               <Dialog.Description className="mt-1.5 text-[13px] leading-[1.6] text-fg-2">
-                Conversations Claude Code, Codex and Gemini CLI saved on this Mac. Each goes into the project for the folder it ran in; when that folder is
-                unknown or gone, into Chats.
+                {t(
+                  "Conversations Claude Code, Codex and Gemini CLI saved on this Mac. Each goes into the project for the folder it ran in; when that folder is unknown or gone, into Chats.",
+                )}
               </Dialog.Description>
             </div>
             <button
               type="button"
               onClick={scan}
               disabled={found === null && !error}
-              aria-label="Look again"
+              aria-label={t("Look again")}
               className="rounded-lg p-1.5 text-fg-3 hover:bg-elevated hover:text-fg disabled:opacity-50"
             >
               <RefreshCw size={14} className={cx(found === null && !error && "animate-spin motion-reduce:animate-none")} />
             </button>
           </div>
 
-          <div role="radiogroup" aria-label="Agent" className="mt-4 flex flex-wrap gap-1.5">
+          <div role="radiogroup" aria-label={t("Agent")} className="mt-4 flex flex-wrap gap-1.5">
             {(["all", ...AGENTS] as const).map((a) => (
               <button
                 key={a}
@@ -139,7 +145,7 @@ export function ImportDialog() {
                 )}
               >
                 {a !== "all" && <AgentMark provider={a} size={14} />}
-                {a === "all" ? "All" : providerLabel[a]}
+                {a === "all" ? t("All") : providerLabel[a]}
                 <span className="text-fg-3">{found ? count(a) : ""}</span>
               </button>
             ))}
@@ -151,9 +157,9 @@ export function ImportDialog() {
                 {error}
               </p>
             ) : found === null ? (
-              <p className="p-6 text-center text-[13px] text-fg-3">Looking for sessions…</p>
+              <p className="p-6 text-center text-[13px] text-fg-3">{t("Looking for sessions…")}</p>
             ) : shown.length === 0 ? (
-              <p className="p-6 text-center text-[13px] text-fg-3">No saved sessions found for this agent.</p>
+              <p className="p-6 text-center text-[13px] text-fg-3">{t("No saved sessions found for this agent.")}</p>
             ) : (
               <ul className="divide-y divide-line-soft">
                 {shown.map((f) => {
@@ -179,10 +185,10 @@ export function ImportDialog() {
                             </span>
                             {d.note && <span>({d.note})</span>}
                             <span>
-                              {f.messages} {f.messages === 1 ? "message" : "messages"}
+                              {tn(f.messages, "{n} message", "{n} messages")}
                             </span>
                             <span>{ago(f.updatedAt)}</span>
-                            {isIn && <span className="text-fg-2">Already in AgentDeck</span>}
+                            {isIn && <span className="text-fg-2">{t("Already in AgentDeck")}</span>}
                           </span>
                         </span>
                       </label>
@@ -205,26 +211,26 @@ export function ImportDialog() {
                 onClick={() => setPicked((cur) => new Set([...cur, ...importable.map((f) => f.file)]))}
                 className="rounded-md px-2 py-1 text-fg-2 hover:bg-elevated hover:text-fg"
               >
-                Select all
+                {t("Select all")}
               </button>
               <button
                 type="button"
                 onClick={() => setPicked((cur) => new Set([...cur].filter((x) => !shown.some((f) => f.file === x))))}
                 className="rounded-md px-2 py-1 text-fg-2 hover:bg-elevated hover:text-fg"
               >
-                None
+                {t("None")}
               </button>
             </span>
-            <span className="text-[11.5px] text-fg-3">Grok Build sessions can't be imported yet.</span>
+            <span className="text-[11.5px] text-fg-3">{t("{agent} sessions can't be imported yet.", { agent: "Grok Build" })}</span>
             <span className="ml-auto flex gap-2">
-              <Dialog.Close className="h-8 rounded-lg border border-line px-3 text-[13px] hover:bg-elevated">Close</Dialog.Close>
+              <Dialog.Close className="h-8 rounded-lg border border-line px-3 text-[13px] hover:bg-elevated">{t("Close")}</Dialog.Close>
               <button
                 type="button"
                 disabled={busy || pickedCount === 0}
                 onClick={() => void run()}
                 className="h-8 rounded-lg bg-violet-strong px-3.5 text-[13px] font-medium text-white hover:brightness-110 disabled:opacity-50"
               >
-                {busy ? "Importing…" : `Import ${pickedCount || ""} ${pickedCount === 1 ? "session" : "sessions"}`.replace("  ", " ")}
+                {busy ? t("Importing…") : pickedCount ? tn(pickedCount, "Import {n} session", "Import {n} sessions") : t("Import sessions")}
               </button>
             </span>
           </div>

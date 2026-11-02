@@ -1,12 +1,13 @@
 import { Loader2, Sparkles, SquareSlash, User, Zap } from "lucide-react";
 import { useEffect, useRef } from "react";
 import type { SlashCommand } from "../lib/commands";
+import { t } from "../lib/i18n";
 import { cx } from "./ui";
 
 const GROUPS: { source: SlashCommand["source"]; label: (agent: string) => string; Icon: typeof Zap }[] = [
-  { source: "custom", label: () => "Your commands", Icon: User },
+  { source: "custom", label: () => t("Your commands"), Icon: User },
   { source: "agent", label: (agent) => agent, Icon: SquareSlash },
-  { source: "skill", label: () => "Skills", Icon: Sparkles },
+  { source: "skill", label: () => t("Skills"), Icon: Sparkles },
   { source: "agentdeck", label: () => "AgentDeck", Icon: Zap },
 ];
 
@@ -35,17 +36,17 @@ export function SlashMenu({
       ref={list}
       id="slash-menu"
       role="listbox"
-      aria-label="Commands"
+      aria-label={t("Commands")}
       className="scroll-quiet absolute bottom-full left-0 right-0 z-30 mb-2 max-h-[320px] overflow-y-auto rounded-xl border border-line bg-elevated p-1 shadow-pop"
     >
       {items.length === 0 && (
         <p className="flex items-center gap-2 px-3 py-2.5 text-[12.5px] text-fg-3">
           {loading ? (
             <>
-              <Loader2 size={13} className="animate-spin" /> Asking {agent} for its commands…
+              <Loader2 size={13} className="animate-spin" /> {t("Asking {agent} for its commands…", { agent })}
             </>
           ) : (
-            "No command matches. Keep typing to send it as a message."
+            t("No command matches. Keep typing to send it as a message.")
           )}
         </p>
       )}
@@ -73,7 +74,7 @@ export function SlashMenu({
                 >
                   <span className="shrink-0 font-mono text-[12.5px] text-fg">/{c.name}</span>
                   {c.hint && <span className="shrink-0 font-mono text-[11.5px] text-fg-3">{c.hint}</span>}
-                  {c.description && <span className="min-w-0 truncate text-[12px] text-fg-3">{c.description.replace(/\s*\((user|project)\)\s*$/, "")}</span>}
+                  {c.description && <span className="min-w-0 truncate text-[12px] text-fg-3">{c.source === "agentdeck" ? t(c.description) : c.description.replace(/\s*\((user|project)\)\s*$/, "")}</span>}
                 </button>
               );
             })}
@@ -82,7 +83,7 @@ export function SlashMenu({
       })}
       {loading && items.length > 0 && (
         <p className="flex items-center gap-2 px-2 py-1.5 text-[11.5px] text-fg-3">
-          <Loader2 size={11} className="animate-spin" /> Loading {agent}'s commands…
+          <Loader2 size={11} className="animate-spin" /> {t("Loading {agent}'s commands…", { agent })}
         </p>
       )}
     </div>

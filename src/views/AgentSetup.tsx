@@ -7,12 +7,13 @@ import { useResolvedTheme } from "../hooks/useTheme";
 import { MOD } from "../lib/format";
 import { errorText, liveApi, type ContextFile, type ContextItem, type LiveProvider } from "../lib/live";
 import { useStore } from "../state/store";
+import { fmt, t } from "../lib/i18n";
 import { ViewHeader } from "./ViewHeader";
 import { TextEditor } from "./setup/TextEditor";
 
 type Kind = ContextItem["kind"];
 
-const KINDS: { kind: Kind; title: string; note: string }[] = [
+const KINDS: { kind: Kind; title: string; note: string }[] = /* i18n */ [
   { kind: "instructions", title: "Instructions", note: "Read at the start of every session" },
   { kind: "skill", title: "Skills", note: "Loaded when a task needs them" },
   { kind: "command", title: "Commands", note: "Run when you type /name" },
@@ -34,19 +35,35 @@ function home(path: string) {
 }
 
 function readsIt(item: ContextItem, project?: string) {
-  const who = item.agents.map((a) => providerLabel[a]).join(" and ");
-  const where = item.scope === "global" ? "every project on this Mac" : (project ?? "this project");
+  const who = fmt.list(item.agents.map((a) => providerLabel[a]));
+  const vars = { who, name: item.name, project: project ?? t("this project") };
+  const global = item.scope === "global";
   switch (item.kind) {
     case "instructions":
-      return `${who} reads this at the start of every session in ${where}.`;
+      return global
+        ? t("{who} reads this at the start of every session in every project on this Mac.", vars)
+        : t("{who} reads this at the start of every session in {project}.", vars);
     case "skill":
-      return `${who} loads this skill in ${where} when a task matches its description.`;
+      return global
+        ? t("{who} loads this skill in every project on this Mac when a task matches its description.", vars)
+        : t("{who} loads this skill in {project} when a task matches its description.", vars);
     case "command":
-      return `Type ${item.name} in ${who} to run it, in ${where}.`;
+      return global ? t("Type {name} in {who} to run it, in every project on this Mac.", vars) : t("Type {name} in {who} to run it, in {project}.", vars);
     default:
-      return `${who} can hand work to this subagent in ${where}.`;
+      return global
+        ? t("{who} can hand work to this subagent in every project on this Mac.", vars)
+        : t("{who} can hand work to this subagent in {project}.", vars);
   }
 }
+
+/** The "new item" button's label for a kind, in a scope. */
+function newItemLabel(kind: Exclude<Kind, "instructions">, global: boolean, project: string) {
+  if (kind === "skill") return global ? t("New skill for every project") : t("New skill in {project}", { project });
+  if (kind === "command") return global ? t("New command for every project") : t("New command in {project}", { project });
+  return global ? t("New subagent for every project") : t("New subagent in {project}", { project });
+}
+
+const NEW_TITLE: Record<Exclude<Kind, "instructions">, string> = /* i18n */ { skill: "New skill", command: "New command", subagent: "New subagent" };
 
 /** Unsaved edits per file; kept while you look at other files or other views. */
 const useDrafts = create<{ drafts: Record<string, string>; setDrafts: (u: SetStateAction<Record<string, string>>) => void }>((set) => ({
@@ -147,7 +164,7 @@ export function AgentSetup() {
         delete n[openPath];
         return n;
       });
-      setSaved(file.exists ? "Saved" : "Created");
+      setSaved(file.exists ? t("Saved") : t("Created"));
       if (currentKey) void scan(currentKey);
     } catch (e: unknown) {
       setFileError(errorText(e));
@@ -185,9 +202,9 @@ export function AgentSetup() {
   if (!liveApi.available) {
     return (
       <div className="flex h-full flex-col">
-        <ViewHeader title="Agent setup" />
+        <ViewHeader title={t("Agent setup")} />
         <p className="m-auto max-w-[44ch] text-center text-[13px] leading-[1.6] text-fg-3">
-          Agent setup reads the instruction files, skills and commands on your Mac, so it works in the desktop app.
+          {t("Agent setup reads the instruction files, skills and commands on your Mac, so it works in the desktop app.")}
         </p>
       </div>
     );
@@ -209,11 +226,11 @@ export function AgentSetup() {
         <span className="min-w-0 flex-1">
           <span className="flex items-center gap-1.5">
             <span className={cx("truncate text-[13px]", i.exists ? "text-fg" : "text-fg-3", kind === "command" && "font-mono text-[12px]")}>{i.name}</span>
-            {i.linked && <Link2 size={11} aria-label="Linked file" className="shrink-0 text-fg-3" />}
-            {drafts[i.path] !== undefined && <span aria-label="Unsaved changes" className="h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--violet)]" />}
+            {i.linked && <Link2 size={11} aria-label={t("Linked file")} className="shrink-0 text-fg-3" />}
+            {drafts[i.path] !== undefined && <span aria-label={t("Unsaved changes")} className="h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--violet)]" />}
           </span>
           {!i.exists ? (
-            <span className="block text-[11.5px] text-fg-3">Not created yet</span>
+            <span className="block text-[11.5px] text-fg-3">{t("Not created yet")}</span>
           ) : (
             i.description && <span className="block truncate text-[11.5px] text-fg-3">{i.description}</span>
           )}
@@ -252,7 +269,7 @@ export function AgentSetup() {
                 {scanErrors[key]}
               </p>
             ) : !items ? (
-              <p className="px-9 py-1 text-[12px] text-fg-3">Looking in the agents' folders…</p>
+              <p className="px-9 py-1 text-[12px] text-fg-3">{t("Looking in the agents' folders…")}</p>
             ) : (
               KINDS.map(({ kind, title: kt, note }) => {
                 const list = items.filter((i) => i.kind === kind && matches(i));
@@ -269,10 +286,10 @@ export function AgentSetup() {
                         aria-expanded={kOpen}
                         onClick={() => setExpanded((x) => ({ ...x, [kKey]: !kOpen }))}
                         className="flex min-w-0 flex-1 items-center gap-1.5 py-1 pl-7 pr-1 text-left"
-                        title={note}
+                        title={t(note)}
                       >
                         <ChevronRight size={11} className={cx("shrink-0 text-fg-3 transition-transform", kOpen && "rotate-90")} />
-                        <span className="text-[12px] font-medium text-fg-2">{kt}</span>
+                        <span className="text-[12px] font-medium text-fg-2">{t(kt)}</span>
                         <span className="text-[11px] tabular-nums text-fg-3">{list.filter((i) => i.exists).length}</span>
                       </button>
                       {kind !== "instructions" && addable && (
@@ -282,8 +299,8 @@ export function AgentSetup() {
                             setAdding({ key, kind });
                             setExpanded((x) => ({ ...x, [kKey]: true }));
                           }}
-                          aria-label={`New ${kind} ${scope === "global" ? "for every project" : `in ${title}`}`}
-                          title={`New ${kind}`}
+                          aria-label={newItemLabel(kind, scope === "global", title)}
+                          title={t(NEW_TITLE[kind])}
                           className="rounded p-0.5 text-fg-3 opacity-0 hover:bg-elevated hover:text-fg focus-visible:opacity-100 group-hover:opacity-100"
                         >
                           <Plus size={13} />
@@ -306,7 +323,7 @@ export function AgentSetup() {
                           />
                         )}
                         <ul className="space-y-px px-1">{list.map((i) => itemRow(i, kind))}</ul>
-                        {list.length === 0 && !isAdding && <p className="pb-1 pl-[42px] text-[11.5px] text-fg-3">None yet</p>}
+                        {list.length === 0 && !isAdding && <p className="pb-1 pl-[42px] text-[11.5px] text-fg-3">{t("None yet")}</p>}
                       </>
                     )}
                   </div>
@@ -321,12 +338,12 @@ export function AgentSetup() {
 
   return (
     <div className="flex h-full flex-col">
-      <ViewHeader title="Agent setup">
+      <ViewHeader title={t("Agent setup")}>
         <button
           type="button"
           onClick={() => Object.keys(scopes).forEach((k) => void scan(k))}
-          aria-label="Look again"
-          title="Look again"
+          aria-label={t("Look again")}
+          title={t("Look again")}
           className="no-drag rounded-md p-1.5 text-fg-3 hover:bg-elevated hover:text-fg"
         >
           <RefreshCw size={14} />
@@ -337,7 +354,7 @@ export function AgentSetup() {
         {/* The tree */}
         <div className="flex w-[340px] shrink-0 flex-col border-r border-line-soft">
           <div className="space-y-2.5 border-b border-line-soft px-3 py-3">
-            <div role="radiogroup" aria-label="Agent" className="flex flex-wrap gap-1">
+            <div role="radiogroup" aria-label={t("Agent")} className="flex flex-wrap gap-1">
               {(["all", ...AGENTS] as const).map((a) => (
                 <button
                   key={a}
@@ -353,7 +370,7 @@ export function AgentSetup() {
                   )}
                 >
                   {a !== "all" && <AgentMark provider={a} size={13} />}
-                  {a === "all" ? "All" : providerLabel[a]}
+                  {a === "all" ? t("All") : providerLabel[a]}
                   <span className="tabular-nums text-fg-3">{all.length ? (counts[a] ?? 0) : ""}</span>
                 </button>
               ))}
@@ -363,12 +380,12 @@ export function AgentSetup() {
               <input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Filter by name or description"
-                aria-label="Filter"
+                placeholder={t("Filter by name or description")}
+                aria-label={t("Filter")}
                 className="min-w-0 flex-1 bg-transparent text-[12.5px] text-fg outline-none placeholder:text-fg-3"
               />
               {query && (
-                <button type="button" aria-label="Clear filter" onClick={() => setQuery("")} className="text-fg-3 hover:text-fg">
+                <button type="button" aria-label={t("Clear filter")} onClick={() => setQuery("")} className="text-fg-3 hover:text-fg">
                   <X size={12} />
                 </button>
               )}
@@ -376,8 +393,8 @@ export function AgentSetup() {
           </div>
 
           <div data-setup-list className="scroll-quiet min-h-0 flex-1 overflow-y-auto pb-6">
-            {scopeNode(GLOBAL, "Global", "Every project on this Mac", <Globe size={14} className="shrink-0 text-violet-text" />)}
-            {folders.length > 0 && <p className="px-3 pb-1 pt-3 text-[11px] text-fg-3">Projects</p>}
+            {scopeNode(GLOBAL, t("Global"), t("Every project on this Mac"), <Globe size={14} className="shrink-0 text-violet-text" />)}
+            {folders.length > 0 && <p className="px-3 pb-1 pt-3 text-[11px] text-fg-3">{t("Projects")}</p>}
             {folders.map((p) => scopeNode(p.id, p.name, home(p.path), <Folder size={14} className="shrink-0 text-fg-3" />))}
           </div>
         </div>
@@ -387,10 +404,11 @@ export function AgentSetup() {
           {!openPath || !current ? (
             <div className="m-auto max-w-[52ch] px-8 text-center">
               <BookOpenText size={22} className="mx-auto text-fg-3" />
-              <p className="mt-3 text-[14px] text-fg">What your agents read before they work</p>
+              <p className="mt-3 text-[14px] text-fg">{t("What your agents read before they work")}</p>
               <p className="mt-1.5 text-[13px] leading-[1.6] text-fg-3">
-                The global instructions, skills and commands every project gets, and each project's own: open a project on the left to see them. Pick a file to read or
-                change it; saving writes it where the agent looks for it.
+                {t(
+                  "The global instructions, skills and commands every project gets, and each project's own: open a project on the left to see them. Pick a file to read or change it; saving writes it where the agent looks for it.",
+                )}
               </p>
             </div>
           ) : (
@@ -401,7 +419,7 @@ export function AgentSetup() {
                     <div className="flex items-center gap-2">
                       <h2 className={cx("truncate text-[15px] font-semibold", current.kind === "command" && "font-mono text-[14px]")}>{current.name}</h2>
                       <span className={cx("rounded-full px-2 py-px text-[11px]", current.scope === "global" ? "bg-[color-mix(in_srgb,var(--warning)_14%,transparent)] text-warning" : "bg-elevated text-fg-2")}>
-                        {current.scope === "global" ? "Global" : "Project"}
+                        {current.scope === "global" ? t("Global") : t("Project")}
                       </span>
                     </div>
                     <p className="mt-1 text-[12.5px] leading-[1.5] text-fg-2">{readsIt(current, currentProject?.name)}</p>
@@ -411,8 +429,8 @@ export function AgentSetup() {
                       </code>
                       <button
                         type="button"
-                        aria-label="Copy path"
-                        title="Copy path"
+                        aria-label={t("Copy path")}
+                        title={t("Copy path")}
                         onClick={() => {
                           void navigator.clipboard?.writeText(current.path).then(() => {
                             setCopied(true);
@@ -423,7 +441,7 @@ export function AgentSetup() {
                       >
                         {copied ? <Check size={12} /> : <Copy size={12} />}
                       </button>
-                      {current.linked && <span className="shrink-0 text-[11.5px] text-fg-3">Linked: saving changes the file it points to.</span>}
+                      {current.linked && <span className="shrink-0 text-[11.5px] text-fg-3">{t("Linked: saving changes the file it points to.")}</span>}
                     </div>
                   </div>
                   <div className="flex shrink-0 items-center gap-2">
@@ -434,7 +452,7 @@ export function AgentSetup() {
                     )}
                     {dirty && (
                       <button type="button" onClick={revert} className="h-8 rounded-lg border border-line px-3 text-[13px] text-fg-2 hover:bg-elevated hover:text-fg">
-                        Revert
+                        {t("Revert")}
                       </button>
                     )}
                     <button
@@ -444,14 +462,14 @@ export function AgentSetup() {
                       className="inline-flex h-8 items-center gap-2 rounded-lg bg-violet-strong px-3.5 text-[13px] font-medium text-white hover:brightness-110 disabled:opacity-50"
                     >
                       {file && !file.exists ? <FilePlus2 size={14} /> : null}
-                      {saving ? "Saving…" : file && !file.exists ? "Create" : "Save"}
+                      {saving ? t("Saving…") : file && !file.exists ? t("Create") : t("Save")}
                       {file?.exists && <Kbd>{MOD}S</Kbd>}
                     </button>
                   </div>
                 </div>
                 {current.scope === "global" && dirty && (
                   <p className="mt-2 flex items-center gap-1.5 text-[12px] text-warning">
-                    <TriangleAlert size={13} /> This changes every project that uses {current.agents.map((a) => providerLabel[a]).join(" and ")} on this Mac.
+                    <TriangleAlert size={13} /> {t("This changes every project that uses {agents} on this Mac.", { agents: fmt.list(current.agents.map((a) => providerLabel[a])) })}
                   </p>
                 )}
                 {fileError && (
@@ -459,7 +477,7 @@ export function AgentSetup() {
                     {fileError}
                     {/changed on disk/.test(fileError) && (
                       <button type="button" onClick={reload} className="rounded-md border border-line px-2 py-0.5 text-[12px] text-fg hover:bg-elevated">
-                        Reload
+                        {t("Reload")}
                       </button>
                     )}
                   </p>
@@ -473,14 +491,14 @@ export function AgentSetup() {
                     language={openPath.endsWith(".toml") ? "ini" : "markdown"}
                     dark={dark}
                     label={current.name}
-                    onChange={(t) => {
+                    onChange={(next) => {
                       setSaved(null);
-                      setDrafts((d) => (t === file.text ? (({ [openPath]: _, ...rest }) => rest)(d) : { ...d, [openPath]: t }));
+                      setDrafts((d) => (next === file.text ? (({ [openPath]: _, ...rest }) => rest)(d) : { ...d, [openPath]: next }));
                     }}
                     onSave={() => void save()}
                   />
                 ) : (
-                  !fileError && <p className="p-6 text-[13px] text-fg-3">Opening…</p>
+                  !fileError && <p className="p-6 text-[13px] text-fg-3">{t("Opening…")}</p>
                 )}
               </div>
             </>
@@ -513,7 +531,6 @@ function NewItemForm({
   const [error, setError] = useState<string | null>(null);
   const input = useRef<HTMLInputElement>(null);
 
-  const noun = kind === "skill" ? "skill" : kind === "command" ? "command" : "subagent";
   return (
     <form
       className="mb-1 ml-[42px] mr-2 mt-1 space-y-2.5 rounded-xl border border-line bg-surface p-3"
@@ -531,7 +548,7 @@ function NewItemForm({
       }}
     >
       <label className="block">
-        <span className="text-[11.5px] text-fg-3">{kind === "command" ? "Command name (what you type after /)" : `Name of the ${noun}`}</span>
+        <span className="text-[11.5px] text-fg-3">{kind === "command" ? t("Command name (what you type after /)") : kind === "skill" ? t("Name of the skill") : t("Name of the subagent")}</span>
         <input
           ref={input}
           autoFocus
@@ -544,7 +561,7 @@ function NewItemForm({
         />
       </label>
       {SUPPORT[kind][scope].length > 1 && (
-        <div className="flex flex-wrap gap-1" role="radiogroup" aria-label="Agent">
+        <div className="flex flex-wrap gap-1" role="radiogroup" aria-label={t("Agent")}>
           {SUPPORT[kind][scope].map((a) => (
             <button
               key={a}
@@ -569,14 +586,14 @@ function NewItemForm({
       )}
       <div className="flex justify-end gap-2">
         <button type="button" onClick={onCancel} className="h-7 rounded-md px-2.5 text-[12.5px] text-fg-2 hover:bg-elevated hover:text-fg">
-          Cancel
+          {t("Cancel")}
         </button>
         <button
           type="submit"
           disabled={busy || !name.trim()}
           className="h-7 rounded-md bg-violet-strong px-3 text-[12.5px] font-medium text-white hover:brightness-110 disabled:opacity-50"
         >
-          {busy ? "Creating…" : `Create ${noun}`}
+          {busy ? t("Creating…") : kind === "skill" ? t("Create skill") : kind === "command" ? t("Create command") : t("Create subagent")}
         </button>
       </div>
     </form>

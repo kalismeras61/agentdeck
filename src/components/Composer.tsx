@@ -6,6 +6,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { APP_COMMANDS, matchCommands, useAgentCommands, type SlashCommand } from "../lib/commands";
 import { SlashMenu } from "./SlashMenu";
 import { liveModelsFor, providerLabel, providerModels, type Session } from "../data/demo";
+import { t } from "../lib/i18n";
 import { errorText, gitApi, liveApi, pickFiles, subscribeFileDrop } from "../lib/live";
 import { isTauri } from "../lib/native";
 import { useStore } from "../state/store";
@@ -100,7 +101,7 @@ export function Composer({ session }: { session: Session }) {
     setAttachError(null);
     setFiles((cur) => {
       const all = Array.from(new Set([...cur, ...paths]));
-      if (all.length > 20) setAttachError("Attach at most 20 files to one message.");
+      if (all.length > 20) setAttachError(t("Attach at most {n} files to one message.", { n: 20 }));
       return all.slice(0, 20);
     });
     ta.current?.focus();
@@ -182,7 +183,7 @@ export function Composer({ session }: { session: Session }) {
         {error && (
           <div role="alert" className="mb-2 flex items-start gap-2 rounded-xl border border-error/35 bg-error/[0.06] px-3 py-2 text-[12.5px] text-fg">
             <span className="min-w-0 flex-1 break-words">{error}</span>
-            <button type="button" onClick={() => clearError(session.id)} aria-label="Dismiss" className="shrink-0 rounded p-0.5 text-fg-3 hover:text-fg">
+            <button type="button" onClick={() => clearError(session.id)} aria-label={t("Dismiss")} className="shrink-0 rounded p-0.5 text-fg-3 hover:text-fg">
               <X size={13} />
             </button>
           </div>
@@ -190,7 +191,7 @@ export function Composer({ session }: { session: Session }) {
         {attachError && (
           <div role="alert" className="mb-2 flex items-start gap-2 rounded-xl border border-error/35 bg-error/[0.06] px-3 py-2 text-[12.5px] text-fg">
             <span className="min-w-0 flex-1 break-words">{attachError}</span>
-            <button type="button" onClick={() => setAttachError(null)} aria-label="Dismiss" className="shrink-0 rounded p-0.5 text-fg-3 hover:text-fg">
+            <button type="button" onClick={() => setAttachError(null)} aria-label={t("Dismiss")} className="shrink-0 rounded p-0.5 text-fg-3 hover:text-fg">
               <X size={13} />
             </button>
           </div>
@@ -221,11 +222,11 @@ export function Composer({ session }: { session: Session }) {
               aria-hidden
               className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center gap-2 rounded-2xl bg-bg/80 text-[13px] text-fg"
             >
-              <Paperclip size={15} className="text-violet-text" /> Drop to attach to this message
+              <Paperclip size={15} className="text-violet-text" /> {t("Drop to attach to this message")}
             </div>
           )}
           {files.length > 0 && (
-            <ul aria-label="Attached files" className="flex flex-wrap gap-1.5 px-3 pt-3">
+            <ul aria-label={t("Attached files")} className="flex flex-wrap gap-1.5 px-3 pt-3">
               {files.map((f) => {
                 const name = f.split(/[\\/]/).filter(Boolean).pop() ?? f;
                 const Icon = /\.(png|jpe?g|gif|webp)$/i.test(f) ? ImageIcon : f.endsWith("/") ? Folder : FileText;
@@ -239,7 +240,7 @@ export function Composer({ session }: { session: Session }) {
                     <span className="truncate">{name}</span>
                     <button
                       type="button"
-                      aria-label={`Remove ${name}`}
+                      aria-label={t("Remove {name}", { name })}
                       onClick={() => setFiles(files.filter((x) => x !== f))}
                       className="shrink-0 rounded p-0.5 hover:bg-surface hover:text-fg"
                     >
@@ -261,7 +262,7 @@ export function Composer({ session }: { session: Session }) {
             />
           )}
           <label htmlFor="composer" className="sr-only">
-            Message {agentLabel(session)}
+            {t("Message {agent}", { agent: agentLabel(session) })}
           </label>
           <textarea
             id="composer"
@@ -299,12 +300,16 @@ export function Composer({ session }: { session: Session }) {
             }}
             placeholder={
               session.status === "waiting"
-                ? "Reply, or handle the request above first"
+                ? t("Reply, or handle the request above first")
                 : planning
-                  ? "Describe what to plan. Nothing changes until you approve the plan."
+                  ? t("Describe what to plan. Nothing changes until you approve the plan.")
                   : peer
-                    ? `Message ${agentLabel(session)}, or start with @${providerLabel[peer.provider].split(" ")[0]!.toLowerCase()} to message ${providerLabel[peer.provider]}`
-                    : `Ask ${agentLabel(session)} to do something, or type / for commands`
+                    ? t("Message {agent}, or start with {mention} to message {peer}", {
+                        agent: agentLabel(session),
+                        mention: `@${providerLabel[peer.provider].split(" ")[0]!.toLowerCase()}`,
+                        peer: providerLabel[peer.provider],
+                      })
+                    : t("Ask {agent} to do something, or type / for commands", { agent: agentLabel(session) })
             }
             className="block w-full resize-none bg-transparent px-4 pb-1.5 pt-3.5 text-[14px] leading-[1.6] text-fg outline-none placeholder:text-fg-3"
           />
@@ -322,7 +327,7 @@ export function Composer({ session }: { session: Session }) {
               }}
             />
             <IconButton
-              label="Attach files (or drop them here)"
+              label={t("Attach files (or drop them here)")}
               tipSide="top"
               onClick={() => {
                 if (!isTauri || !session.live) return fileInput.current?.click();
@@ -336,7 +341,7 @@ export function Composer({ session }: { session: Session }) {
             {canPickAgent && <AgentPicker session={session} />}
             {canPickAgent && session.provider !== "api" && <WorktreeToggle session={session} onError={setAttachError} />}
             {profile ? (
-              <Tip label={`Set in Settings → Models (${profile.baseUrl})`} side="top">
+              <Tip label={t("Set in Settings → Models ({url})", { url: profile.baseUrl })} side="top">
                 <span tabIndex={0} className="inline-flex h-8 items-center rounded-lg px-2 font-mono text-[11.5px] text-fg-2">
                   {profile.model}
                 </span>
@@ -345,7 +350,7 @@ export function Composer({ session }: { session: Session }) {
               <ModelMenu provider={session.provider} agent={agentLabel(session)} value={session.model} onChange={(m) => setModel(session.id, m)} />
             ) : models.length > 0 ? (
               <Dropdown.Root>
-                <Tip label="Model for this session" side="top">
+                <Tip label={t("Model for this session")} side="top">
                   <Dropdown.Trigger className="inline-flex h-8 items-center gap-1.5 rounded-lg px-2 text-xs text-fg-2 hover:bg-elevated hover:text-fg data-[state=open]:bg-elevated">
                     {modelLabel}
                     <ChevronDown size={13} />
@@ -358,7 +363,7 @@ export function Composer({ session }: { session: Session }) {
                     sideOffset={6}
                     className="z-50 min-w-[180px] rounded-xl border border-line bg-elevated p-1 shadow-pop"
                   >
-                    <Dropdown.Label className="px-2 pb-1 pt-1.5 text-[11px] text-fg-3">{agentLabel(session)} models</Dropdown.Label>
+                    <Dropdown.Label className="px-2 pb-1 pt-1.5 text-[11px] text-fg-3">{t("{agent} models", { agent: agentLabel(session) })}</Dropdown.Label>
                     {models.map(([id, label]) => (
                       <Dropdown.Item
                         key={id}
@@ -373,15 +378,15 @@ export function Composer({ session }: { session: Session }) {
                 </Dropdown.Portal>
               </Dropdown.Root>
             ) : (
-              <span className="px-2 text-xs text-fg-3">Model choice not supported</span>
+              <span className="px-2 text-xs text-fg-3">{t("Model choice not supported")}</span>
             )}
             {session.live && session.provider === "antigravity" && <AgyApprovalsMenu sessionId={session.id} />}
             {canPlan && (
               <Tip
                 label={
                   planning
-                    ? "Plan mode is on: the agent reads and plans, AgentDeck refuses any change. Click to let it build."
-                    : "Plan first: the agent reads and proposes a plan, and changes nothing until you approve it."
+                    ? t("Plan mode is on: the agent reads and plans, AgentDeck refuses any change. Click to let it build.")
+                    : t("Plan first: the agent reads and proposes a plan, and changes nothing until you approve it.")
                 }
                 side="top"
               >
@@ -395,36 +400,36 @@ export function Composer({ session }: { session: Session }) {
                   )}
                 >
                   <ClipboardList size={13} />
-                  {planning ? "Plan mode" : "Plan"}
+                  {planning ? t("Plan mode") : t("Plan")}
                 </button>
               </Tip>
             )}
             {target.id !== session.id && (
               <span className="inline-flex items-center gap-1.5 rounded-lg bg-elevated px-2 py-1 text-[11.5px] text-fg-2" aria-live="polite">
-                To {providerLabel[target.provider]}
+                {t("To {agent}", { agent: providerLabel[target.provider] })}
               </span>
             )}
             <span className="ml-auto mr-2 hidden items-center gap-1.5 text-[11px] text-fg-3 md:flex">
-              <Kbd>↵</Kbd> send <Kbd>⇧↵</Kbd> new line
+              <Kbd>↵</Kbd> {t("send")} <Kbd>⇧↵</Kbd> {t("new line")}
             </span>
             {running ? (
-              <Tip label="Stop the agent" side="top">
+              <Tip label={t("Stop the agent")} side="top">
                 <button
                   type="button"
                   onClick={() => interrupt(session.id)}
-                  aria-label="Stop the agent"
+                  aria-label={t("Stop the agent")}
                   className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-fg text-bg hover:opacity-90"
                 >
                   <Square size={12} fill="currentColor" />
                 </button>
               </Tip>
             ) : (
-              <Tip label="Send" shortcut="↵" side="top">
+              <Tip label={t("Send")} shortcut="↵" side="top">
                 <button
                   type="button"
                   onClick={submit}
                   disabled={!canSend}
-                  aria-label="Send message"
+                  aria-label={t("Send message")}
                   className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-violet-strong text-white transition-opacity hover:brightness-110 disabled:bg-elevated disabled:text-fg-3"
                 >
                   <ArrowUp size={16} />
@@ -446,7 +451,7 @@ function AgentPicker({ session }: { session: Session }) {
   const item = "flex items-center gap-2 rounded-lg px-2 py-1.5 text-[13px] outline-none data-[highlighted]:bg-surface";
   return (
     <Dropdown.Root>
-      <Tip label="Agent for this session (you can change it until you send the first message)" side="top">
+      <Tip label={t("Agent for this session (you can change it until you send the first message)")} side="top">
         <Dropdown.Trigger className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-line-soft px-2 text-xs text-fg hover:bg-elevated data-[state=open]:bg-elevated">
           <AgentMark provider={session.provider} size={16} />
           {agentLabel(session)}
@@ -455,7 +460,7 @@ function AgentPicker({ session }: { session: Session }) {
       </Tip>
       <Dropdown.Portal>
         <Dropdown.Content side="top" align="start" sideOffset={6} className="z-50 min-w-[220px] rounded-xl border border-line bg-elevated p-1 shadow-pop">
-          <Dropdown.Label className="px-2 pb-1 pt-1.5 text-[11px] text-fg-3">Agents on this Mac</Dropdown.Label>
+          <Dropdown.Label className="px-2 pb-1 pt-1.5 text-[11px] text-fg-3">{t("Agents on this Mac")}</Dropdown.Label>
           {withoutHidden(["claude-code", "codex", "gemini-cli", "grok-build", "kimi-code", "antigravity"] as const, agyEnabled).map((p) => (
             <Dropdown.Item key={p} onSelect={() => setAgent(session.id, p)} className={item}>
               <AgentMark provider={p} size={16} /> {providerLabel[p]}
@@ -465,7 +470,7 @@ function AgentPicker({ session }: { session: Session }) {
           {profiles.length > 0 && (
             <>
               <Dropdown.Separator className="my-1 h-px bg-line" />
-              <Dropdown.Label className="px-2 pb-1 pt-1.5 text-[11px] text-fg-3">Your models</Dropdown.Label>
+              <Dropdown.Label className="px-2 pb-1 pt-1.5 text-[11px] text-fg-3">{t("Your models")}</Dropdown.Label>
               {profiles.map((m) => (
                 <Dropdown.Item key={m.id} onSelect={() => setAgent(session.id, m.kind === "anthropic" ? "claude-code" : "api", m.id)} className={item}>
                   <AgentMark provider={m.kind === "anthropic" ? "claude-code" : "api"} size={16} />
@@ -489,7 +494,14 @@ function WorktreeToggle({ session, onError }: { session: Session; onError: (e: s
   const on = Boolean(session.worktree);
   if (!project || project.kind === "chats") return null;
   return (
-    <Tip label={on ? `Works in ${session.branch}, apart from the project folder. Click to use the project folder instead.` : "Work in a new git worktree, so this agent doesn't touch the project folder until you merge"} side="top">
+    <Tip
+      label={
+        on
+          ? t("Works in {branch}, apart from the project folder. Click to use the project folder instead.", { branch: session.branch ?? "" })
+          : t("Work in a new git worktree, so this agent doesn't touch the project folder until you merge")
+      }
+      side="top"
+    >
       <button
         type="button"
         aria-pressed={on}
@@ -509,7 +521,7 @@ function WorktreeToggle({ session, onError }: { session: Session; onError: (e: s
         )}
       >
         <GitBranch size={13} className={on ? "text-violet-text" : ""} />
-        {busy ? (on ? "Removing…" : "Making worktree…") : on ? "Own worktree" : "Worktree"}
+        {busy ? (on ? t("Removing…") : t("Making worktree…")) : on ? t("Own worktree") : t("Worktree")}
       </button>
     </Tip>
   );

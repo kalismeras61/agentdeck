@@ -1,10 +1,22 @@
 import * as Tooltip from "@radix-ui/react-tooltip";
 import clsx from "clsx";
-import { forwardRef, type ButtonHTMLAttributes, type ReactNode } from "react";
+import { forwardRef, Fragment, type ButtonHTMLAttributes, type ReactNode } from "react";
 import type { SessionStatus } from "../data/demo";
 import type { ProviderId } from "../lib/events";
+import { t } from "../lib/i18n";
 
 export const cx = clsx;
+
+/**
+ * A translated sentence with elements in some of its {placeholders}, so the sentence stays one key:
+ * withNodes(t("Run {cmd} in a terminal."), { cmd: <code>kimi login</code> }).
+ */
+export function withNodes(text: string, nodes: Record<string, ReactNode>): ReactNode[] {
+  return text.split(/(\{\w+\})/).map((part, i) => {
+    const k = /^\{(\w+)\}$/.exec(part)?.[1];
+    return k !== undefined && k in nodes ? <Fragment key={i}>{nodes[k]}</Fragment> : part;
+  });
+}
 
 export function Tip({ label, shortcut, children, side = "bottom" }: { label: string; shortcut?: string; children: ReactNode; side?: "top" | "bottom" | "left" | "right" }) {
   return (
@@ -67,7 +79,7 @@ export function Kbd({ children }: { children: ReactNode }) {
   );
 }
 
-const statusMeta: Record<SessionStatus, { label: string; color: string; live: boolean }> = {
+const statusMeta: Record<SessionStatus, { label: string; color: string; live: boolean }> = /* i18n */ {
   running: { label: "Running", color: "text-violet", live: true },
   waiting: { label: "Needs approval", color: "text-warning", live: true },
   idle: { label: "Idle", color: "text-fg-3", live: false },
@@ -76,7 +88,7 @@ const statusMeta: Record<SessionStatus, { label: string; color: string; live: bo
 };
 
 export function statusLabel(s: SessionStatus) {
-  return statusMeta[s].label;
+  return t(statusMeta[s].label);
 }
 
 export function StatusDot({ status, className }: { status: SessionStatus; className?: string }) {
@@ -84,7 +96,7 @@ export function StatusDot({ status, className }: { status: SessionStatus; classN
   return (
     <span
       role="img"
-      aria-label={m.label}
+      aria-label={t(m.label)}
       className={cx("inline-block h-2 w-2 shrink-0 rounded-full bg-current", m.color, m.live && "breathe", className)}
     />
   );
@@ -95,7 +107,7 @@ export function StatusPill({ status }: { status: SessionStatus }) {
   return (
     <span className={cx("inline-flex items-center gap-1.5 rounded-full border border-line px-2 py-0.5 text-xs", m.color)}>
       <StatusDot status={status} />
-      <span className="text-fg-2">{m.label}</span>
+      <span className="text-fg-2">{t(m.label)}</span>
     </span>
   );
 }
@@ -124,7 +136,7 @@ export function AgentMark({ provider, size = 20 }: { provider: ProviderId; size?
 
 export function DemoBadge({ className }: { className?: string }) {
   return (
-    <Tip label="Everything shown is sample data. No provider is connected.">
+    <Tip label={t("Everything shown is sample data. No provider is connected.")}>
       <span
         tabIndex={0}
         className={cx(
@@ -133,7 +145,7 @@ export function DemoBadge({ className }: { className?: string }) {
         )}
       >
         <span className="h-1.5 w-1.5 rounded-full bg-warning" />
-        Demo data
+        {t("Demo data")}
       </span>
     </Tip>
   );

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { t } from "../lib/i18n";
 import { useStore } from "../state/store";
 import { cx } from "./ui";
 
@@ -39,7 +40,7 @@ export function RenameField({ sessionId, title, className }: { sessionId: string
         ref={ref}
         value={value}
         maxLength={120}
-        aria-label="Session name"
+        aria-label={t("Session name")}
         aria-invalid={error ? true : undefined}
         onChange={(e) => {
           setValue(e.target.value);

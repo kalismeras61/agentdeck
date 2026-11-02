@@ -22,6 +22,7 @@ import { useCallback, useRef, useState, type KeyboardEvent as ReactKeyboardEvent
 import { type Session } from "../data/demo";
 import { useProject } from "../hooks/useWorkspace";
 import { MOD } from "../lib/format";
+import { t } from "../lib/i18n";
 import { liveApi } from "../lib/live";
 import { useStore } from "../state/store";
 import { StartRelayDialog, useRelayFor } from "./blocks/Relay";
@@ -67,12 +68,12 @@ export function SessionHeader({ session }: { session: Session }) {
             <span className="h-3 w-3 rounded-full bg-[#febc2e]" />
             <span className="h-3 w-3 rounded-full bg-[#28c840]" />
           </span>
-          <IconButton label="Show sidebar" shortcut={`${MOD}B`} onClick={toggleSidebar} size="sm">
+          <IconButton label={t("Show sidebar")} shortcut={`${MOD}B`} onClick={toggleSidebar} size="sm">
             <PanelLeftOpen size={16} />
           </IconButton>
         </div>
       )}
-      <nav aria-label="Breadcrumb" className="flex min-w-0 items-center gap-1.5 text-[13px]">
+      <nav aria-label={t("Breadcrumb")} className="flex min-w-0 items-center gap-1.5 text-[13px]">
         <span className="shrink-0 text-fg-3">{project?.name}</span>
         <span className="text-fg-3" aria-hidden>
           /
@@ -82,7 +83,7 @@ export function SessionHeader({ session }: { session: Session }) {
         ) : (
           <h1
             className="truncate font-medium text-fg"
-            title="Double-click to rename"
+            title={t("Double-click to rename")}
             onDoubleClick={() => setRenaming({ id: session.id, at: "header" })}
           >
             {session.title}
@@ -105,17 +106,17 @@ export function SessionHeader({ session }: { session: Session }) {
           <button
             type="button"
             onClick={() => setRelayOpen(true)}
-            title="Give planning, building and reviewing to different agents, or let two agents talk"
+            title={t("Give planning, building and reviewing to different agents, or let two agents talk")}
             className="mr-1 inline-flex h-7 items-center gap-1.5 rounded-lg border border-line px-2.5 text-xs text-fg-2 hover:bg-elevated hover:text-fg"
           >
-            <Repeat2 size={13} /> Work with…
+            <Repeat2 size={13} /> {t("Work with…")}
           </button>
         )}
-        <div role="radiogroup" aria-label="View" className="flex rounded-lg border border-line bg-bg/40 p-0.5">
+        <div role="radiogroup" aria-label={t("View")} className="flex rounded-lg border border-line bg-bg/40 p-0.5">
           {(
             [
-              ["rich", "Rich", MessageSquareText],
-              ["terminal", "Terminal", TerminalSquare],
+              ["rich", t("Rich"), MessageSquareText],
+              ["terminal", t("Terminal"), TerminalSquare],
             ] as const
           ).map(([id, label, Icon]) => (
             <button
@@ -124,7 +125,7 @@ export function SessionHeader({ session }: { session: Session }) {
               role="radio"
               aria-checked={mode === id}
               onClick={() => setMode(id)}
-              title={`${label} view (${MOD}${id === "rich" ? "⇧R" : "⇧T"})`}
+              title={id === "rich" ? t("Rich view ({key})", { key: `${MOD}⇧R` }) : t("Terminal view ({key})", { key: `${MOD}⇧T` })}
               className={cx(
                 "inline-flex h-6 items-center gap-1.5 rounded-md px-2 text-xs transition-colors",
                 mode === id ? "bg-elevated text-fg shadow-card" : "text-fg-2 hover:text-fg",
@@ -137,7 +138,7 @@ export function SessionHeader({ session }: { session: Session }) {
         </div>
         <Dropdown.Root>
           <Dropdown.Trigger asChild>
-            <IconButton label="Session actions" size="sm">
+            <IconButton label={t("Session actions")} size="sm">
               <MoreHorizontal size={16} />
             </IconButton>
           </Dropdown.Trigger>
@@ -147,21 +148,21 @@ export function SessionHeader({ session }: { session: Session }) {
                 onSelect={() => setRenaming({ id: session.id, at: "header" })}
                 className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-[13px] outline-none data-[highlighted]:bg-surface"
               >
-                <Pencil size={13} className="text-fg-3" /> Rename…
+                <Pencil size={13} className="text-fg-3" /> {t("Rename…")}
               </Dropdown.Item>
               <Dropdown.Item
                 onSelect={() => void navigator.clipboard?.writeText(session.id).catch(() => undefined)}
                 className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-[13px] outline-none data-[highlighted]:bg-surface"
               >
-                <Copy size={14} className="text-fg-3" /> Copy session ID
+                <Copy size={14} className="text-fg-3" /> {t("Copy session ID")}
               </Dropdown.Item>
               <Dropdown.Item
                 disabled={session.status !== "running" && session.status !== "waiting"}
                 onSelect={() => interrupt(session.id)}
                 className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-[13px] outline-none data-[disabled]:opacity-45 data-[highlighted]:bg-surface"
               >
-                <Square size={13} className="text-fg-3" /> Stop this turn
-                {session.status !== "running" && session.status !== "waiting" && <span className="ml-auto text-[11px] text-fg-3">Not working</span>}
+                <Square size={13} className="text-fg-3" /> {t("Stop this turn")}
+                {session.status !== "running" && session.status !== "waiting" && <span className="ml-auto text-[11px] text-fg-3">{t("Not working")}</span>}
               </Dropdown.Item>
               {canRelay && (
                 <Dropdown.Item
@@ -169,8 +170,8 @@ export function SessionHeader({ session }: { session: Session }) {
                   onSelect={() => setRelayOpen(true)}
                   className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-[13px] outline-none data-[disabled]:opacity-45 data-[highlighted]:bg-surface"
                 >
-                  <Repeat2 size={14} className="text-fg-3" /> Work with other agents…
-                  {busyWithOthers && <span className="ml-auto text-[11px] text-fg-3">Busy</span>}
+                  <Repeat2 size={14} className="text-fg-3" /> {t("Work with other agents…")}
+                  {busyWithOthers && <span className="ml-auto text-[11px] text-fg-3">{t("Busy")}</span>}
                 </Dropdown.Item>
               )}
               {session.live && (
@@ -179,7 +180,7 @@ export function SessionHeader({ session }: { session: Session }) {
                     disabled={busyWithOthers}
                     className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-[13px] outline-none data-[disabled]:opacity-45 data-[highlighted]:bg-surface data-[state=open]:bg-surface"
                   >
-                    <FolderInput size={14} className="text-fg-3" /> Move to…
+                    <FolderInput size={14} className="text-fg-3" /> {t("Move to…")}
                     <ChevronRight size={13} className="ml-auto text-fg-3" />
                   </Dropdown.SubTrigger>
                   <Dropdown.Portal>
@@ -189,8 +190,8 @@ export function SessionHeader({ session }: { session: Session }) {
                     >
                       <Dropdown.Label className="px-2 pb-1 pt-1.5 text-[11px] leading-[1.45] text-fg-3">
                         {session.provider === "claude-code" || session.provider === "codex"
-                          ? "The history comes along, and the agent carries on the same conversation in the new folder."
-                          : "The history comes along; the agent starts a fresh conversation in the new folder."}
+                          ? t("The history comes along, and the agent carries on the same conversation in the new folder.")
+                          : t("The history comes along; the agent starts a fresh conversation in the new folder.")}
                       </Dropdown.Label>
                       {project?.kind !== "chats" && !moveTargets.some((p) => p.kind === "chats") && (
                         <Dropdown.Item
@@ -206,7 +207,7 @@ export function SessionHeader({ session }: { session: Session }) {
                           }
                           className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-[13px] outline-none data-[highlighted]:bg-surface"
                         >
-                          <MessageCircle size={14} className="text-fg-3" /> Chats
+                          <MessageCircle size={14} className="text-fg-3" /> {t("Chats")}
                         </Dropdown.Item>
                       )}
                       {moveTargets.map((p) => (
@@ -220,7 +221,7 @@ export function SessionHeader({ session }: { session: Session }) {
                           ) : (
                             <FolderInput size={14} className="shrink-0 text-fg-3" />
                           )}
-                          <span className="truncate">{p.kind === "chats" ? "Chats" : p.name}</span>
+                          <span className="truncate">{p.kind === "chats" ? t("Chats") : p.name}</span>
                         </Dropdown.Item>
                       ))}
                     </Dropdown.SubContent>
@@ -233,14 +234,14 @@ export function SessionHeader({ session }: { session: Session }) {
                     onSelect={() => stopProcess(session.id)}
                     className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-[13px] outline-none data-[highlighted]:bg-surface"
                   >
-                    <Power size={13} className="text-fg-3" /> End agent process
+                    <Power size={13} className="text-fg-3" /> {t("End agent process")}
                   </Dropdown.Item>
                   <Dropdown.Separator className="my-1 h-px bg-line" />
                   <Dropdown.Item
                     onSelect={() => setConfirmDelete(true)}
                     className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-[13px] text-error outline-none data-[highlighted]:bg-surface"
                   >
-                    <Trash2 size={13} /> Delete session…
+                    <Trash2 size={13} /> {t("Delete session…")}
                   </Dropdown.Item>
                 </>
               )}
@@ -252,13 +253,14 @@ export function SessionHeader({ session }: { session: Session }) {
           <Dialog.Portal>
             <Dialog.Overlay className="fixed inset-0 z-40 bg-black/55" />
             <Dialog.Content className="fixed left-1/2 top-1/2 z-50 w-[min(420px,calc(100vw-48px))] -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-line bg-bg p-5 shadow-pop focus:outline-none">
-              <Dialog.Title className="text-[15px] font-semibold">Delete “{session.title}”?</Dialog.Title>
+              <Dialog.Title className="text-[15px] font-semibold">{t("Delete “{title}”?", { title: session.title })}</Dialog.Title>
               <Dialog.Description className="mt-2 text-[13px] leading-[1.6] text-fg-2">
-                Removes this session and its history from AgentDeck and ends its agent process. Files the agent changed in your project stay as they are, and
-                Claude Code keeps its own transcript.
+                {t(
+                  "Removes this session and its history from AgentDeck and ends its agent process. Files the agent changed in your project stay as they are, and Claude Code keeps its own transcript.",
+                )}
               </Dialog.Description>
               <div className="mt-5 flex justify-end gap-2">
-                <Dialog.Close className="h-8 rounded-lg border border-line px-3 text-[13px] hover:bg-elevated">Cancel</Dialog.Close>
+                <Dialog.Close className="h-8 rounded-lg border border-line px-3 text-[13px] hover:bg-elevated">{t("Cancel")}</Dialog.Close>
                 <button
                   type="button"
                   onClick={() => {
@@ -267,14 +269,14 @@ export function SessionHeader({ session }: { session: Session }) {
                   }}
                   className="h-8 rounded-lg bg-error/90 px-3 text-[13px] font-medium text-white hover:bg-error"
                 >
-                  Delete session
+                  {t("Delete session")}
                 </button>
               </div>
             </Dialog.Content>
           </Dialog.Portal>
         </Dialog.Root>
         {(narrow ? !contextOverlay : !contextOpen) && (
-          <IconButton label="Show panel" shortcut={`${MOD}.`} onClick={toggleContext} size="sm">
+          <IconButton label={t("Show panel")} shortcut={`${MOD}.`} onClick={toggleContext} size="sm">
             <PanelRightOpen size={16} />
           </IconButton>
         )}

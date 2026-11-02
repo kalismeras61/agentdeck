@@ -4,14 +4,15 @@ import { AgentMark, cx } from "../components/ui";
 import { errorText, termApi } from "../lib/live";
 import { setupApi, type AgentSetupState, type SetupStatus } from "../lib/setup";
 import { useStore } from "../state/store";
+import { fmt, t } from "../lib/i18n";
 import { ViewHeader } from "./ViewHeader";
 
 function StatusPill({ a }: { a: AgentSetupState }) {
-  if (!a.installed) return <span className="rounded-full bg-elevated px-2 py-0.5 text-[11.5px] text-fg-3">Not installed</span>;
-  if (a.error) return <span className="rounded-full bg-warning/12 px-2 py-0.5 text-[11.5px] text-warning">Installed, not answering</span>;
+  if (!a.installed) return <span className="rounded-full bg-elevated px-2 py-0.5 text-[11.5px] text-fg-3">{t("Not installed")}</span>;
+  if (a.error) return <span className="rounded-full bg-warning/12 px-2 py-0.5 text-[11.5px] text-warning">{t("Installed, not answering")}</span>;
   return (
     <span className="inline-flex items-center gap-1 rounded-full bg-success/12 px-2 py-0.5 text-[11.5px] text-success">
-      <Check size={11} /> {a.signedIn === true ? "Ready" : "Installed"}
+      <Check size={11} /> {a.signedIn === true ? t("Ready") : t("Installed")}
     </span>
   );
 }
@@ -22,7 +23,7 @@ function AgentCard({ a, onRan }: { a: AgentSetupState; onRan: (msg: string) => v
     setBusy(action);
     try {
       const cmd = await setupApi.openTerminal(a.id, action);
-      onRan(`Terminal is running “${cmd}”. Come back here when it's done.`);
+      onRan(t("Terminal is running “{command}”. Come back here when it's done.", { command: cmd }));
     } catch (e: unknown) {
       onRan(errorText(e));
     }
@@ -51,13 +52,13 @@ function AgentCard({ a, onRan }: { a: AgentSetupState; onRan: (msg: string) => v
         </code>
       )}
       {!a.installed && !a.install && a.needs && (
-        <p className="mt-2.5 text-[12px] leading-[1.5] text-warning">Install {a.needs} first, then press Check again.</p>
+        <p className="mt-2.5 text-[12px] leading-[1.5] text-warning">{t("Install {name} first, then press Check again.", { name: a.needs })}</p>
       )}
-      {a.signedIn === false && <p className="mt-2.5 text-[12px] text-warning">Installed but not signed in.</p>}
+      {a.signedIn === false && <p className="mt-2.5 text-[12px] text-warning">{t("Installed but not signed in.")}</p>}
       <div className="mt-auto flex flex-wrap items-center gap-2 pt-3.5">
         {!a.installed && a.install && (
           <button type="button" disabled={busy !== null} onClick={() => void run("install")} className={cx(btn, "bg-violet-strong font-medium text-white hover:brightness-110")}>
-            {busy === "install" ? <Loader2 size={13} className="animate-spin" /> : <TerminalSquare size={13} />} Install in Terminal
+            {busy === "install" ? <Loader2 size={13} className="animate-spin" /> : <TerminalSquare size={13} />} {t("Install in Terminal")}
           </button>
         )}
         {a.installed && a.signIn && a.signedIn !== true && (
@@ -67,11 +68,11 @@ function AgentCard({ a, onRan }: { a: AgentSetupState; onRan: (msg: string) => v
             onClick={() => void run("sign_in")}
             className={cx(btn, a.signedIn === false ? "bg-violet-strong font-medium text-white hover:brightness-110" : "border border-line text-fg hover:bg-elevated")}
           >
-            {busy === "sign_in" ? <Loader2 size={13} className="animate-spin" /> : <KeyRound size={13} />} Sign in
+            {busy === "sign_in" ? <Loader2 size={13} className="animate-spin" /> : <KeyRound size={13} />} {t("Sign in")}
           </button>
         )}
         <button type="button" onClick={() => void termApi.openLink(a.docs).catch(() => undefined)} className={cx(btn, "text-fg-3 hover:text-fg")}>
-          <ExternalLink size={13} /> Docs
+          <ExternalLink size={13} /> {t("Docs")}
         </button>
       </div>
     </li>
@@ -117,20 +118,21 @@ export function Welcome() {
 
   return (
     <div className="flex h-full flex-col">
-      <ViewHeader title="Get started" />
+      <ViewHeader title={t("Get started")} />
       <div className="scroll-quiet min-h-0 flex-1 overflow-y-auto">
         <div className="mx-auto max-w-[920px] px-10 pb-16 pt-10">
-          <h2 className="text-[24px] font-semibold tracking-[-0.015em] [text-wrap:balance]">Set up your agents</h2>
+          <h2 className="text-[24px] font-semibold tracking-[-0.015em] [text-wrap:balance]">{t("Set up your agents")}</h2>
           <p className="mt-2 max-w-[64ch] text-[14px] leading-[1.6] text-fg-2">
-            AgentDeck runs the coding agents you already use, signed in with your own accounts, the same way they run in Terminal. It never sees your
-            passwords or tokens. One agent is enough to start.
+            {t(
+              "AgentDeck runs the coding agents you already use, signed in with your own accounts, the same way they run in Terminal. It never sees your passwords or tokens. One agent is enough to start.",
+            )}
           </p>
 
           {!setupApi.available ? (
-            <p className="mt-8 rounded-xl border border-line px-4 py-3 text-[13px] text-fg-2">Setup runs in the desktop app; this web preview can't look at your Mac.</p>
+            <p className="mt-8 rounded-xl border border-line px-4 py-3 text-[13px] text-fg-2">{t("Setup runs in the desktop app; this web preview can't look at your Mac.")}</p>
           ) : !status ? (
             <p className="mt-8 flex items-center gap-2 text-[13px] text-fg-3">
-              <Loader2 size={14} className="animate-spin" /> Looking for agents on this Mac…
+              <Loader2 size={14} className="animate-spin" /> {t("Looking for agents on this Mac…")}
             </p>
           ) : (
             <>
@@ -141,7 +143,7 @@ export function Welcome() {
               </ul>
               {!status.antigravityEnabled && (
                 <p className="mt-4 text-[12.5px] leading-[1.55] text-fg-3">
-                  Google's Antigravity is off by default because Google's terms restrict third-party tools; you can turn it on in Settings → Providers.
+                  {t("Google's Antigravity is off by default because Google's terms restrict third-party tools; you can turn it on in Settings → Providers.")}
                 </p>
               )}
             </>
@@ -156,14 +158,14 @@ export function Welcome() {
               onClick={() => void check()}
               className="inline-flex h-9 items-center gap-2 rounded-lg border border-line px-3.5 text-[13px] hover:bg-elevated disabled:opacity-50"
             >
-              <RefreshCw size={14} className={cx(checking && "animate-spin motion-reduce:animate-none")} /> Check again
+              <RefreshCw size={14} className={cx(checking && "animate-spin motion-reduce:animate-none")} /> {t("Check again")}
             </button>
             <span className="text-[12.5px] text-fg-3">
-              {status ? (ready.length ? `Installed: ${ready.map((a) => a.name).join(", ")}.` : "No agent installed yet.") : ""}
+              {status ? (ready.length ? t("Installed: {agents}.", { agents: fmt.list(ready.map((a) => a.name)) }) : t("No agent installed yet.")) : ""}
             </span>
             <div className="ml-auto flex items-center gap-2">
               <button type="button" onClick={() => void finish(false)} className="h-9 rounded-lg px-3.5 text-[13px] text-fg-2 hover:bg-elevated hover:text-fg">
-                {ready.length ? "Skip" : "Later"}
+                {ready.length ? t("Skip") : t("Later")}
               </button>
               <button
                 type="button"
@@ -171,7 +173,7 @@ export function Welcome() {
                 onClick={() => void finish(true)}
                 className="inline-flex h-9 items-center gap-2 rounded-lg bg-violet-strong px-3.5 text-[13px] font-medium text-white hover:brightness-110 disabled:opacity-45"
               >
-                <FolderPlus size={14} /> Open a project folder
+                <FolderPlus size={14} /> {t("Open a project folder")}
               </button>
             </div>
           </div>

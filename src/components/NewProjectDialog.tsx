@@ -1,6 +1,7 @@
 import * as Dialog from "@radix-ui/react-dialog";
 import { FolderPlus } from "lucide-react";
 import { useState } from "react";
+import { t } from "../lib/i18n";
 import { useStore } from "../state/store";
 
 /** New project: AgentDeck makes ~/AgentDeck/<name>, or you point it at a folder you already have. */
@@ -28,10 +29,10 @@ export function NewProjectDialog() {
         <Dialog.Overlay className="fixed inset-0 z-40 bg-black/55" />
         <Dialog.Content className="fixed left-1/2 top-1/2 z-50 w-[min(440px,calc(100vw-48px))] -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-line bg-bg p-5 shadow-pop focus:outline-none">
           <Dialog.Title className="flex items-center gap-2 text-[15px] font-semibold">
-            <FolderPlus size={16} className="text-violet-text" /> New project
+            <FolderPlus size={16} className="text-violet-text" /> {t("New project")}
           </Dialog.Title>
           <Dialog.Description className="mt-1.5 text-[13px] leading-[1.6] text-fg-2">
-            AgentDeck makes a folder for it in your home folder and starts a session there.
+            {t("AgentDeck makes a folder for it in your home folder and starts a session there.")}
           </Dialog.Description>
           <form
             className="mt-4 space-y-3"
@@ -45,7 +46,7 @@ export function NewProjectDialog() {
             }}
           >
             <label className="block text-[12px] text-fg-2">
-              Name
+              {t("Name")}
               <input
                 autoFocus
                 value={name}
@@ -73,16 +74,16 @@ export function NewProjectDialog() {
                 }}
                 className="h-8 rounded-lg px-2 text-[13px] text-fg-2 hover:bg-elevated hover:text-fg"
               >
-                Use a folder I have…
+                {t("Use a folder I have…")}
               </button>
               <span className="ml-auto flex gap-2">
-                <Dialog.Close className="h-8 rounded-lg border border-line px-3 text-[13px] hover:bg-elevated">Cancel</Dialog.Close>
+                <Dialog.Close className="h-8 rounded-lg border border-line px-3 text-[13px] hover:bg-elevated">{t("Cancel")}</Dialog.Close>
                 <button
                   type="submit"
                   disabled={busy || !clean}
                   className="h-8 rounded-lg bg-violet-strong px-3.5 text-[13px] font-medium text-white hover:brightness-110 disabled:opacity-50"
                 >
-                  {busy ? "Creating…" : "Create project"}
+                  {busy ? t("Creating…") : t("Create project")}
                 </button>
               </span>
             </div>

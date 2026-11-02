@@ -3,11 +3,12 @@ import { useEffect, useState } from "react";
 import { cx } from "../components/ui";
 import { errorText, liveApi, type ModelProfile } from "../lib/live";
 import { useStore } from "../state/store";
+import { t } from "../lib/i18n";
 
 type Draft = Omit<ModelProfile, "createdAt" | "hasKey"> & { key: string };
 
 /** Starting points. Model names change often: check the provider's current list. */
-const PRESETS: { label: string; note: string; draft: Omit<Draft, "id" | "key"> }[] = [
+const PRESETS: { label: string; note: string; draft: Omit<Draft, "id" | "key"> }[] = /* i18n */ [
   {
     label: "DeepSeek in Claude Code",
     note: "DeepSeek's Anthropic-compatible API",
@@ -79,7 +80,7 @@ function Editor({ initial, hasKey, onDone }: { initial: Draft; hasKey: boolean; 
       setD((x) => ({ ...x, id: saved.id, key: "" }));
       setKeyTouched(false);
       await loadProfiles();
-      setMsg({ ok: true, text: "Saved." });
+      setMsg({ ok: true, text: t("Saved.") });
       return saved;
     } catch (e) {
       setMsg({ ok: false, text: errorText(e) });
@@ -124,19 +125,19 @@ function Editor({ initial, hasKey, onDone }: { initial: Draft; hasKey: boolean; 
     >
       <div className="grid grid-cols-2 gap-3">
         <label className="block text-[12px] text-fg-2">
-          Name
+          {t("Name")}
           <input value={d.name} onChange={set("name")} placeholder="DeepSeek" className={cx(field, "mt-1")} />
         </label>
         <label className="block text-[12px] text-fg-2">
-          Runs on
+          {t("Runs on")}
           <select value={d.kind} onChange={set("kind")} className={cx(field, "mt-1")}>
-            <option value="anthropic">Claude Code (Anthropic-compatible API)</option>
-            <option value="openai">AgentDeck agent (OpenAI-compatible API)</option>
+            <option value="anthropic">{t("Claude Code (Anthropic-compatible API)")}</option>
+            <option value="openai">{t("AgentDeck agent (OpenAI-compatible API)")}</option>
           </select>
         </label>
       </div>
       <label className="block text-[12px] text-fg-2">
-        Address
+        {t("Address")}
         <input
           value={d.baseUrl}
           onChange={set("baseUrl")}
@@ -146,20 +147,20 @@ function Editor({ initial, hasKey, onDone }: { initial: Draft; hasKey: boolean; 
       </label>
       <div className="grid grid-cols-2 gap-3">
         <label className="block text-[12px] text-fg-2">
-          Model
+          {t("Model")}
           <input value={d.model} onChange={set("model")} placeholder="deepseek-v4-pro" className={cx(field, "mt-1 font-mono text-[12.5px]")} />
         </label>
         {d.kind === "anthropic" ? (
           <label className="block text-[12px] text-fg-2">
-            Fast model (optional)
-            <input value={d.smallModel} onChange={set("smallModel")} placeholder="Same as model" className={cx(field, "mt-1 font-mono text-[12.5px]")} />
+            {t("Fast model (optional)")}
+            <input value={d.smallModel} onChange={set("smallModel")} placeholder={t("Same as model")} className={cx(field, "mt-1 font-mono text-[12.5px]")} />
           </label>
         ) : (
           <div />
         )}
       </div>
       <label className="block text-[12px] text-fg-2">
-        API key
+        {t("API key")}
         <div className="mt-1 flex items-center gap-2">
           <input
             type="password"
@@ -169,7 +170,7 @@ function Editor({ initial, hasKey, onDone }: { initial: Draft; hasKey: boolean; 
               setKeyTouched(true);
               setD((x) => ({ ...x, key: ev.target.value }));
             }}
-            placeholder={hasKey && !keyTouched ? "Saved in your keychain. Type to replace it." : local ? "Not needed for a local server" : "Paste the key"}
+            placeholder={hasKey && !keyTouched ? t("Saved in your keychain. Type to replace it.") : local ? t("Not needed for a local server") : t("Paste the key")}
             className={cx(field, "font-mono text-[12.5px]")}
           />
           {hasKey && !keyTouched && (
@@ -181,12 +182,12 @@ function Editor({ initial, hasKey, onDone }: { initial: Draft; hasKey: boolean; 
               }}
               className="h-9 shrink-0 rounded-lg border border-line px-2.5 text-[12.5px] text-fg-2 hover:bg-elevated hover:text-fg"
             >
-              Remove key
+              {t("Remove key")}
             </button>
           )}
         </div>
         <span className="mt-1 flex items-center gap-1.5 text-[11.5px] text-fg-3">
-          <KeyRound size={12} /> Stored in the macOS keychain, never in AgentDeck's database or logs, and never shown again.
+          <KeyRound size={12} /> {t("Stored in the macOS keychain, never in AgentDeck's database or logs, and never shown again.")}
         </span>
       </label>
       {msg && (
@@ -201,16 +202,16 @@ function Editor({ initial, hasKey, onDone }: { initial: Draft; hasKey: boolean; 
         {d.id &&
           (confirmDelete ? (
             <span className="mr-auto flex items-center gap-2 text-[12.5px] text-fg-2">
-              Delete “{d.name}”? Its sessions keep their history.
+              {t("Delete “{name}”? Its sessions keep their history.", { name: d.name })}
               <button
                 type="button"
                 onClick={() => void remove()}
                 className="h-8 rounded-lg bg-error/90 px-3 text-[13px] font-medium text-white hover:brightness-110"
               >
-                Delete
+                {t("Delete")}
               </button>
               <button type="button" onClick={() => setConfirmDelete(false)} className="h-8 rounded-lg border border-line px-3 text-[13px] hover:bg-elevated">
-                Cancel
+                {t("Cancel")}
               </button>
             </span>
           ) : (
@@ -219,12 +220,12 @@ function Editor({ initial, hasKey, onDone }: { initial: Draft; hasKey: boolean; 
               onClick={() => setConfirmDelete(true)}
               className="mr-auto inline-flex h-8 items-center gap-1.5 rounded-lg px-2 text-[13px] text-fg-3 hover:bg-elevated hover:text-error"
             >
-              <Trash2 size={13} /> Delete
+              <Trash2 size={13} /> {t("Delete")}
             </button>
           ))}
         {!d.id && <span className="mr-auto" />}
         <button type="button" onClick={onDone} className="h-8 rounded-lg px-3 text-[13px] text-fg-2 hover:bg-elevated hover:text-fg">
-          Close
+          {t("Close")}
         </button>
         <button
           type="button"
@@ -232,7 +233,7 @@ function Editor({ initial, hasKey, onDone }: { initial: Draft; hasKey: boolean; 
           onClick={() => void test()}
           className="h-8 rounded-lg border border-line px-3 text-[13px] text-fg hover:bg-elevated disabled:opacity-50"
         >
-          {busy === "test" ? "Testing…" : "Save and test"}
+          {busy === "test" ? t("Testing…") : t("Save and test")}
         </button>
         {d.id && (
           <button
@@ -240,7 +241,7 @@ function Editor({ initial, hasKey, onDone }: { initial: Draft; hasKey: boolean; 
             onClick={() => newSession(undefined, d.kind === "anthropic" ? "claude-code" : "api", d.id)}
             className="h-8 rounded-lg border border-line px-3 text-[13px] text-fg hover:bg-elevated"
           >
-            New session
+            {t("New session")}
           </button>
         )}
         <button
@@ -248,7 +249,7 @@ function Editor({ initial, hasKey, onDone }: { initial: Draft; hasKey: boolean; 
           disabled={busy !== null}
           className="h-8 rounded-lg bg-violet-strong px-3.5 text-[13px] font-medium text-white hover:brightness-110 disabled:opacity-50"
         >
-          {busy === "save" ? "Saving…" : "Save"}
+          {busy === "save" ? t("Saving…") : t("Save")}
         </button>
       </div>
     </form>
@@ -265,7 +266,7 @@ export function ModelsSettings() {
     void loadProfiles();
   }, [loadProfiles]);
 
-  if (!liveApi.available) return <p className="py-3 text-[13px] text-fg-3">Model profiles live in the desktop app, next to your keychain.</p>;
+  if (!liveApi.available) return <p className="py-3 text-[13px] text-fg-3">{t("Model profiles live in the desktop app, next to your keychain.")}</p>;
 
   return (
     <div className="space-y-3 pt-2">
@@ -280,9 +281,9 @@ export function ModelsSettings() {
                 </p>
               </div>
               <span className="shrink-0 rounded-full bg-elevated px-2 py-0.5 text-[11px] text-fg-2">
-                {p.kind === "anthropic" ? "Claude Code" : "AgentDeck agent"}
+                {p.kind === "anthropic" ? "Claude Code" : t("AgentDeck agent")}
               </span>
-              <span className={cx("shrink-0 text-[11px]", p.hasKey ? "text-success" : "text-fg-3")}>{p.hasKey ? "Key saved" : "No key"}</span>
+              <span className={cx("shrink-0 text-[11px]", p.hasKey ? "text-success" : "text-fg-3")}>{p.hasKey ? t("Key saved") : t("No key")}</span>
               <button
                 type="button"
                 onClick={() =>
@@ -293,7 +294,7 @@ export function ModelsSettings() {
                 }
                 className="h-7 shrink-0 rounded-lg border border-line px-2.5 text-[12.5px] text-fg hover:bg-elevated"
               >
-                Edit
+                {t("Edit")}
               </button>
             </li>
           ))}
@@ -303,17 +304,17 @@ export function ModelsSettings() {
         <Editor key={editing.draft.id || "new"} initial={editing.draft} hasKey={editing.hasKey} onDone={() => setEditing(null)} />
       ) : (
         <div className="space-y-2">
-          <p className="text-[12.5px] text-fg-2">Add a model:</p>
+          <p className="text-[12.5px] text-fg-2">{t("Add a model:")}</p>
           <div className="flex flex-wrap gap-1.5">
             {PRESETS.map((p) => (
               <button
                 key={p.label}
                 type="button"
-                title={p.note}
+                title={t(p.note)}
                 onClick={() => setEditing({ draft: { id: "", key: "", ...p.draft }, hasKey: false })}
                 className="h-8 rounded-lg border border-line-soft bg-surface/60 px-2.5 text-[12.5px] text-fg-2 hover:border-line hover:text-fg"
               >
-                {p.label}
+                {t(p.label)}
               </button>
             ))}
             <button
@@ -321,7 +322,7 @@ export function ModelsSettings() {
               onClick={() => setEditing({ draft: blank(), hasKey: false })}
               className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-line-soft bg-surface/60 px-2.5 text-[12.5px] text-fg-2 hover:border-line hover:text-fg"
             >
-              <Plus size={13} /> Custom
+              <Plus size={13} /> {t("Custom")}
             </button>
           </div>
         </div>

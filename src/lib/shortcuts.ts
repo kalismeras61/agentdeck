@@ -1,6 +1,6 @@
 import { ALT, MOD } from "./format";
 
-export const SHORTCUTS: { group: string; items: [string, string][] }[] = [
+export const SHORTCUTS: { group: string; items: [string, string][] }[] = /* i18n */ [
   {
     group: "Everywhere",
     items: [

@@ -46,7 +46,7 @@ export interface Workspace {
   name: string;
 }
 
-export const workspaces: Workspace[] = [
+export const workspaces: Workspace[] = /* i18n */ [
   { id: "local", name: "This Mac" },
   { id: "demo", name: "Demo" },
 ];

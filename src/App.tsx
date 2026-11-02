@@ -24,7 +24,7 @@ import { CONTEXT, SIDEBAR, useStore } from "./state/store";
 import { Overview } from "./views/Overview";
 import { Permissions } from "./views/Permissions";
 import { startUpdateChecks } from "./lib/updates";
-import { systemLocale, useI18n } from "./lib/i18n";
+import { systemLocale, t, useI18n } from "./lib/i18n";
 import { setupApi } from "./lib/setup";
 
 const CENTER_MIN = 560;
@@ -94,7 +94,7 @@ function Workspace({ width }: { width: number }) {
               </aside>
               <Resizer
                 side="left"
-                label="Resize sidebar"
+                label={t("Resize sidebar")}
                 value={sidebarWidth}
                 min={SIDEBAR.min}
                 max={SIDEBAR.max}
@@ -143,7 +143,7 @@ function Workspace({ width }: { width: number }) {
 
             {view === "workspace" && session && contextOverlay && !docked && (
               <>
-                <button type="button" aria-label="Close panel" onClick={toggleContext} className="absolute inset-0 z-20 bg-black/40" />
+                <button type="button" aria-label={t("Close panel")} onClick={toggleContext} className="absolute inset-0 z-20 bg-black/40" />
                 <aside style={{ width: Math.min(contextWidth, width - 24) }} className="absolute bottom-0 right-0 top-0 z-30 border-l border-line shadow-pop">
                   <ContextPanel session={session} />
                 </aside>
@@ -155,7 +155,7 @@ function Workspace({ width }: { width: number }) {
             <>
               <Resizer
                 side="right"
-                label="Resize context panel"
+                label={t("Resize context panel")}
                 value={contextWidth}
                 min={CONTEXT.min}
                 max={CONTEXT.max}
@@ -184,13 +184,13 @@ function NoSession() {
       <div data-tauri-drag-region className="drag h-12 shrink-0 border-b border-line-soft" />
       <div className="flex flex-1 items-center justify-center px-8 pb-12">
         <div className="max-w-[440px]">
-          <h2 className="text-[19px] font-semibold tracking-[-0.01em]">{hasProjects ? "Start a session" : "Add your first project"}</h2>
+          <h2 className="text-[19px] font-semibold tracking-[-0.01em]">{hasProjects ? t("Start a session") : t("Add your first project")}</h2>
           <p className="mt-2 text-[14px] leading-[1.6] text-fg-2">
             {ws === "local"
               ? hasProjects
-                ? "Pick a session in the sidebar, or start a new Claude Code session in one of your projects."
-                : "Choose a folder on this Mac. Claude Code runs in that folder with your own sign-in, and asks here before it edits files or runs commands."
-              : "Pick a demo session in the sidebar."}
+                ? t("Pick a session in the sidebar, or start a new Claude Code session in one of your projects.")
+                : t("Choose a folder on this Mac. Claude Code runs in that folder with your own sign-in, and asks here before it edits files or runs commands.")
+              : t("Pick a demo session in the sidebar.")}
           </p>
           {ws === "local" && (
             <button
@@ -198,7 +198,7 @@ function NoSession() {
               onClick={() => (hasProjects ? newSession() : void addProjectFolder())}
               className="mt-5 h-9 rounded-lg bg-violet-strong px-4 text-[13px] font-medium text-white hover:brightness-110"
             >
-              {hasProjects ? "New Claude Code session" : "Add project folder"}
+              {hasProjects ? t("New Claude Code session") : t("Add project folder")}
             </button>
           )}
         </div>
@@ -233,12 +233,12 @@ export default function App() {
           <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-xl bg-violet-soft text-violet-text">
             <Monitor size={18} />
           </div>
-          <h1 className="text-[19px] font-semibold tracking-[-0.01em]">AgentDeck is a desktop app</h1>
+          <h1 className="text-[19px] font-semibold tracking-[-0.01em]">{t("AgentDeck is a desktop app")}</h1>
           <p className="mt-2 text-[14px] leading-[1.6] text-fg-2">
-            Its window starts at 1000px wide. Open this preview on a computer to click through it, or see the whole layout scaled down here.
+            {t("Its window starts at 1000px wide. Open this preview on a computer to click through it, or see the whole layout scaled down here.")}
           </p>
           <button type="button" onClick={() => setFit(true)} className="mt-5 h-9 rounded-lg bg-violet-strong px-4 text-[13px] font-medium text-white">
-            Show scaled layout
+            {t("Show scaled layout")}
           </button>
         </div>
       </div>

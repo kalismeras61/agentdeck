@@ -5,6 +5,7 @@ import { gallerySections } from "../data/gallery";
 import type { Session } from "../data/demo";
 import { parseEvents } from "../lib/events";
 import { ViewBody, ViewHeader } from "./ViewHeader";
+import { t } from "../lib/i18n";
 
 const sessionFor = (provider: Session["provider"]): Session => ({
   id: "gallery",
@@ -26,12 +27,12 @@ export function Gallery() {
 
   return (
     <div className="flex h-full flex-col">
-      <ViewHeader title="Output gallery" />
+      <ViewHeader title={t("Output gallery")} />
       <ViewBody
-        heading="Output gallery"
-        lede={`Every renderer AgentDeck uses, fed with raw sample input through the same validation as live provider output. ${stats.ok} samples rendered, ${stats.bad} rejected on purpose.`}
+        heading={t("Output gallery")}
+        lede={t("Every renderer AgentDeck uses, fed with raw sample input through the same validation as live provider output. {ok} samples rendered, {bad} rejected on purpose.", stats)}
       >
-        <nav aria-label="Gallery sections" className="mb-10 flex flex-wrap gap-1.5">
+        <nav aria-label={t("Gallery sections")} className="mb-10 flex flex-wrap gap-1.5">
           {sections.map((s) => (
             <a
               key={s.id}
@@ -42,7 +43,7 @@ export function Gallery() {
               }}
               className="rounded-full border border-line px-3 py-1 text-[12.5px] text-fg-2 hover:bg-elevated hover:text-fg"
             >
-              {s.title}
+              {t(s.title)}
             </a>
           ))}
         </nav>
@@ -50,9 +51,9 @@ export function Gallery() {
           {sections.map((s) => (
             <section key={s.id} id={`g-${s.id}`} aria-labelledby={`gh-${s.id}`} className="scroll-mt-6">
               <h3 id={`gh-${s.id}`} className="text-[15px] font-semibold">
-                {s.title}
+                {t(s.title)}
               </h3>
-              <p className="mb-4 mt-1 max-w-[68ch] text-[13px] leading-[1.6] text-fg-3">{s.note}</p>
+              <p className="mb-4 mt-1 max-w-[68ch] text-[13px] leading-[1.6] text-fg-3">{t(s.note)}</p>
               <div className="space-y-4">
                 {s.parsed.map((p, i) =>
                   p.ok ? (

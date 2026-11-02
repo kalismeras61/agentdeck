@@ -49,6 +49,19 @@ const skipSpace = (code, i) => {
   return i;
 };
 
+/** End of a template literal starting at i, nested ${…} included. */
+function templateEnd(code, i) {
+  for (let j = i + 1, depth = 0; j < code.length; j++) {
+    const c = code[j];
+    if (c === "\\") j++;
+    else if (!depth && c === "`") return j + 1;
+    else if (c === "$" && code[j + 1] === "{") (depth++, j++);
+    else if (depth && c === "{") depth++;
+    else if (depth && c === "}") depth--;
+  }
+  return code.length;
+}
+
 /** Skips one argument expression (the count in tn) up to the next top-level comma. */
 function skipArg(code, i) {
   let depth = 0;
@@ -110,7 +123,11 @@ for (const file of files(src)) {
       const c = code[i];
       if (c === '"' || c === "'" || c === "`") {
         const l = literal(code, i);
-        if (!l || l.dynamic) break;
+        if (!l) break;
+        if (l.dynamic) {
+          i = templateEnd(code, i) - 1; // `${MOD}N` and the like: not text
+          continue;
+        }
         // property keys and ids (followed by ":" or lower-case identifiers) aren't text
         const next = code[skipSpace(code, l.end)];
         if (next !== ":" && /[A-Z ]/.test(l.value)) keys.set(l.value, l.value);

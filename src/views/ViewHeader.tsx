@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { DemoBadge, IconButton } from "../components/ui";
 import { MOD } from "../lib/format";
 import { useStore } from "../state/store";
+import { t } from "../lib/i18n";
 
 /** Title bar row for full-screen views; doubles as the window drag region. */
 export function ViewHeader({ title, children }: { title: string; children?: ReactNode }) {
@@ -18,7 +19,7 @@ export function ViewHeader({ title, children }: { title: string; children?: Reac
             <span className="h-3 w-3 rounded-full bg-[#febc2e]" />
             <span className="h-3 w-3 rounded-full bg-[#28c840]" />
           </span>
-          <IconButton label="Show sidebar" shortcut={`${MOD}B`} onClick={toggleSidebar} size="sm">
+          <IconButton label={t("Show sidebar")} shortcut={`${MOD}B`} onClick={toggleSidebar} size="sm">
             <PanelLeftOpen size={16} />
           </IconButton>
         </div>

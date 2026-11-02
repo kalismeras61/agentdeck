@@ -6,6 +6,7 @@ import { cx } from "../components/ui";
 import type { Workflow } from "../lib/live";
 import { isTauri } from "../lib/native";
 import { useStore } from "../state/store";
+import { t, tn } from "../lib/i18n";
 
 const EMPTY: Workflow = {
   id: "",
@@ -36,13 +37,13 @@ function Editor({ initial, onClose }: { initial: Workflow; onClose: () => void }
       }}
     >
       <label className="block text-[12px] text-fg-2">
-        Name
+        {t("Name")}
         <input
           autoFocus
           value={w.name}
           maxLength={80}
           onChange={(e) => setW({ ...w, name: e.target.value })}
-          placeholder="e.g. Claude plans, DeepSeek builds, Codex reviews"
+          placeholder={t("e.g. Claude plans, DeepSeek builds, Codex reviews")}
           className="mt-1 h-9 w-full rounded-lg border border-line bg-surface px-2.5 text-[13px] text-fg outline-none focus-visible:border-[color-mix(in_srgb,var(--violet)_60%,var(--border))] focus-visible:shadow-[0_0_0_3px_var(--violet-soft)]"
         />
       </label>
@@ -54,14 +55,14 @@ function Editor({ initial, onClose }: { initial: Workflow; onClose: () => void }
       )}
       <div className="flex justify-end gap-2">
         <button type="button" onClick={onClose} className="h-8 rounded-lg border border-line px-3 text-[13px] hover:bg-elevated">
-          Cancel
+          {t("Cancel")}
         </button>
         <button
           type="submit"
           disabled={busy || !w.name.trim()}
           className="h-8 rounded-lg bg-violet-strong px-3.5 text-[13px] font-medium text-white hover:brightness-110 disabled:opacity-50"
         >
-          {w.id ? "Save changes" : "Save workflow"}
+          {w.id ? t("Save changes") : t("Save workflow")}
         </button>
       </div>
     </form>
@@ -85,21 +86,21 @@ export function WorkflowsSettings() {
     <li key={w.id} className="flex min-h-[48px] flex-wrap items-center gap-x-3 gap-y-1 px-3.5 py-2">
       <div className="min-w-0 flex-1">
         <div className="text-[13px] text-fg">
-          {w.name}
-          {builtIn && <span className="ml-2 text-[11.5px] text-fg-3">Ready-made</span>}
+          {builtIn ? t(w.name) : w.name}
+          {builtIn && <span className="ml-2 text-[11.5px] text-fg-3">{t("Ready-made")}</span>}
         </div>
         <div className="truncate text-[12px] text-fg-3">
           {lineup(w, profiles)}
-          {w.gatePlan ? " · asks you before building" : ""}
-          {w.reviewAgent ? ` · up to ${w.maxReviews} ${w.maxReviews === 1 ? "fix round" : "fix rounds"}` : ""}
+          {w.gatePlan ? ` · ${t("asks you before building")}` : ""}
+          {w.reviewAgent ? ` · ${tn(w.maxReviews, "up to {n} fix round", "up to {n} fix rounds")}` : ""}
         </div>
       </div>
       {!builtIn &&
         (confirm === w.id ? (
           <span className="flex items-center gap-1.5 text-[12.5px]">
-            Delete “{w.name}”?
+            {t("Delete “{name}”?", { name: w.name })}
             <button type="button" onClick={() => setConfirm(null)} className="h-7 rounded-md border border-line px-2 hover:bg-elevated">
-              Keep
+              {t("Keep")}
             </button>
             <button
               type="button"
@@ -109,14 +110,14 @@ export function WorkflowsSettings() {
               }}
               className="h-7 rounded-md bg-error/90 px-2 font-medium text-white hover:bg-error"
             >
-              Delete
+              {t("Delete")}
             </button>
           </span>
         ) : (
           <span className="flex gap-1">
             <button
               type="button"
-              aria-label={`Edit ${w.name}`}
+              aria-label={t("Edit {name}", { name: w.name })}
               onClick={() => setEditing(w)}
               className="rounded-md p-1.5 text-fg-2 hover:bg-elevated hover:text-fg"
             >
@@ -124,7 +125,7 @@ export function WorkflowsSettings() {
             </button>
             <button
               type="button"
-              aria-label={`Delete ${w.name}`}
+              aria-label={t("Delete {name}", { name: w.name })}
               onClick={() => setConfirm(w.id)}
               className="rounded-md p-1.5 text-fg-2 hover:bg-elevated hover:text-error"
             >
@@ -135,10 +136,10 @@ export function WorkflowsSettings() {
       {builtIn && (
         <button
           type="button"
-          onClick={() => setEditing({ ...w, id: "", name: `${w.name} (my version)` })}
+          onClick={() => setEditing({ ...w, id: "", name: t("{name} (my version)", { name: t(w.name) }) })}
           className="h-7 rounded-md px-2 text-[12.5px] text-fg-2 hover:bg-elevated hover:text-fg"
         >
-          Make a copy
+          {t("Make a copy")}
         </button>
       )}
     </li>
@@ -159,10 +160,10 @@ export function WorkflowsSettings() {
           onClick={() => setEditing(EMPTY)}
           className={cx("inline-flex h-8 items-center gap-1.5 rounded-lg border border-line px-3 text-[13px] text-fg hover:bg-elevated disabled:opacity-50")}
         >
-          <Plus size={14} /> New workflow
+          <Plus size={14} /> {t("New workflow")}
         </button>
       )}
-      {!isTauri && <p className="text-[12px] text-fg-3">Saving workflows needs the desktop app.</p>}
+      {!isTauri && <p className="text-[12px] text-fg-3">{t("Saving workflows needs the desktop app.")}</p>}
     </div>
   );
 }

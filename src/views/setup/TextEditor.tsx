@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type * as MonacoApi from "monaco-editor/editor/editor.api";
 import { loadMonaco, type Monaco } from "../../lib/monaco";
+import { t } from "../../lib/i18n";
 
 let langs: Promise<unknown> | null = null;
 const loadLanguages = () =>
@@ -38,7 +39,7 @@ export function TextEditor({
     let alive = true;
     Promise.all([loadMonaco(), loadLanguages()])
       .then(([m]) => alive && setMonaco(m))
-      .catch((e: unknown) => alive && setFailed(e instanceof Error ? e.message : "The editor failed to load"));
+      .catch((e: unknown) => alive && setFailed(e instanceof Error ? e.message : t("The editor failed to load")));
     return () => {
       alive = false;
     };
@@ -101,7 +102,7 @@ export function TextEditor({
   if (failed) return <p className="p-6 text-[13px] text-error">{failed}</p>;
   return (
     <div ref={host} className="absolute inset-0">
-      {!monaco && <p className="p-6 text-[13px] text-fg-3">Opening the editor…</p>}
+      {!monaco && <p className="p-6 text-[13px] text-fg-3">{t("Opening the editor…")}</p>}
     </div>
   );
 }

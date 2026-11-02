@@ -9,12 +9,13 @@ import { useProject } from "../hooks/useWorkspace";
 import { diffStats, type AgentEvent, type EventOf, type FileChange } from "../lib/events";
 import { basename, clock, dirname, MOD } from "../lib/format";
 import { langForPath } from "../lib/highlight";
+import { t, tn } from "../lib/i18n";
 import { useStore, type ContextTab } from "../state/store";
 import { CopyButton, DiffView } from "./blocks/code";
 import { ChangeStat, ImageZoom } from "./blocks/EventBlocks";
 import { cx, IconButton } from "./ui";
 
-const TABS: { id: ContextTab; label: string; key: string }[] = [
+const TABS: { id: ContextTab; label: string; key: string }[] = /* i18n */ [
   { id: "files", label: "Files", key: "1" },
   { id: "changes", label: "Changes", key: "2" },
   { id: "preview", label: "Preview", key: "3" },
@@ -41,20 +42,20 @@ export function ContextPanel({ session }: { session: Session }) {
   return (
     <Tabs.Root value={tab} onValueChange={(v) => setTab(v as ContextTab)} className="flex h-full flex-col bg-sidebar">
       <div data-tauri-drag-region className="drag flex h-12 shrink-0 items-center gap-1 border-b border-line-soft pl-3 pr-2">
-        <Tabs.List aria-label="Context" className="flex gap-0.5">
-          {TABS.map((t) => (
+        <Tabs.List aria-label={t("Context")} className="flex gap-0.5">
+          {TABS.map((x) => (
             <Tabs.Trigger
-              key={t.id}
-              value={t.id}
-              title={`${t.label} (${MOD}${t.key})`}
+              key={x.id}
+              value={x.id}
+              title={`${t(x.label)} (${MOD}${x.key})`}
               className="relative h-7 rounded-md px-2.5 text-[12.5px] text-fg-2 hover:text-fg data-[state=active]:bg-elevated data-[state=active]:text-fg"
             >
-              {t.label}
-              {t.id === "changes" && d.changes.length > 0 && <span className="ml-1.5 text-[11px] tabular-nums text-fg-3">{d.changes.length}</span>}
+              {t(x.label)}
+              {x.id === "changes" && d.changes.length > 0 && <span className="ml-1.5 text-[11px] tabular-nums text-fg-3">{d.changes.length}</span>}
             </Tabs.Trigger>
           ))}
         </Tabs.List>
-        <IconButton label="Hide panel" shortcut={`${MOD}.`} onClick={toggle} size="sm" className="ml-auto">
+        <IconButton label={t("Hide panel")} shortcut={`${MOD}.`} onClick={toggle} size="sm" className="ml-auto">
           <PanelRightClose size={16} />
         </IconButton>
       </div>
@@ -133,8 +134,8 @@ function FilesTab({ changes, session }: { changes: FileChange[]; session: Sessio
     return (
       <Empty
         icon={File}
-        title="No files changed yet"
-        body="Files the agent creates or edits in this session appear here. AgentDeck doesn't browse your project folder on its own."
+        title={t("No files changed yet")}
+        body={t("Files the agent creates or edits in this session appear here. AgentDeck doesn't browse your project folder on its own.")}
       />
     );
   }
@@ -156,7 +157,7 @@ function FilesTab({ changes, session }: { changes: FileChange[]; session: Sessio
               <ChevronRight size={12} className={cx("shrink-0 text-fg-3 transition-transform", isOpen && "rotate-90")} />
               {isOpen ? <FolderOpen size={14} className="shrink-0 text-fg-3" /> : <Folder size={14} className="shrink-0 text-fg-3" />}
               <span className="truncate">{n.name}</span>
-              {hasChange && !isOpen && <span className="ml-auto h-1.5 w-1.5 rounded-full bg-warning" aria-label="Contains changes" />}
+              {hasChange && !isOpen && <span className="ml-auto h-1.5 w-1.5 rounded-full bg-warning" aria-label={t("Contains changes")} />}
             </button>
             {isOpen && <ul role="group">{render(n.children, depth + 1)}</ul>}
           </li>
@@ -182,7 +183,7 @@ function FilesTab({ changes, session }: { changes: FileChange[]; session: Sessio
               type="button"
               style={pad}
               onClick={() => openChange(n.path)}
-              title="Show changes"
+              title={t("Show changes")}
               className="flex h-7 w-full items-center gap-1.5 rounded-md pr-2.5 text-left text-[13px] hover:bg-surface"
             >
               {inner}
@@ -198,8 +199,8 @@ function FilesTab({ changes, session }: { changes: FileChange[]; session: Sessio
 
   return (
     <div className="scroll-quiet h-full overflow-y-auto px-2 py-2">
-      <p className="px-2.5 pb-2 text-xs text-fg-3">{session.live ? `Changed in ${project?.name ?? "this project"}` : project?.name}</p>
-      <ul role="tree" aria-label="Project files">
+      <p className="px-2.5 pb-2 text-xs text-fg-3">{session.live ? (project ? t("Changed in {name}", { name: project.name }) : t("Changed in this project")) : project?.name}</p>
+      <ul role="tree" aria-label={t("Project files")}>
         {render(tree, 0)}
       </ul>
     </div>
@@ -220,7 +221,7 @@ function ChangesTab({ changes, sessionId }: { changes: FileChange[]; sessionId: 
     document.getElementById("diff-scroll")?.scrollTo({ top: 0 });
   }, [current?.path]);
 
-  if (!current) return <Empty icon={FileCode2} title="No changes yet" body="Files the agent edits in this session show up here with a line-by-line diff." />;
+  if (!current) return <Empty icon={FileCode2} title={t("No changes yet")} body={t("Files the agent edits in this session show up here with a line-by-line diff.")} />;
 
   return (
     <div className="flex h-full flex-col">
@@ -247,16 +248,16 @@ function ChangesTab({ changes, sessionId }: { changes: FileChange[]; sessionId: 
       </ul>
       <div className="flex shrink-0 items-center gap-1 border-b border-line-soft py-1.5 pl-3 pr-1.5">
         <span className="min-w-0 flex-1 truncate font-mono text-[11.5px] text-fg-3" title={current.path}>
-          {dirname(current.path) ? `${dirname(current.path)}/` : "Project root"}
+          {dirname(current.path) ? `${dirname(current.path)}/` : t("Project root")}
         </span>
-        <CopyButton text={current.path} label="Copy path" />
-        <IconButton label="Previous file" size="sm" disabled={idx <= 0} onClick={() => openChange(files[idx - 1]!.path)}>
+        <CopyButton text={current.path} label={t("Copy path")} />
+        <IconButton label={t("Previous file")} size="sm" disabled={idx <= 0} onClick={() => openChange(files[idx - 1]!.path)}>
           <ChevronUp size={15} />
         </IconButton>
-        <IconButton label="Next file" size="sm" disabled={idx >= files.length - 1} onClick={() => openChange(files[idx + 1]!.path)}>
+        <IconButton label={t("Next file")} size="sm" disabled={idx >= files.length - 1} onClick={() => openChange(files[idx + 1]!.path)}>
           <ChevronDown size={15} />
         </IconButton>
-        <IconButton label="Open in diff review" size="sm" onClick={() => openReview(sessionId, current.path)}>
+        <IconButton label={t("Open in diff review")} size="sm" onClick={() => openReview(sessionId, current.path)}>
           <Maximize2 size={14} />
         </IconButton>
       </div>
@@ -270,14 +271,14 @@ function ChangesTab({ changes, sessionId }: { changes: FileChange[]; sessionId: 
 /* ---------------------------------------------------------------- preview */
 
 function PreviewTab({ image }: { image: EventOf<"image"> | undefined }) {
-  if (!image) return <Empty icon={ImageIcon} title="Nothing to preview" body="Screenshots and images the agent produces appear here." />;
+  if (!image) return <Empty icon={ImageIcon} title={t("Nothing to preview")} body={t("Screenshots and images the agent produces appear here.")} />;
   return <PreviewImage key={image.eventId} image={image} />;
 }
 
 function PreviewImage({ image }: { image: EventOf<"image"> }) {
   const { alt, caption, width, height } = image.payload;
   const { src, error } = useImageSrc(image.payload);
-  if (!src) return <Empty icon={ImageIcon} title={error ? "Couldn't show the image" : "Loading image…"} body={error ?? image.payload.path ?? ""} />;
+  if (!src) return <Empty icon={ImageIcon} title={error ? t("Couldn't show the image") : t("Loading image…")} body={error ?? image.payload.path ?? ""} />;
   return (
     <div className="flex h-full flex-col">
       <div className="flex shrink-0 items-center gap-2 border-b border-line-soft py-1.5 pl-3 pr-1.5">
@@ -288,14 +289,14 @@ function PreviewImage({ image }: { image: EventOf<"image"> }) {
           </span>
         ) : null}
         <ImageZoom src={src} alt={alt} caption={caption} naturalWidth={width}>
-          <IconButton label="Open full size" size="sm">
+          <IconButton label={t("Open full size")} size="sm">
             <Maximize2 size={14} />
           </IconButton>
         </ImageZoom>
       </div>
       <div className="scroll-quiet flex min-h-0 flex-1 items-start justify-center overflow-auto bg-[radial-gradient(var(--border-soft)_1px,transparent_1px)] p-6 [background-size:14px_14px]">
         <ImageZoom src={src} alt={alt} caption={caption} naturalWidth={width}>
-          <button type="button" className="cursor-zoom-in" aria-label={`Zoom ${caption ?? alt}`}>
+          <button type="button" className="cursor-zoom-in" aria-label={t("Zoom {name}", { name: caption ?? alt ?? "" })}>
             <img src={src} alt={alt} className="h-auto max-h-full w-auto max-w-full rounded-xl shadow-pop" draggable={false} />
           </button>
         </ImageZoom>
@@ -309,47 +310,59 @@ function PreviewImage({ image }: { image: EventOf<"image"> }) {
 function describe(e: AgentEvent, provider: string): string {
   switch (e.type) {
     case "user_message":
-      return "You sent a task";
+      return t("You sent a task");
     case "assistant_text":
-      return `${provider} replied`;
+      return t("{agent} replied", { agent: provider });
     case "tool_group":
       return e.payload.title;
     case "changeset":
-      return `Changed ${e.payload.files.length} ${e.payload.files.length === 1 ? "file" : "files"}`;
+      return tn(e.payload.files.length, "Changed {n} file", "Changed {n} files");
     case "test_result":
-      return `Tests: ${e.payload.passed} passed, ${e.payload.failed} failed`;
+      return t("Tests: {passed} passed, {failed} failed", { passed: e.payload.passed, failed: e.payload.failed });
     case "image":
-      return "Attached a screenshot";
+      return t("Attached a screenshot");
     case "permission":
-      return e.payload.state === "pending" ? `Asked: ${e.payload.command}` : e.payload.state === "denied" ? "Request denied" : "Request allowed";
+      return e.payload.state === "pending"
+        ? t("Asked: {question}", { question: e.payload.command })
+        : e.payload.state === "denied"
+          ? t("Request denied")
+          : t("Request allowed");
     case "error":
       return e.payload.title;
     case "notice":
-      return e.payload.tone === "demo" ? "Demo note" : e.payload.text;
+      return e.payload.tone === "demo" ? t("Demo note") : e.payload.text;
     case "progress":
       return e.payload.title;
     case "question":
-      return e.payload.state === "pending" ? `Asked: ${e.payload.questions[0]?.question ?? "a question"}` : "Question answered";
+      return e.payload.state === "pending"
+        ? e.payload.questions[0]
+          ? t("Asked: {question}", { question: e.payload.questions[0].question })
+          : t("Asked a question")
+        : t("Question answered");
     case "plan":
       return e.payload.state === "pending"
-        ? "Proposed a plan"
+        ? t("Proposed a plan")
         : e.payload.state === "handed_off" || e.payload.state === "workflow"
-          ? "Plan handed off"
+          ? t("Plan handed off")
           : e.payload.state === "approved"
-            ? "Plan approved"
-            : "Plan";
+            ? t("Plan approved")
+            : t("Plan");
     case "relay":
       return e.payload.kind === "message"
-        ? `Message from ${e.payload.fromProvider === "codex" ? "Codex" : "Claude Code"} (round ${e.payload.round})`
+        ? t("Message from {agent} (round {round})", { agent: e.payload.fromProvider === "codex" ? "Codex" : "Claude Code", round: e.payload.round })
         : e.payload.kind === "started"
-          ? "Relay started"
-          : "Relay ended";
+          ? t("Relay started")
+          : t("Relay ended");
     case "handoff":
-      return e.payload.direction === "in" ? "Received a plan from another session" : "Handed a plan to another session";
+      return e.payload.direction === "in" ? t("Received a plan from another session") : t("Handed a plan to another session");
     case "flow":
-      return e.payload.kind === "input" ? e.payload.label : e.payload.kind === "started" ? `Workflow started: ${e.payload.name}` : "Workflow ended";
+      return e.payload.kind === "input"
+        ? e.payload.label
+        : e.payload.kind === "started"
+          ? t("Workflow started: {name}", { name: e.payload.name })
+          : t("Workflow ended");
     case "denied":
-      return `Skipped ${e.payload.actions.length} ${e.payload.actions.length === 1 ? "action" : "actions"} that need your OK`;
+      return tn(e.payload.actions.length, "Skipped {n} action that needs your OK", "Skipped {n} actions that need your OK");
   }
 }
 
@@ -363,35 +376,35 @@ function ActivityTab({ session, events }: { session: Session; events: AgentEvent
     }
     return [];
   }, [events]);
-  const done = tasks.filter((t) => t.done).length;
+  const done = tasks.filter((x) => x.done).length;
   const timeline = events.filter((e) => e.type !== "notice");
 
-  if (events.length === 0) return <Empty icon={File} title="No activity yet" body="Agent steps, tool runs and approvals are listed here with their times." />;
+  if (events.length === 0) return <Empty icon={File} title={t("No activity yet")} body={t("Agent steps, tool runs and approvals are listed here with their times.")} />;
 
   return (
     <div className="scroll-quiet h-full overflow-y-auto px-4 py-4">
       {tasks.length > 0 && (
         <section className="mb-6">
           <div className="mb-2 flex items-baseline justify-between">
-            <h3 className="text-[13px] font-medium">Plan</h3>
+            <h3 className="text-[13px] font-medium">{t("Plan")}</h3>
             <span className="text-xs tabular-nums text-fg-3">
-              {done} of {tasks.length} done
+              {t("{done} of {total} done", { done, total: tasks.length })}
             </span>
           </div>
           <div className="mb-3 h-1 overflow-hidden rounded-full bg-elevated">
             <div className="h-full rounded-full bg-violet transition-[width] duration-500" style={{ width: `${(done / tasks.length) * 100}%` }} />
           </div>
           <ul className="space-y-1.5">
-            {tasks.map((t) => (
-              <li key={t.text} className="flex items-start gap-2 text-[12.5px]">
-                <span className={cx("mt-[5px] h-2 w-2 shrink-0 rounded-full", t.done ? "bg-violet" : "border border-fg-3")} />
-                <span className={t.done ? "text-fg-2" : "text-fg"}>{t.text.replace(/`/g, "")}</span>
+            {tasks.map((x) => (
+              <li key={x.text} className="flex items-start gap-2 text-[12.5px]">
+                <span className={cx("mt-[5px] h-2 w-2 shrink-0 rounded-full", x.done ? "bg-violet" : "border border-fg-3")} />
+                <span className={x.done ? "text-fg-2" : "text-fg"}>{x.text.replace(/`/g, "")}</span>
               </li>
             ))}
           </ul>
         </section>
       )}
-      <h3 className="mb-2 text-[13px] font-medium">Timeline</h3>
+      <h3 className="mb-2 text-[13px] font-medium">{t("Timeline")}</h3>
       <ol className="relative">
         <span aria-hidden className="absolute bottom-2 left-[3px] top-2 w-px bg-line" />
         {timeline.map((e) => (
