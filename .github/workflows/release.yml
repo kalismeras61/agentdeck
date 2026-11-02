@@ -1,13 +1,16 @@
-# Builds AgentDeck for Macs (Apple Silicon and Intel in one app), signs it with the Developer ID,
-# has Apple notarize it, and publishes the disk image and the signed update files as a release
-# of this repo, where installed copies look for updates.
+# Publishes a release by itself whenever main carries a version that isn't released yet:
+# raise "version" in src-tauri/tauri.conf.json (and Cargo.toml, package.json), push to main,
+# and this builds AgentDeck for every Mac (Apple Silicon and Intel in one app), signs it with the
+# Developer ID, has Apple notarize it, and publishes the disk image and the signed update files
+# as release v<version>, where installed copies find the update.
 #
-# Runs when a version tag is pushed (git tag v0.2.0 && git push origin v0.2.0), or by hand.
-# The secrets it needs are listed in docs/RELEASING.md.
+# Release notes come from docs/releases/v<version>.md when that file exists.
+# The secrets it needs are set once by scripts/setup-release-secrets.command (docs/RELEASING.md).
 name: Release
 
 on:
   push:
+    branches: [main]
     tags: ["v*"]
   workflow_dispatch:
 
@@ -19,13 +22,44 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+      release: ${{ steps.v.outputs.release }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: v
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          HAS_SECRETS: ${{ secrets.APPLE_CERTIFICATE != '' && secrets.TAURI_SIGNING_PRIVATE_KEY != '' }}
+        run: |
+          VERSION=$(node -p "require('./src-tauri/tauri.conf.json').version")
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          DRAFT=$(gh release view "v$VERSION" -R "$GITHUB_REPOSITORY" --json isDraft -q .isDraft 2>/dev/null || echo missing)
+          if [ "$DRAFT" = "false" ]; then
+            echo "v$VERSION is already released; nothing to do."
+            echo "release=false" >> "$GITHUB_OUTPUT"
+          elif [ "$HAS_SECRETS" != "true" ]; then
+            echo "::warning::v$VERSION isn't released, but the signing secrets aren't set. Run scripts/setup-release-secrets.command once on the Mac."
+            echo "release=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "Releasing v$VERSION."
+            echo "release=true" >> "$GITHUB_OUTPUT"
+          fi
+
   checks:
+    needs: version
+    if: needs.version.outputs.release == 'true'
     uses: ./.github/workflows/ci.yml
 
   mac:
-    needs: checks
+    needs: [version, checks]
+    if: needs.version.outputs.release == 'true'
     runs-on: macos-latest
     timeout-minutes: 90
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -39,7 +73,16 @@ jobs:
         with:
           workspaces: src-tauri
       - run: npm ci
-      - name: Build, sign, notarize and publish
+      - name: Release notes
+        id: notes
+        run: |
+          FILE="docs/releases/v$VERSION.md"
+          {
+            echo "body<<AGENTDECK_NOTES"
+            if [ -f "$FILE" ]; then cat "$FILE"; else echo "AgentDeck $VERSION. Download AgentDeck-$VERSION.dmg for any Mac (Apple Silicon or Intel); installed copies update themselves."; fi
+            echo "AGENTDECK_NOTES"
+          } >> "$GITHUB_OUTPUT"
+      - name: Build, sign and upload the app and update files (as a draft)
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -55,12 +98,14 @@ jobs:
         with:
           tagName: v__VERSION__
           releaseName: AgentDeck __VERSION__
-          releaseBody: See the notes below. Download AgentDeck-__VERSION__ for any Mac (Apple Silicon or Intel); installed copies update themselves.
-          releaseDraft: false
+          releaseBody: ${{ steps.notes.outputs.body }}
+          releaseCommitish: ${{ github.sha }}
+          # Published only after the disk image is notarized and attached (last step).
+          releaseDraft: true
           includeUpdaterJson: true
           # Tauri's own disk image step is flaky on macOS; the image is made below instead.
           args: --target universal-apple-darwin --bundles app --config {"bundle":{"createUpdaterArtifacts":true}}
-      - name: Disk image, notarized and stapled
+      - name: Disk image, notarized and stapled; publish
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
@@ -72,7 +117,6 @@ jobs:
           KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
         run: |
           set -euo pipefail
-          VERSION=$(node -p "require('./src-tauri/tauri.conf.json').version")
           APP=src-tauri/target/universal-apple-darwin/release/bundle/macos/AgentDeck.app
           # A keychain holding the certificate, for signing the disk image itself.
           KC=$RUNNER_TEMP/dmg.keychain-db
@@ -81,6 +125,7 @@ jobs:
           security set-keychain-settings -lut 3600 "$KC"
           security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KC"
           security import "$RUNNER_TEMP/cert.p12" -k "$KC" -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          rm -f "$RUNNER_TEMP/cert.p12"
           security set-key-partition-list -S apple-tool:,apple: -s -k "$KEYCHAIN_PASSWORD" "$KC" >/dev/null
           security list-keychains -d user -s "$KC" $(security list-keychains -d user | tr -d '"')
           STAGE=$(mktemp -d)
@@ -91,5 +136,7 @@ jobs:
           codesign --sign "$APPLE_SIGNING_IDENTITY" --keychain "$KC" --timestamp "$DMG"
           xcrun notarytool submit "$DMG" --apple-id "$APPLE_ID" --password "$APPLE_PASSWORD" --team-id "$APPLE_TEAM_ID" --wait
           xcrun stapler staple "$DMG"
-          gh release upload "v$VERSION" "$DMG" --clobber
-          rm -f "$RUNNER_TEMP/cert.p12"
+          spctl -a -t open --context context:primary-signature -vv "$DMG"
+          gh release upload "v$VERSION" "$DMG" --clobber -R "$GITHUB_REPOSITORY"
+          gh release edit "v$VERSION" --draft=false --latest -R "$GITHUB_REPOSITORY"
+          echo "Published https://github.com/$GITHUB_REPOSITORY/releases/tag/v$VERSION"

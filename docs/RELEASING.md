@@ -11,28 +11,37 @@ AgentDeck ships as one disk image for every Mac (Apple Silicon and Intel). It is
 | Update signing key | `~/.tauri/agentdeck-updater.key` (private), `.pub` (public) | Made by `release-mac.command` on its first run. Back the private key up: losing it means installed copies can't update to builds signed with a new key |
 | Repo | GitHub | `kalismeras61/agentdeck`, public |
 
-## Release from your Mac
+## Releasing (automatic)
 
-1. Raise `version` in `src-tauri/tauri.conf.json`, `src-tauri/Cargo.toml` and `package.json`.
-2. Double-click `release-mac.command` (next to the `agentdeck-m*.zip` files). It checks the certificate and notary credentials, builds the universal app, signs it, notarizes and staples the disk image, and writes `AgentDeck-release/` with:
-   - `AgentDeck-<version>.dmg`: what people download
-   - `AgentDeck.app.tar.gz` and `.sig`: what installed copies download and verify
-   - `latest.json`: what installed copies check
-3. If the GitHub CLI is signed in, it publishes these as release `v<version>` of `kalismeras61/agentdeck`. Otherwise upload the four files to a new release with that tag yourself.
+1. Raise `version` in `src-tauri/tauri.conf.json`, `src-tauri/Cargo.toml` (and `Cargo.lock`) and `package.json`.
+2. Optionally write the notes in `docs/releases/v<version>.md`.
+3. Push to `main`.
 
-## Release from GitHub Actions
+`.github/workflows/release.yml` sees a version on `main` that has no published release yet, runs the checks, builds the universal app on GitHub's macOS machines, signs it, has Apple notarize the disk image, and publishes release `v<version>` with:
 
-`.github/workflows/release.yml` runs the tests, then builds, signs, notarizes and publishes a release of this repo when a `v*` tag is pushed. Run `setup-release-secrets.command` once on your Mac to fill in its secrets (you type every password; nothing is written to disk):
+- `AgentDeck-<version>.dmg`: what people download
+- `AgentDeck.app.tar.gz` and `.sig`: what installed copies download and verify
+- `latest.json`: what installed copies check
+
+The release stays a draft until the notarized disk image is attached, so installed copies never see a half-finished release. Pushes that don't change the version do nothing. A `v*` tag push or "Run workflow" in the Actions tab also starts it.
+
+### One-time setup of the secrets
+
+Double-click `setup-release-secrets.command` on the Mac with the certificate. It signs in the GitHub CLI if needed (browser approval), exports the certificate (macOS asks for your login password), asks for your Apple ID and a new app-specific password and checks them with Apple, stores everything as Actions secrets, and starts the first release. Nothing secret is written to disk.
 
 | Secret | What |
 |---|---|
-| `APPLE_CERTIFICATE`, `APPLE_CERTIFICATE_PASSWORD` | The Developer ID certificate exported as .p12 (base64) and the export password |
+| `APPLE_CERTIFICATE`, `APPLE_CERTIFICATE_PASSWORD` | The Developer ID certificate as .p12 (base64) and a random export password |
 | `APPLE_SIGNING_IDENTITY`, `APPLE_TEAM_ID` | `Developer ID Application: … (TEAMID)` and the team ID |
 | `KEYCHAIN_PASSWORD` | Random; for the build machine's temporary keychain |
 | `APPLE_ID`, `APPLE_PASSWORD` | Apple ID email and an app-specific password, for notarization |
 | `TAURI_SIGNING_PRIVATE_KEY`, `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` | The update signing key (empty password) |
 
-Publishing uses the workflow's own `GITHUB_TOKEN`. The public update key must be in `plugins.updater.pubkey` in `tauri.conf.json` for builds made by the workflow.
+Publishing uses the workflow's own `GITHUB_TOKEN`. The public update key is in `plugins.updater.pubkey` in `tauri.conf.json`.
+
+## Releasing from your Mac (fallback)
+
+`release-mac.command` (next to the `agentdeck-m*.zip` files) does the same on your Mac with the keychain's certificate and the `agentdeck-notary` profile, writing the four files to `AgentDeck-release/`, and publishes them if the GitHub CLI is signed in.
 
 ## How updating works
 
