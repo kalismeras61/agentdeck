@@ -3,7 +3,8 @@ import { screenshotPath } from "./images";
  * Codex App Server notifications → AgentDeck's normalized events.
  * Same contract as the Claude normalizer: a pure function of the stored log, validated afterwards.
  */
-import { answerQuestion, attachmentsOf, relPath, type NormalizeContext, type StoredEvent } from "./claude";
+import { answerQuestion, attachmentsOf, capitalize, relPath, type NormalizeContext, type StoredEvent } from "./claude";
+import { t, tn } from "./i18n";
 
 type Json = Record<string, unknown>;
 type Item = {
@@ -51,20 +52,20 @@ function toUnified(diff: string, kind: string): string {
 
 function groupTitle(all: Item[]): string {
   const running = all.filter((i) => i.status === "running").length;
-  const notRun = all.filter((i) => i.status !== "running" && (i.meta === "Denied" || i.meta === "Not run")).length;
-  const done = all.filter((i) => i.status !== "running" && i.meta !== "Denied" && i.meta !== "Not run");
-  const n = (c: number, one: string, many: string) => `${c} ${c === 1 ? one : many}`;
+  // Compared with what the normalizer just wrote, in the same language.
+  const skipped = (i: Item) => i.meta === t("Denied") || i.meta === t("Not run");
+  const notRun = all.filter((i) => i.status !== "running" && skipped(i)).length;
+  const done = all.filter((i) => i.status !== "running" && !skipped(i));
   const parts: string[] = [];
   const cmds = done.filter((i) => i.kind === "command" || i.kind === "test").length;
   const edits = done.filter((i) => i.kind === "edit" || i.kind === "create").length;
   const other = done.length - cmds - edits;
-  if (cmds) parts.push(`ran ${n(cmds, "command", "commands")}`);
-  if (edits) parts.push(`changed ${n(edits, "file", "files")}`);
-  if (other) parts.push(n(other, "other step", "other steps"));
-  if (notRun) parts.push(notRun === 1 ? "1 step didn't run" : `${notRun} steps didn't run`);
-  if (running) parts.push(`${running} in progress`);
-  const s = parts.join(", ") || (running ? "Starting a step" : "Used tools");
-  return s.charAt(0).toUpperCase() + s.slice(1);
+  if (cmds) parts.push(tn(cmds, "ran {n} command", "ran {n} commands"));
+  if (edits) parts.push(tn(edits, "changed {n} file", "changed {n} files"));
+  if (other) parts.push(tn(other, "{n} other step", "{n} other steps"));
+  if (notRun) parts.push(tn(notRun, "{n} step didn't run", "{n} steps didn't run"));
+  if (running) parts.push(tn(running, "{n} in progress", "{n} in progress"));
+  return capitalize(parts.join(", ") || (running ? t("Starting a step") : t("Used tools")));
 }
 
 export function normalizeCodex(events: StoredEvent[], ctx: NormalizeContext): unknown[] {
@@ -87,7 +88,7 @@ export function normalizeCodex(events: StoredEvent[], ctx: NormalizeContext): un
     for (const { item } of items.values())
       if (item.status === "running") {
         item.status = "warning";
-        item.meta = "Not run";
+        item.meta = t("Not run");
       }
   };
   const ensureItem = (e: StoredEvent, raw: Json): Item | undefined => {
@@ -98,14 +99,14 @@ export function normalizeCodex(events: StoredEvent[], ctx: NormalizeContext): un
     let item: Item;
     if (type === "commandExecution") {
       const cmd = displayCommand(str(raw.command), raw.commandActions);
-      item = { id, kind: isTest(cmd) ? "test" : "command", label: "Ran", target: cmd, status: "running" };
+      item = { id, kind: isTest(cmd) ? "test" : "command", label: t("Ran"), target: cmd, status: "running" };
     } else if (type === "fileChange") {
       const paths = arr(raw.changes).map((c) => relPath(str(obj(c).path), root) ?? str(obj(c).path) ?? "");
-      item = { id, kind: "edit", label: "Edited", target: paths.join(", "), status: "running" };
+      item = { id, kind: "edit", label: t("Edited"), target: paths.join(", "), status: "running" };
     } else if (type === "mcpToolCall" || type === "dynamicToolCall") {
-      item = { id, kind: "analyze", label: `Used ${str(raw.tool) ?? "a tool"}`, target: str(raw.server), status: "running" };
+      item = { id, kind: "analyze", label: str(raw.tool) ? t("Used {name}", { name: str(raw.tool)! }) : t("Used a tool"), target: str(raw.server), status: "running" };
     } else if (type === "webSearch") {
-      item = { id, kind: "search", label: "Searched the web for", target: str(raw.query), status: "running" };
+      item = { id, kind: "search", label: t("Searched the web for"), target: str(raw.query), status: "running" };
     } else return undefined;
     if (!group) {
       group = { ...base(e, `g-${id}`), type: "tool_group", payload: { title: "", items: [] as Item[] } };
@@ -135,14 +136,14 @@ export function normalizeCodex(events: StoredEvent[], ctx: NormalizeContext): un
           if (perm) {
             const d = str(p.decision);
             obj(perm.payload).state = d === "deny" ? "denied" : d === "allow_session" ? "allowed_session" : "allowed";
-            if (p.auto === "plan_mode") obj(perm.payload).autoReason = "Refused by plan mode";
-            else if (p.auto === "workflow") obj(perm.payload).autoReason = "Allowed by the workflow";
+            if (p.auto === "plan_mode") obj(perm.payload).autoReason = t("Refused by plan mode");
+            else if (p.auto === "workflow") obj(perm.payload).autoReason = t("Allowed by the workflow");
             obj(perm.payload).decidedAt = e.ts;
           }
           break;
         }
         case "interrupt_requested":
-          push({ ...base(e, `n-${e.seq}`), type: "notice", payload: { tone: "info", text: "You asked the agent to stop." } });
+          push({ ...base(e, `n-${e.seq}`), type: "notice", payload: { tone: "info", text: t("You asked the agent to stop.") } });
           break;
         case "process_exit":
           expire();
@@ -151,8 +152,9 @@ export function normalizeCodex(events: StoredEvent[], ctx: NormalizeContext): un
               ...base(e, `x-${e.seq}`),
               type: "error",
               payload: {
-                title: "Codex stopped unexpectedly",
-                message: p.code === null || p.code === undefined ? "The process was ended by a signal." : `The process exited with code ${String(p.code)}.`,
+                title: t("{name} stopped unexpectedly", { name: "Codex" }),
+                message:
+                  p.code === null || p.code === undefined ? t("The process was ended by a signal.") : t("The process exited with code {code}.", { code: String(p.code) }),
                 detail: str(p.stderrTail) || undefined,
               },
             });
@@ -160,10 +162,10 @@ export function normalizeCodex(events: StoredEvent[], ctx: NormalizeContext): un
           break;
         case "app_restart":
           expire();
-          push({ ...base(e, `r-${e.seq}`), type: "notice", payload: { tone: "info", text: str(p.message) ?? "AgentDeck restarted." } });
+          push({ ...base(e, `r-${e.seq}`), type: "notice", payload: { tone: "info", text: str(p.message) ?? t("AgentDeck restarted.") } });
           break;
         case "error":
-          push({ ...base(e, `e-${e.seq}`), type: "error", payload: { title: str(p.title) ?? "Something went wrong", message: str(p.message) ?? "" } });
+          push({ ...base(e, `e-${e.seq}`), type: "error", payload: { title: str(p.title) ?? t("Something went wrong"), message: str(p.message) ?? "" } });
           break;
         case "stdout_text":
           push({ ...base(e, `t-${e.seq}`), type: "notice", payload: { tone: "info", text: str(p.text) ?? "" } });
@@ -181,7 +183,14 @@ export function normalizeCodex(events: StoredEvent[], ctx: NormalizeContext): un
           type: "notice",
           payload: {
             tone: "info",
-            text: opened === 1 ? `Codex started${model ? ` with ${model}` : ""}.` : `Codex resumed this conversation${model ? ` with ${model}` : ""}.`,
+            text:
+              opened === 1
+                ? model
+                  ? t("{name} started with {model}.", { name: "Codex", model })
+                  : t("{name} started.", { name: "Codex" })
+                : model
+                  ? t("{name} resumed this conversation with {model}.", { name: "Codex", model })
+                  : t("{name} resumed this conversation.", { name: "Codex" }),
           },
         });
         break;
@@ -196,7 +205,7 @@ export function normalizeCodex(events: StoredEvent[], ctx: NormalizeContext): un
         push({
           ...base(e, `ce-${e.seq}`),
           type: "error",
-          payload: { title: "Codex reported an error", message: str(err.message) ?? str(p.message) ?? "No details", detail: str(err.additionalDetails) },
+          payload: { title: t("{name} reported an error", { name: "Codex" }), message: str(err.message) ?? str(p.message) ?? t("No details"), detail: str(err.additionalDetails) },
         });
         break;
       }
@@ -211,12 +220,12 @@ export function normalizeCodex(events: StoredEvent[], ctx: NormalizeContext): un
         const type = str(raw.type);
         if (type === "imageView" && str(raw.path)?.startsWith("/")) {
           const path = str(raw.path)!;
-          push({ ...base(e, `img-${str(raw.id) ?? e.seq}`), type: "image", payload: { path, alt: "Image Codex looked at", caption: relPath(path, root) || path } });
+          push({ ...base(e, `img-${str(raw.id) ?? e.seq}`), type: "image", payload: { path, alt: t("Image {name} looked at", { name: "Codex" }), caption: relPath(path, root) || path } });
           break;
         }
         if (type === "commandExecution" && str(raw.status) === "completed") {
           const shot = screenshotPath(str(raw.command) ?? "", str(raw.cwd) ?? root);
-          if (shot) out.push({ ...base(e, `shot-${str(raw.id) ?? e.seq}`), type: "image", payload: { path: shot, alt: "Screenshot", caption: relPath(shot, root) || shot } });
+          if (shot) out.push({ ...base(e, `shot-${str(raw.id) ?? e.seq}`), type: "image", payload: { path: shot, alt: t("Screenshot"), caption: relPath(shot, root) || shot } });
         }
         if (type === "agentMessage") {
           const text = str(raw.text);
@@ -230,14 +239,14 @@ export function normalizeCodex(events: StoredEvent[], ctx: NormalizeContext): un
         item.durationMs = num(raw.durationMs);
         if (status === "declined") {
           item.status = "error";
-          item.meta = "Denied";
-          item.label = item.kind === "edit" ? "Edit" : "Run";
+          item.meta = t("Denied");
+          item.label = item.kind === "edit" ? t("Edit") : t("Run");
         } else if (status === "failed" || (num(raw.exitCode) ?? 0) !== 0) {
           item.status = "error";
-          if (num(raw.exitCode) !== undefined) item.meta = `Exit code ${num(raw.exitCode)}`;
+          if (num(raw.exitCode) !== undefined) item.meta = t("Exit code {code}", { code: num(raw.exitCode)! });
         } else item.status = "ok";
         const output = str(raw.aggregatedOutput);
-        if (output) item.output = output.length > MAX_OUTPUT ? `${output.slice(0, MAX_OUTPUT)}\n… output truncated` : output;
+        if (output) item.output = output.length > MAX_OUTPUT ? `${output.slice(0, MAX_OUTPUT)}\n… ${t("output truncated")}` : output;
         if (type === "fileChange" && status === "completed") {
           const files = arr(raw.changes)
             .map((c) => {
@@ -259,14 +268,14 @@ export function normalizeCodex(events: StoredEvent[], ctx: NormalizeContext): un
         const steps = arr(p.plan).map((s) => {
           const o = obj(s);
           const st = str(o.status);
-          return { label: str(o.step) ?? "Step", status: st === "completed" ? "done" : st === "inProgress" ? "active" : "pending" };
+          return { label: str(o.step) ?? t("Step"), status: st === "completed" ? "done" : st === "inProgress" ? "active" : "pending" };
         });
         if (!steps.length) break;
         const key = str(p.turnId) ?? String(e.seq);
         const existing = plans.get(key);
         if (existing) obj(existing.payload).steps = steps;
         else {
-          const ev = { ...base(e, `plan-${key}`), type: "progress", payload: { title: "Plan", steps } };
+          const ev = { ...base(e, `plan-${key}`), type: "progress", payload: { title: t("Plan"), steps } };
           plans.set(key, ev);
           push(ev);
         }
@@ -318,14 +327,14 @@ export function normalizeCodex(events: StoredEvent[], ctx: NormalizeContext): un
           diff = changes.map((c) => toUnified(str(c.diff) ?? "", str(obj(c.kind).type) ?? "update")).join("") || undefined;
           command = paths.length ? `Edit ${paths.join(", ")}` : "Edit files";
           risk = outside ? "high" : "low";
-          reason = reason || (outside ? "Changes files outside the project folder." : "Changes files in the project.");
-          if (str(params.grantRoot)) reason += ` Also asks to allow writes under ${str(params.grantRoot)} for this session.`;
+          reason = reason || (outside ? t("Changes files outside the project folder.") : t("Changes files in the project."));
+          if (str(params.grantRoot)) reason += ` ${t("Also asks to allow writes under {path} for this session.", { path: str(params.grantRoot)! })}`;
         } else {
           command = displayCommand(str(params.command), params.commandActions);
           risk = HIGH_RISK.test(command) ? "high" : "medium";
-          reason = reason || "Runs a shell command in the project folder.";
-          if (risk === "high") reason += " This command can delete data, change permissions, or affect other machines.";
-          if (obj(params.networkApprovalContext) && Object.keys(obj(params.networkApprovalContext)).length) reason += " It needs network access.";
+          reason = reason || t("Runs a shell command in the project folder.");
+          if (risk === "high") reason += ` ${t("This command can delete data, change permissions, or affect other machines.")}`;
+          if (obj(params.networkApprovalContext) && Object.keys(obj(params.networkApprovalContext)).length) reason += ` ${t("It needs network access.")}`;
         }
         const perm = {
           ...base(e, `perm-${rid}-${e.seq}`),
@@ -340,7 +349,7 @@ export function normalizeCodex(events: StoredEvent[], ctx: NormalizeContext): un
             reason,
             diff,
             supportsPersistentAllow: available.includes("acceptForSession"),
-            persistentLabel: available.includes("acceptForSession") ? "Allow for this session" : undefined,
+            persistentLabel: available.includes("acceptForSession") ? t("Allow for this session") : undefined,
             state: "pending",
           },
         };
@@ -362,10 +371,10 @@ export function normalizeCodex(events: StoredEvent[], ctx: NormalizeContext): un
           push({
             ...base(e, `tf-${e.seq}`),
             type: "error",
-            payload: { title: "The turn failed", message: str(err.message) ?? "Codex reported a failure without details.", detail: str(err.additionalDetails) },
+            payload: { title: t("The turn failed"), message: str(err.message) ?? t("{name} reported a failure without details.", { name: "Codex" }), detail: str(err.additionalDetails) },
           });
         } else if (turn.status === "interrupted") {
-          push({ ...base(e, `ti-${e.seq}`), type: "notice", payload: { tone: "info", text: "Stopped." } });
+          push({ ...base(e, `ti-${e.seq}`), type: "notice", payload: { tone: "info", text: t("Stopped.") } });
         }
         break;
       }

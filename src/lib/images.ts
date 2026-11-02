@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { isTauri } from "./native";
+import { t } from "./i18n";
 
 type Json = Record<string, unknown>;
 
@@ -38,7 +39,7 @@ export function useImageSrc(p: { src?: string; path?: string }): { src: string |
       return;
     }
     if (!isTauri) {
-      setState({ src: null, error: "Images from files show in the desktop app." });
+      setState({ src: null, error: t("Images from files show in the desktop app.") });
       return;
     }
     let gone = false;

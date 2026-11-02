@@ -3,24 +3,26 @@ import type { ProviderId } from "./events";
 import type { FlowRow, ModelProfile, Workflow } from "./live";
 import { useStore } from "../state/store";
 import { useMemo } from "react";
+import { t } from "./i18n";
 
 export type StageId = "plan" | "build" | "review";
 
-export const STAGES: { id: StageId; label: string; verb: string; hint: string }[] = [
+/** English labels and hints, shown with t(); `{word}` in a hint is the protocol word APPROVED. */
+export const STAGES: { id: StageId; label: string; verb: string; hint: string }[] = /* i18n */ [
   { id: "plan", label: "Plan", verb: "plans", hint: "Reads the code and writes the plan. Can't change files." },
   { id: "build", label: "Build", verb: "builds", hint: "Makes the changes. Risky steps still ask you." },
   {
     id: "review",
     label: "Review",
     verb: "reviews",
-    hint: "Checks the work and sends notes back until it writes APPROVED. Can't change files.",
+    hint: "Checks the work and sends notes back until it writes {word}. Can't change files.",
   },
 ];
 
 export const CLI_AGENTS = ["claude-code", "codex", "gemini-cli", "grok-build", "kimi-code", "antigravity"] as const;
 
-/** Ready-made workflows; saved ones come from the desktop app. */
-export const BUILT_IN: Workflow[] = [
+/** Ready-made workflows; saved ones come from the desktop app. Names are shown with t(). */
+export const BUILT_IN: Workflow[] = /* i18n */ [
   {
     id: "builtin:pbr",
     name: "Plan, build, review",
@@ -53,7 +55,7 @@ export function agentInfo(key: string, profiles: ModelProfile[]): { name: string
   if (!key) return null;
   if (key.startsWith("profile:")) {
     const p = profiles.find((m) => `profile:${m.id}` === key);
-    return p ? { name: p.name, provider: p.kind === "anthropic" ? "claude-code" : "api" } : { name: "A deleted model", provider: "api" };
+    return p ? { name: p.name, provider: p.kind === "anthropic" ? "claude-code" : "api" } : { name: t("A deleted model"), provider: "api" };
   }
   const provider = key as ProviderId;
   return { name: providerLabel[provider] ?? key, provider };

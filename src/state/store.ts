@@ -1,4 +1,4 @@
-import type { LocaleId } from "../lib/i18n";
+import { t, type LocaleId } from "../lib/i18n";
 import { create } from "zustand";
 import { createJSONStorage, persist, type StateStorage } from "zustand/middleware";
 import { demoProjects, demoSessions, providerModels, type Project, type Session, type WorkspaceId } from "../data/demo";
@@ -412,7 +412,7 @@ export const useStore = create<UiState & Actions>()(
             provider: prov,
             model: st.defaultModels[prov] ?? providerModels[prov][0] ?? "Default",
             status: "idle",
-            snippet: "No messages yet",
+            snippet: t("No messages yet"),
             startedAt: Date.now(),
             updatedAt: Date.now(),
             raw: [],
@@ -469,7 +469,7 @@ export const useStore = create<UiState & Actions>()(
                 type: "notice",
                 payload: {
                   tone: "demo",
-                  text: "Demo mode: your message is saved in this view only. Switch to This Mac to run a real Claude Code session.",
+                  text: t("Demo mode: your message is saved in this view only. Switch to This Mac to run a real Claude Code session."),
                 },
               };
               const isNew = x.raw.length === 0;
@@ -526,20 +526,19 @@ export const useStore = create<UiState & Actions>()(
                     tone: "demo",
                     text:
                       decision === "deny"
-                        ? "Demo mode: denial recorded in this view. A connected agent would be told the action did not run."
-                        : "Demo mode: approval recorded in this view. Nothing was executed because this is sample data.",
+                        ? t("Demo mode: denial recorded in this view. A connected agent would be told the action did not run.")
+                        : t("Demo mode: approval recorded in this view. Nothing was executed because this is sample data."),
                   },
                 };
                 const stillPending = raw.some((e) => {
                   const r = e as { type?: string; payload?: { state?: string } };
                   return r.type === "permission" && r.payload?.state === "pending";
                 });
-                const verb = decision === "deny" ? "Denied" : "Allowed";
                 return {
                   ...x,
                   raw: [...raw, notice],
                   status: stillPending ? "waiting" : "idle",
-                  snippet: `${verb} ${shortCommand(command)} (demo)`,
+                  snippet: decision === "deny" ? t("Denied {command} (demo)", { command: shortCommand(command) }) : t("Allowed {command} (demo)", { command: shortCommand(command) }),
                   updatedAt: Date.now(),
                 };
               }),
@@ -693,10 +692,10 @@ export const useStore = create<UiState & Actions>()(
                         ts: Date.now(),
                         provider: x.provider,
                         type: "notice",
-                        payload: { tone: "demo", text: "Demo mode: interrupt recorded." },
+                        payload: { tone: "demo", text: t("Demo mode: interrupt recorded.") },
                       },
                     ],
-                    { status: "idle", snippet: "Interrupted" },
+                    { status: "idle", snippet: t("Interrupted") },
                   ),
             ),
           }));

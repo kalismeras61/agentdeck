@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { create } from "zustand";
 import { liveApi, type ModelChoice, type ModelList } from "./live";
+import { t } from "./i18n";
 
 type ModelsState = {
   lists: Record<string, ModelList>;
@@ -40,7 +41,7 @@ export function useModels(provider: string | undefined, enabled = true) {
 
 /** A short name for a model id: the agent's own label when it has one. */
 export function modelName(models: ModelChoice[] | undefined, id: string): string {
-  if (!id || id === "default") return "Default model";
+  if (!id || id === "default") return t("Default model");
   const m = models?.find((x) => x.id === id);
   return m ? m.label.replace(/\s*\(recommended\)$/i, "") : id;
 }

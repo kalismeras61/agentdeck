@@ -1,6 +1,7 @@
 import { imageFromBlock, screenshotPath } from "./images";
 import { attachmentsOf, addedFileDiff, diffFromStrings, groupTitle, relPath, type NormalizeContext, type StoredEvent } from "./claude";
 import type { ProviderId, ToolItem } from "./events";
+import { t } from "./i18n";
 
 /**
  * Normalizer for agents that speak the Agent Client Protocol (Gemini CLI, Grok Build).
@@ -70,7 +71,7 @@ function textOf(content: unknown[]): string {
 
 export function normalizeAcp(provider: ProviderId, events: StoredEvent[], ctx: NormalizeContext): unknown[] {
   const root = ctx.projectPath;
-  const name = LABEL[provider] ?? "The agent";
+  const name = LABEL[provider] ?? t("The agent");
   const out: Json[] = [];
   const items = new Map<string, { item: Item; raw: Json; changed: boolean; shown: boolean }>();
   const perms = new Map<string, Json>();
@@ -89,7 +90,7 @@ export function normalizeAcp(provider: ProviderId, events: StoredEvent[], ctx: N
     for (const { item } of items.values())
       if (item.status === "running") {
         item.status = "warning";
-        item.meta = "Not run";
+        item.meta = t("Not run");
       }
   };
 
@@ -106,7 +107,7 @@ export function normalizeAcp(provider: ProviderId, events: StoredEvent[], ctx: N
       const item: Item = {
         id,
         kind: kindOf(str(u.kind), created),
-        label: str(u.title) ?? "Used a tool",
+        label: str(u.title) ?? t("Used a tool"),
         target: target && target !== str(u.title) ? target : undefined,
         status: statusOf(str(u.status)),
       };
@@ -122,17 +123,17 @@ export function normalizeAcp(provider: ProviderId, events: StoredEvent[], ctx: N
     if (str(u.title)) ref.item.label = str(u.title)!;
     if (u.status) ref.item.status = statusOf(str(u.status));
     const text = textOf(content);
-    if (text) ref.item.output = text.length > MAX_OUTPUT ? `${text.slice(0, MAX_OUTPUT)}\n… output truncated` : text;
-    if (ref.item.status === "error" && /cancel|denied|reject/i.test(text)) ref.item.meta = "Denied";
+    if (text) ref.item.output = text.length > MAX_OUTPUT ? `${text.slice(0, MAX_OUTPUT)}\n… ${t("output truncated")}` : text;
+    if (ref.item.status === "error" && /cancel|denied|reject/i.test(text)) ref.item.meta = t("Denied");
     if (ref.item.status === "ok" && !ref.shown) {
       ref.shown = true;
       content.forEach((c, i) => {
         const inner = obj(obj(c).content);
         const img = imageFromBlock(obj(c).type === "content" ? inner : obj(c));
-        if (img) out.push({ ...base(e, `img-${e.seq}-${id}-${i}`), type: "image", payload: { ...img, alt: `Image from ${ref.item.label}`, caption: ref.item.target ?? ref.item.label } });
+        if (img) out.push({ ...base(e, `img-${e.seq}-${id}-${i}`), type: "image", payload: { ...img, alt: t("Image from {name}", { name: ref.item.label }), caption: ref.item.target ?? ref.item.label } });
       });
       const shot = ref.item.kind === "command" ? screenshotPath(ref.item.target ?? "", root) : null;
-      if (shot) out.push({ ...base(e, `shot-${e.seq}-${id}`), type: "image", payload: { path: shot, alt: "Screenshot", caption: relPath(shot, root) || shot } });
+      if (shot) out.push({ ...base(e, `shot-${e.seq}-${id}`), type: "image", payload: { path: shot, alt: t("Screenshot"), caption: relPath(shot, root) || shot } });
     }
     if (ref.item.status === "ok" && !ref.changed) {
       const files = diffs
@@ -158,14 +159,14 @@ export function normalizeAcp(provider: ProviderId, events: StoredEvent[], ctx: N
             const d = str(p.decision);
             const pl = obj(perm.payload);
             pl.state = d === "deny" ? "denied" : d === "allow_session" ? "allowed_session" : "allowed";
-            if (p.auto === "plan_mode") pl.autoReason = "Refused by plan mode";
-            else if (p.auto === "workflow") pl.autoReason = "Allowed by the workflow";
+            if (p.auto === "plan_mode") pl.autoReason = t("Refused by plan mode");
+            else if (p.auto === "workflow") pl.autoReason = t("Allowed by the workflow");
             pl.decidedAt = e.ts;
           }
           break;
         }
         case "interrupt_requested":
-          push({ ...base(e, `n-${e.seq}`), type: "notice", payload: { tone: "info", text: "You asked the agent to stop." } });
+          push({ ...base(e, `n-${e.seq}`), type: "notice", payload: { tone: "info", text: t("You asked the agent to stop.") } });
           break;
         case "process_exit":
           expirePending();
@@ -174,8 +175,9 @@ export function normalizeAcp(provider: ProviderId, events: StoredEvent[], ctx: N
               ...base(e, `x-${e.seq}`),
               type: "error",
               payload: {
-                title: `${name} stopped unexpectedly`,
-                message: p.code === null || p.code === undefined ? "The process was ended by a signal." : `The process exited with code ${String(p.code)}.`,
+                title: t("{name} stopped unexpectedly", { name }),
+                message:
+                  p.code === null || p.code === undefined ? t("The process was ended by a signal.") : t("The process exited with code {code}.", { code: String(p.code) }),
                 detail: str(p.stderrTail) || undefined,
               },
             });
@@ -183,10 +185,10 @@ export function normalizeAcp(provider: ProviderId, events: StoredEvent[], ctx: N
           break;
         case "app_restart":
           expirePending();
-          push({ ...base(e, `r-${e.seq}`), type: "notice", payload: { tone: "info", text: str(p.message) ?? "AgentDeck restarted." } });
+          push({ ...base(e, `r-${e.seq}`), type: "notice", payload: { tone: "info", text: str(p.message) ?? t("AgentDeck restarted.") } });
           break;
         case "error":
-          push({ ...base(e, `e-${e.seq}`), type: "error", payload: { title: str(p.title) ?? "Something went wrong", message: str(p.message) ?? "" } });
+          push({ ...base(e, `e-${e.seq}`), type: "error", payload: { title: str(p.title) ?? t("Something went wrong"), message: str(p.message) ?? "" } });
           break;
         case "denied_actions": {
           const actions = arr(p.actions)
@@ -215,10 +217,10 @@ export function normalizeAcp(provider: ProviderId, events: StoredEvent[], ctx: N
       case "session/opened": {
         opened += 1;
         const text = p.resumed
-          ? `${name} resumed this conversation.`
+          ? t("{name} resumed this conversation.", { name })
           : opened === 1
-            ? `${name}${version ? ` ${version}` : ""} started.`
-            : `${name} started a new conversation; it couldn't reopen the previous one.`;
+            ? t("{name} started.", { name: version ? `${name} ${version}` : name })
+            : t("{name} started a new conversation; it couldn't reopen the previous one.", { name });
         push({ ...base(e, `o-${e.seq}`), type: "notice", payload: { tone: "info", text } });
         if (provider === "antigravity" && (opened === 1 || p.approvals !== lastApprovals)) {
           lastApprovals = p.approvals;
@@ -229,10 +231,10 @@ export function normalizeAcp(provider: ProviderId, events: StoredEvent[], ctx: N
               tone: "info",
               text:
                 p.approvals === "all"
-                  ? "Antigravity runs without asking: every command and file change goes ahead (you chose “Everything” for its approvals). Review what it did in Changes."
+                  ? t("Antigravity runs without asking: every command and file change goes ahead (you chose “Everything” for its approvals). Review what it did in Changes.")
                   : p.approvals === "auto"
-                    ? "Antigravity is in Auto mode: it edits files and runs commands it judges safe without asking; anything irreversible is skipped and listed."
-                    : "Antigravity can't ask before acting here: it edits files in the project without asking (review them in Changes), and anything else that needs your OK is skipped and listed.",
+                    ? t("Antigravity is in Auto mode: it edits files and runs commands it judges safe without asking; anything irreversible is skipped and listed.")
+                    : t("Antigravity can't ask before acting here: it edits files in the project without asking (review them in Changes), and anything else that needs your OK is skipped and listed."),
             },
           });
         }
@@ -248,8 +250,8 @@ export function normalizeAcp(provider: ProviderId, events: StoredEvent[], ctx: N
       case "update/plan": {
         const steps = arr(p.entries)
           .map(obj)
-          .map((x) => ({ label: str(x.content) ?? "Step", status: x.status === "completed" ? "done" : x.status === "in_progress" ? "active" : "pending" }));
-        if (steps.length) push({ ...base(e, `pl-${e.seq}`), type: "progress", payload: { title: "Plan", steps } });
+          .map((x) => ({ label: str(x.content) ?? t("Step"), status: x.status === "completed" ? "done" : x.status === "in_progress" ? "active" : "pending" }));
+        if (steps.length) push({ ...base(e, `pl-${e.seq}`), type: "progress", payload: { title: t("Plan"), steps } });
         break;
       }
       case "approval": {
@@ -279,12 +281,14 @@ export function normalizeAcp(provider: ProviderId, events: StoredEvent[], ctx: N
               ? "low"
               : "medium";
         let reason = isCmd
-          ? "Runs a shell command in the project folder."
+          ? t("Runs a shell command in the project folder.")
           : call.kind === "edit"
-            ? "Changes files in the project."
-            : `Asks to ${str(call.title) ?? "use a tool"}.`;
-        if (outside) reason += " It touches a path outside the project folder.";
-        if (risk === "high" && isCmd) reason += " This command can delete data, change permissions, or affect other machines.";
+            ? t("Changes files in the project.")
+            : str(call.title)
+              ? t("Asks to {action}.", { action: str(call.title)! })
+              : t("Asks to use a tool.");
+        if (outside) reason += ` ${t("It touches a path outside the project folder.")}`;
+        if (risk === "high" && isCmd) reason += ` ${t("This command can delete data, change permissions, or affect other machines.")}`;
         const perm = {
           ...base(e, `perm-${str(p.requestId)}`),
           type: "permission",
@@ -299,7 +303,7 @@ export function normalizeAcp(provider: ProviderId, events: StoredEvent[], ctx: N
             reason,
             diff: diffs[0]?.diff || undefined,
             supportsPersistentAllow: Boolean(always),
-            persistentLabel: always ? (str(always.name) ?? "Always allow") : undefined,
+            persistentLabel: always ? (str(always.name) ?? t("Always allow")) : undefined,
             state: "pending",
           },
         };
@@ -312,12 +316,15 @@ export function normalizeAcp(provider: ProviderId, events: StoredEvent[], ctx: N
         for (const { item } of items.values()) if (item.status === "running") item.status = "warning";
         const stop = str(p.stopReason);
         if (stop === "refusal")
-          push({ ...base(e, `te-${e.seq}`), type: "error", payload: { title: `${name} refused this request`, message: "The agent declined to continue." } });
+          push({ ...base(e, `te-${e.seq}`), type: "error", payload: { title: t("{name} refused this request", { name }), message: t("The agent declined to continue.") } });
         else if (stop === "max_tokens" || stop === "max_turn_requests")
           push({
             ...base(e, `te-${e.seq}`),
             type: "notice",
-            payload: { tone: "info", text: `${name} stopped early: it hit its ${stop === "max_tokens" ? "output" : "turn"} limit.` },
+            payload: {
+              tone: "info",
+              text: stop === "max_tokens" ? t("{name} stopped early: it hit its output limit.", { name }) : t("{name} stopped early: it hit its turn limit.", { name }),
+            },
           });
         break;
       }

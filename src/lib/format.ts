@@ -20,11 +20,11 @@ export function ago(ts: number, now = Date.now()): string {
 }
 
 export function duration(ms: number): string {
-  if (ms < 1000) return `${Math.round(ms)}ms`;
+  if (ms < 1000) return t("{n}ms", { n: Math.round(ms) });
   const s = ms / 1000;
-  if (s < 60) return `${s.toFixed(s < 10 ? 1 : 0)}s`;
+  if (s < 60) return t("{n}s", { n: s.toFixed(s < 10 ? 1 : 0) });
   const m = Math.floor(s / 60);
-  return `${m}m ${Math.round(s % 60)}s`;
+  return t("{m}m {s}s", { m, s: Math.round(s % 60) });
 }
 
 export function basename(p: string): string {

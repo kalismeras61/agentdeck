@@ -4,6 +4,7 @@
  */
 import type { StoredEvent } from "./claude";
 import { isTauri } from "./native";
+import { t } from "./i18n";
 
 export interface LiveProject {
   id: string;
@@ -343,13 +344,13 @@ export async function subscribeFileDrop(h: { onHover: (over: boolean) => void; o
 
 export async function pickFiles(): Promise<string[]> {
   const { open } = await import("@tauri-apps/plugin-dialog");
-  const picked = await open({ multiple: true, directory: false, title: "Attach files" });
+  const picked = await open({ multiple: true, directory: false, title: t("Attach files") });
   return Array.isArray(picked) ? picked : typeof picked === "string" ? [picked] : [];
 }
 
 export async function pickFolder(): Promise<string | null> {
   const { open } = await import("@tauri-apps/plugin-dialog");
-  const picked = await open({ directory: true, multiple: false, title: "Choose a project folder" });
+  const picked = await open({ directory: true, multiple: false, title: t("Choose a project folder") });
   return typeof picked === "string" ? picked : null;
 }
 
@@ -375,5 +376,5 @@ export async function subscribeLive(handlers: {
 export function errorText(e: unknown): string {
   if (typeof e === "string") return e;
   if (e instanceof Error) return e.message;
-  return "Something went wrong talking to the desktop app.";
+  return t("Something went wrong talking to the desktop app.");
 }

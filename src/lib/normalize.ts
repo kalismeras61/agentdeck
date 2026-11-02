@@ -3,13 +3,17 @@ import { normalizeAcp } from "./acp";
 import { normalizeApi } from "./api";
 import { normalizeCodex } from "./codex";
 import type { ProviderId } from "./events";
+import { t, tn } from "./i18n";
 
 type Json = Record<string, unknown>;
 const str = (v: unknown) => (typeof v === "string" ? v : undefined);
+/** "Chats" (the built-in place, translated) or a project name in quotes. */
+const place = (name: string) => (name === "Chats" ? t("Chats") : `“${name}”`);
 const asProvider = (v: unknown): ProviderId =>
   v === "codex" || v === "gemini-cli" || v === "grok-build" || v === "kimi-code" || v === "antigravity" || v === "api" ? v : "claude-code";
 
-const MODE_TEXT: Record<string, string> = {
+/** English keys; translated when the notice is made. */
+const MODE_TEXT: Record<string, string> = /* i18n */ {
   plan: "Plan mode on. The agent can read the project but AgentDeck refuses any change until you leave plan mode.",
   default: "Plan mode off. The agent can make changes again, with your approval.",
 };
@@ -131,7 +135,7 @@ export function normalizeFor(provider: ProviderId, events: StoredEvent[], ctx: N
         payload: {
           kind: "started",
           flowId: str(p.flowId) ?? "",
-          name: str(p.name) ?? "Workflow",
+          name: str(p.name) ?? t("Workflow"),
           task: str(p.task) ?? "",
           stage: stageOf(p.stage),
           stages: (Array.isArray(p.stages) ? p.stages : []).slice(0, 3).map((x) => {
@@ -150,7 +154,7 @@ export function normalizeFor(provider: ProviderId, events: StoredEvent[], ctx: N
           kind: "input",
           flowId: str(p.flowId) ?? "",
           stage: stageOf(p.stage),
-          label: str(p.label) ?? "Message",
+          label: str(p.label) ?? t("Message"),
           fromProvider: p.fromProvider ? asProvider(p.fromProvider) : undefined,
           fromSessionId: str(p.fromSessionId),
           markdown: str(p.text) ?? "",
@@ -166,7 +170,7 @@ export function normalizeFor(provider: ProviderId, events: StoredEvent[], ctx: N
       own.push({
         ...base(e, `fn-${e.seq}`),
         type: "notice",
-        payload: { tone: "info", text: `The workflow answers this agent's requests on its own, but left the next one for you: ${str(p.why) ?? "it looked risky"}.` },
+        payload: { tone: "info", text: t("The workflow answers this agent's requests on its own, but left the next one for you: {why}.", { why: str(p.why) ?? t("it looked risky") }) },
       });
     } else if (e.kind === "flow_plan_taken") {
       const rid = str(p.requestId);
@@ -183,11 +187,11 @@ export function normalizeFor(provider: ProviderId, events: StoredEvent[], ctx: N
         type: "notice",
         payload: {
           tone: "info",
-          text:
-            `Imported from ${str(p.from) ?? "the agent"}: ${n} ${n === 1 ? "message" : "messages"}.` +
-            (p.resumable === true
-              ? " Your next message continues the same conversation."
-              : " Its folder is unknown or gone, so the agent starts a fresh conversation here."),
+          text: `${tn(n, "Imported from {from}: {n} message.", "Imported from {from}: {n} messages.", { from: str(p.from) ?? t("the agent") })} ${
+            p.resumable === true
+              ? t("Your next message continues the same conversation.")
+              : t("Its folder is unknown or gone, so the agent starts a fresh conversation here.")
+          }`,
         },
       });
     } else if (e.kind === "imported_message") {
@@ -208,34 +212,53 @@ export function normalizeFor(provider: ProviderId, events: StoredEvent[], ctx: N
           tone: "info",
           text: merged
             ? p.merged
-              ? `Merged ${str(p.branch) ?? "the worktree's branch"} into ${str(p.base) ?? "the project's branch"}.`
+              ? t("Merged {branch} into {base}.", { branch: str(p.branch) ?? t("the worktree's branch"), base: str(p.base) ?? t("the project's branch") })
               : conflicts.length
-                ? `Merging into ${str(p.base) ?? "the project's branch"} stopped: ${conflicts.join(", ")} changed on both sides. Nothing was merged.`
-                : (str(p.message) ?? "Nothing to merge.")
-            : `The worktree was removed${p.branchDeleted ? ` with its branch ${str(p.branch) ?? ""}` : ""}. The agent starts a fresh conversation in the project folder; everything above stays here for you.`,
+                ? t("Merging into {base} stopped: {files} changed on both sides. Nothing was merged.", {
+                    base: str(p.base) ?? t("the project's branch"),
+                    files: conflicts.join(", "),
+                  })
+                : (str(p.message) ?? t("Nothing to merge."))
+            : `${
+                p.branchDeleted
+                  ? t("The worktree was removed with its branch {branch}.", { branch: str(p.branch) ?? "" })
+                  : t("The worktree was removed.")
+              } ${t("The agent starts a fresh conversation in the project folder; everything above stays here for you.")}`,
         },
       });
     } else if (e.kind === "approvals_changed") {
       const level = str(p.level);
-      const name = level === "all" ? "Everything (no approvals)" : level === "auto" ? "Auto" : "File edits";
+      const name = level === "all" ? t("Everything (no approvals)") : level === "auto" ? t("Auto") : t("File edits");
       own.push({
         ...base(e, `ap-${e.seq}`),
         type: "notice",
-        payload: { tone: "info", text: `Approvals changed to ${name}.${p.continued === true ? " Antigravity carries on with it now." : " The next message uses it."}` },
+        payload: {
+          tone: "info",
+          text: `${t("Approvals changed to {name}.", { name })} ${p.continued === true ? t("Antigravity carries on with it now.") : t("The next message uses it.")}`,
+        },
       });
     } else if (e.kind === "session_moved") {
       rest.push(e); // the provider normalizer treats the next start as a fresh one
-      const to = str(p.to) ?? "another project";
+      const to = str(p.to) ?? t("another project");
       own.push({
         ...base(e, `mv-${e.seq}`),
         type: "notice",
         payload: {
           tone: "info",
-          text: `Moved to ${to === "Chats" ? "Chats" : `“${to}”`}${str(p.from) ? ` from ${str(p.from) === "Chats" ? "Chats" : `“${str(p.from)}”`}` : ""}. ${p.kept === true ? "The agent carries on the same conversation there." : "The agent starts a fresh conversation in the new folder; everything above stays here for you."}`,
+          text: `${
+            str(p.from)
+              ? t("Moved to {to} from {from}.", { to: place(to), from: place(str(p.from)!) })
+              : t("Moved to {to}.", { to: place(to) })
+          } ${
+            p.kept === true
+              ? t("The agent carries on the same conversation there.")
+              : t("The agent starts a fresh conversation in the new folder; everything above stays here for you.")
+          }`,
         },
       });
     } else if (e.kind === "mode_changed") {
-      const text = MODE_TEXT[str(p.mode) ?? ""];
+      const mode = MODE_TEXT[str(p.mode) ?? ""];
+      const text = mode && t(mode);
       if (text)
         own.push({
           ...base(e, `m-${e.seq}`),

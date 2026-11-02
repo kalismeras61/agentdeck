@@ -1,4 +1,5 @@
 import { imageFromBlock, screenshotPath } from "./images";
+import { t, tn, useI18n } from "./i18n";
 /**
  * Claude Code stream-json → AgentDeck's normalized events.
  *
@@ -58,7 +59,7 @@ function shortPath(path: string | undefined, root: string): string | undefined {
 function toolText(content: unknown): string {
   if (typeof content === "string") return content;
   return arr(content)
-    .map((b) => (obj(b).type === "text" ? (str(obj(b).text) ?? "") : obj(b).type === "image" ? "[image]" : ""))
+    .map((b) => (obj(b).type === "text" ? (str(obj(b).text) ?? "") : obj(b).type === "image" ? `[${t("image")}]` : ""))
     .filter(Boolean)
     .join("\n");
 }
@@ -93,43 +94,44 @@ function itemFor(name: string, input: Json, root: string): Item {
   const file = str(input.file_path) ?? str(input.notebook_path) ?? str(input.path);
   switch (name) {
     case "Read":
-      return { id: "", kind: "read", label: "Read", target: shortPath(file, root), status: "running" };
+      return { id: "", kind: "read", label: t("Read"), target: shortPath(file, root), status: "running" };
     case "Grep":
-      return { id: "", kind: "search", label: "Searched", target: str(input.pattern), status: "running", meta: shortPath(file, root) };
+      return { id: "", kind: "search", label: t("Searched"), target: str(input.pattern), status: "running", meta: shortPath(file, root) };
     case "Glob":
-      return { id: "", kind: "search", label: "Listed", target: str(input.pattern), status: "running" };
+      return { id: "", kind: "search", label: t("Listed"), target: str(input.pattern), status: "running" };
     case "LS":
-      return { id: "", kind: "search", label: "Listed", target: shortPath(file, root) ?? ".", status: "running" };
+      return { id: "", kind: "search", label: t("Listed"), target: shortPath(file, root) ?? ".", status: "running" };
     case "Edit":
     case "MultiEdit":
     case "NotebookEdit":
-      return { id: "", kind: "edit", label: "Edited", target: shortPath(file, root), status: "running" };
+      return { id: "", kind: "edit", label: t("Edited"), target: shortPath(file, root), status: "running" };
     case "Write":
-      return { id: "", kind: "create", label: "Wrote", target: shortPath(file, root), status: "running" };
+      return { id: "", kind: "create", label: t("Wrote"), target: shortPath(file, root), status: "running" };
     case "Bash": {
       const cmd = str(input.command) ?? "";
       const isTest = /\b(test|pytest|jest|vitest|cargo test|go test|flutter test|npm (run )?test)\b/.test(cmd);
-      return { id: "", kind: isTest ? "test" : "command", label: "Ran", target: cmd, status: "running", meta: str(input.description) };
+      return { id: "", kind: isTest ? "test" : "command", label: t("Ran"), target: cmd, status: "running", meta: str(input.description) };
     }
     case "WebFetch":
-      return { id: "", kind: "search", label: "Fetched", target: str(input.url), status: "running" };
+      return { id: "", kind: "search", label: t("Fetched"), target: str(input.url), status: "running" };
     case "WebSearch":
-      return { id: "", kind: "search", label: "Searched the web for", target: str(input.query), status: "running" };
+      return { id: "", kind: "search", label: t("Searched the web for"), target: str(input.query), status: "running" };
     case "Task":
     case "Agent":
-      return { id: "", kind: "analyze", label: "Started a subagent", target: str(input.description) ?? str(input.subagent_type), status: "running" };
+      return { id: "", kind: "analyze", label: t("Started a subagent"), target: str(input.description) ?? str(input.subagent_type), status: "running" };
     default:
-      return { id: "", kind: "analyze", label: `Used ${name}`, target: file ? shortPath(file, root) : undefined, status: "running" };
+      return { id: "", kind: "analyze", label: t("Used {name}", { name }), target: file ? shortPath(file, root) : undefined, status: "running" };
   }
 }
 
-const didNotRun = (i: Item) => i.status === "error" || i.meta === "Not run" || i.meta === "Denied";
+/** Compared with what the normalizer just wrote, in the same language. */
+const didNotRun = (i: Item) => i.status === "error" || i.meta === t("Not run") || i.meta === t("Denied");
 
 export function groupTitle(all: Item[]): string {
   const running = all.filter((i) => i.status === "running").length;
   const failed = all.filter((i) => i.status !== "running" && didNotRun(i)).length;
   const items = all.filter((i) => i.status !== "running" && !didNotRun(i));
-  if (!items.length && !failed) return running === 1 ? "Starting a step" : `Starting ${running} steps`;
+  if (!items.length && !failed) return tn(running, "Starting a step", "Starting {n} steps");
   const count = (k: Item["kind"][]) => items.filter((i) => k.includes(i.kind)).length;
   const parts: string[] = [];
   const reads = count(["read"]);
@@ -137,16 +139,19 @@ export function groupTitle(all: Item[]): string {
   const edits = count(["edit", "create"]);
   const cmds = count(["command", "test"]);
   const other = count(["analyze"]);
-  const n = (c: number, one: string, many: string) => `${c} ${c === 1 ? one : many}`;
-  if (reads) parts.push(`read ${n(reads, "file", "files")}`);
-  if (searches) parts.push(`${n(searches, "search", "searches")}`);
-  if (edits) parts.push(`changed ${n(edits, "file", "files")}`);
-  if (cmds) parts.push(`ran ${n(cmds, "command", "commands")}`);
-  if (other) parts.push(`${n(other, "other step", "other steps")}`);
-  if (failed) parts.push(failed === 1 ? "1 step didn't run" : `${failed} steps didn't run`);
-  if (running) parts.push(`${running} in progress`);
-  const s = parts.join(", ") || "Used tools";
-  return s.charAt(0).toUpperCase() + s.slice(1);
+  if (reads) parts.push(tn(reads, "read {n} file", "read {n} files"));
+  if (searches) parts.push(tn(searches, "{n} search", "{n} searches"));
+  if (edits) parts.push(tn(edits, "changed {n} file", "changed {n} files"));
+  if (cmds) parts.push(tn(cmds, "ran {n} command", "ran {n} commands"));
+  if (other) parts.push(tn(other, "{n} other step", "{n} other steps"));
+  if (failed) parts.push(tn(failed, "{n} step didn't run", "{n} steps didn't run"));
+  if (running) parts.push(tn(running, "{n} in progress", "{n} in progress"));
+  return capitalize(parts.join(", ") || t("Used tools"));
+}
+
+/** Group titles start with a capital; the pieces are lower case so they can be joined. */
+export function capitalize(s: string): string {
+  return s.charAt(0).toLocaleUpperCase(useI18n.getState().locale) + s.slice(1);
 }
 
 const HIGH_RISK =
@@ -155,10 +160,10 @@ const HIGH_RISK =
 function persistentLabel(suggestions: unknown[]): string | undefined {
   if (!suggestions.length) return undefined;
   const s = obj(suggestions[0]);
-  if (s.type === "setMode" && s.mode === "acceptEdits") return "Allow edits for this session";
-  if (s.type === "addRules") return "Allow similar for this session";
-  if (s.type === "addDirectories") return "Allow this folder for this session";
-  return "Allow for this session";
+  if (s.type === "setMode" && s.mode === "acceptEdits") return t("Allow edits for this session");
+  if (s.type === "addRules") return t("Allow similar for this session");
+  if (s.type === "addDirectories") return t("Allow this folder for this session");
+  return t("Allow for this session");
 }
 
 function permissionFrom(e: StoredEvent, root: string) {
@@ -177,28 +182,28 @@ function permissionFrom(e: StoredEvent, root: string) {
   if (tool === "Bash") {
     command = str(input.command) ?? "";
     risk = HIGH_RISK.test(command) ? "high" : "medium";
-    reason = str(input.description) ? `${str(input.description)}.` : "Runs a shell command in the project folder.";
-    if (risk === "high") reason += " This command can delete data, change permissions, or affect other machines.";
+    reason = str(input.description) ? `${str(input.description)}.` : t("Runs a shell command in the project folder.");
+    if (risk === "high") reason += ` ${t("This command can delete data, change permissions, or affect other machines.")}`;
   } else if (EDIT_TOOLS.has(tool)) {
     const verb = tool === "Write" ? "Write" : "Edit";
     command = `${verb} ${shortPath(file, root) ?? "a file"}`;
     risk = outside ? "high" : "low";
     if (tool === "Write") {
       diff = addedFileDiff(str(input.content) ?? "");
-      reason = "Creates the file, or replaces it if it exists.";
+      reason = t("Creates the file, or replaces it if it exists.");
     } else if (tool === "Edit") {
       diff = diffFromStrings(str(input.old_string) ?? "", str(input.new_string) ?? "");
-      reason = "Changes part of this file.";
+      reason = t("Changes part of this file.");
     } else {
-      reason = "Changes this file.";
+      reason = t("Changes this file.");
     }
-    if (outside) reason += " The file is outside the project folder.";
+    if (outside) reason += ` ${t("The file is outside the project folder.")}`;
   } else if (tool === "WebFetch") {
     command = `Fetch ${str(input.url) ?? ""}`;
-    reason = "Downloads a web page so the agent can read it.";
+    reason = t("Downloads a web page so the agent can read it.");
   } else {
     command = `${tool} ${JSON.stringify(input).slice(0, 300)}`;
-    reason = str(req.description) ?? `Uses the ${tool} tool.`;
+    reason = str(req.description) ?? t("Uses the {tool} tool.", { tool });
   }
   const decision = str(req.decision_reason);
   if (decision && !reason.includes(decision)) reason += ` ${decision}`;
@@ -258,7 +263,7 @@ export function normalizeClaude(events: StoredEvent[], ctx: NormalizeContext): u
     for (const { item } of items.values())
       if (item.status === "running") {
         item.status = "warning";
-        item.meta = "Not run";
+        item.meta = t("Not run");
       }
   };
 
@@ -279,14 +284,14 @@ export function normalizeClaude(events: StoredEvent[], ctx: NormalizeContext): u
             const pl = obj(perm.payload);
             if (perm.type === "plan") pl.state = d === "deny" ? "kept" : "approved";
             else pl.state = d === "deny" ? "denied" : d === "allow_session" ? "allowed_session" : "allowed";
-            if (p.auto === "plan_mode") pl.autoReason = "Refused by plan mode";
-            else if (p.auto === "workflow") pl.autoReason = "Allowed by the workflow";
+            if (p.auto === "plan_mode") pl.autoReason = t("Refused by plan mode");
+            else if (p.auto === "workflow") pl.autoReason = t("Allowed by the workflow");
             pl.decidedAt = e.ts;
           }
           break;
         }
         case "interrupt_requested":
-          push({ ...base(e, `n-${e.seq}`), type: "notice", payload: { tone: "info", text: "You asked the agent to stop." } });
+          push({ ...base(e, `n-${e.seq}`), type: "notice", payload: { tone: "info", text: t("You asked the agent to stop.") } });
           break;
         case "imported":
           // A resumable import continues the agent's own conversation.
@@ -309,8 +314,9 @@ export function normalizeClaude(events: StoredEvent[], ctx: NormalizeContext): u
               ...base(e, `x-${e.seq}`),
               type: "error",
               payload: {
-                title: "Claude Code stopped unexpectedly",
-                message: p.code === null || p.code === undefined ? "The process was ended by a signal." : `The process exited with code ${String(p.code)}.`,
+                title: t("{name} stopped unexpectedly", { name: "Claude Code" }),
+                message:
+                  p.code === null || p.code === undefined ? t("The process was ended by a signal.") : t("The process exited with code {code}.", { code: String(p.code) }),
                 detail: str(p.stderrTail) || undefined,
               },
             });
@@ -319,10 +325,10 @@ export function normalizeClaude(events: StoredEvent[], ctx: NormalizeContext): u
         case "app_restart":
           freshProcess = true;
           expirePending();
-          push({ ...base(e, `r-${e.seq}`), type: "notice", payload: { tone: "info", text: str(p.message) ?? "AgentDeck restarted." } });
+          push({ ...base(e, `r-${e.seq}`), type: "notice", payload: { tone: "info", text: str(p.message) ?? t("AgentDeck restarted.") } });
           break;
         case "error":
-          push({ ...base(e, `e-${e.seq}`), type: "error", payload: { title: str(p.title) ?? "Something went wrong", message: str(p.message) ?? "" } });
+          push({ ...base(e, `e-${e.seq}`), type: "error", payload: { title: str(p.title) ?? t("Something went wrong"), message: str(p.message) ?? "" } });
           break;
         case "stdout_text":
           push({ ...base(e, `t-${e.seq}`), type: "notice", payload: { tone: "info", text: str(p.text) ?? "" } });
@@ -340,10 +346,15 @@ export function normalizeClaude(events: StoredEvent[], ctx: NormalizeContext): u
         inits += 1;
         const version = str(p.claude_code_version);
         const model = str(p.model);
+        const name = version ? `Claude Code ${version}` : "Claude Code";
         const text =
           inits === 1
-            ? `Claude Code${version ? ` ${version}` : ""} started${model ? ` with ${model}` : ""}.`
-            : `Claude Code resumed this conversation${model ? ` with ${model}` : ""}.`;
+            ? model
+              ? t("{name} started with {model}.", { name, model })
+              : t("{name} started.", { name })
+            : model
+              ? t("{name} resumed this conversation with {model}.", { name: "Claude Code", model })
+              : t("{name} resumed this conversation.", { name: "Claude Code" });
         push({ ...base(e, `i-${e.seq}`), type: "notice", payload: { tone: "info", text } });
         break;
       }
@@ -351,7 +362,7 @@ export function normalizeClaude(events: StoredEvent[], ctx: NormalizeContext): u
         push({
           ...base(e, `ar-${e.seq}`),
           type: "notice",
-          payload: { tone: "info", text: `The API returned an error, retrying (attempt ${String(p.attempt ?? "?")} of ${String(p.max_retries ?? "?")}).` },
+          payload: { tone: "info", text: t("The API returned an error, retrying (attempt {attempt} of {max}).", { attempt: String(p.attempt ?? "?"), max: String(p.max_retries ?? "?") }) },
         });
         break;
       case "assistant": {
@@ -372,16 +383,16 @@ export function normalizeClaude(events: StoredEvent[], ctx: NormalizeContext): u
               return;
             }
             if (name === "TodoWrite") {
-              const todos = arr(input.todos).map((t) => obj(t));
+              const todos = arr(input.todos).map((x) => obj(x));
               if (todos.length) {
                 push({
                   ...base(e, `todo-${id}`),
                   type: "progress",
                   payload: {
-                    title: "Plan",
-                    steps: todos.map((t) => ({
-                      label: str(t.content) ?? str(t.activeForm) ?? "Step",
-                      status: t.status === "completed" ? "done" : t.status === "in_progress" ? "active" : "pending",
+                    title: t("Plan"),
+                    steps: todos.map((td) => ({
+                      label: str(td.content) ?? str(td.activeForm) ?? t("Step"),
+                      status: td.status === "completed" ? "done" : td.status === "in_progress" ? "active" : "pending",
                     })),
                   },
                 });
@@ -410,13 +421,13 @@ export function normalizeClaude(events: StoredEvent[], ctx: NormalizeContext): u
           const text = toolText(b.content);
           const isError = b.is_error === true;
           ref.item.status = isError ? "error" : "ok";
-          if (isError && /denied/i.test(text)) ref.item.meta = "Denied";
+          if (isError && /denied/i.test(text)) ref.item.meta = t("Denied");
           if (isError && /in plan mode/i.test(text)) {
-            ref.item.meta = "Plan mode";
-            ref.item.label = "Held back";
+            ref.item.meta = t("Plan mode");
+            ref.item.label = t("Held back");
           }
           if (text && (ref.item.kind === "command" || ref.item.kind === "test" || isError)) {
-            ref.item.output = text.length > MAX_OUTPUT ? `${text.slice(0, MAX_OUTPUT)}\n… output truncated` : text;
+            ref.item.output = text.length > MAX_OUTPUT ? `${text.slice(0, MAX_OUTPUT)}\n… ${t("output truncated")}` : text;
           }
           // Pictures the agent looked at (Read on an image, screenshot tools) and screenshots it saved.
           if (!isError) {
@@ -424,10 +435,10 @@ export function normalizeClaude(events: StoredEvent[], ctx: NormalizeContext): u
             const caption = (file && relPath(file, root)) || file || ref.name;
             arr(b.content).forEach((c, i) => {
               const img = imageFromBlock(obj(c));
-              if (img) out.push({ ...base(e, `img-${e.seq}-${String(b.tool_use_id)}-${i}`), type: "image", payload: { ...img, alt: `Image from ${ref.name}`, caption } });
+              if (img) out.push({ ...base(e, `img-${e.seq}-${String(b.tool_use_id)}-${i}`), type: "image", payload: { ...img, alt: t("Image from {name}", { name: ref.name }), caption } });
             });
             const shot = ref.name === "Bash" ? screenshotPath(str(ref.input.command) ?? "", root) : null;
-            if (shot) out.push({ ...base(e, `shot-${e.seq}-${String(b.tool_use_id)}`), type: "image", payload: { path: shot, alt: "Screenshot", caption: relPath(shot, root) || shot } });
+            if (shot) out.push({ ...base(e, `shot-${e.seq}-${String(b.tool_use_id)}`), type: "image", payload: { path: shot, alt: t("Screenshot"), caption: relPath(shot, root) || shot } });
           }
           if (!isError && EDIT_TOOLS.has(ref.name)) {
             const file = str(result.filePath) ?? str(ref.input.file_path) ?? str(ref.input.notebook_path);
@@ -498,8 +509,8 @@ export function normalizeClaude(events: StoredEvent[], ctx: NormalizeContext): u
               ...base(e, `re-${e.seq}`),
               type: "error",
               payload: {
-                title: e.kind === "result/error_max_turns" ? "The agent hit its turn limit" : "The turn ended with an error",
-                message: str(p.result) || errors[0] || "Claude Code reported an error without details.",
+                title: e.kind === "result/error_max_turns" ? t("The agent hit its turn limit") : t("The turn ended with an error"),
+                message: str(p.result) || errors[0] || t("{name} reported an error without details.", { name: "Claude Code" }),
                 detail: errors.length > 1 ? errors.join("\n") : undefined,
               },
             });
