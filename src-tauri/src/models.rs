@@ -211,6 +211,7 @@ fn builtin(provider: &str) -> Vec<ModelChoice> {
         "codex" => vec![default_choice("Codex")],
         "gemini-cli" => vec![default_choice("Gemini CLI")],
         "grok-build" => vec![default_choice("Grok Build")],
+        "kimi-code" => vec![default_choice("Kimi Code")],
         "antigravity" => vec![default_choice("Antigravity")],
         _ => vec![],
     }
@@ -394,13 +395,17 @@ fn probe(provider: &str) -> Result<Vec<ModelChoice>, String> {
             let v: Value = serde_json::from_slice(&out.stdout).map_err(|_| "agy didn't list its models as JSON".to_string())?;
             Ok(from_agy(&v))
         }
-        "gemini-cli" | "grok-build" => {
+        "gemini-cli" | "grok-build" | "kimi-code" => {
             let spec = crate::acp::spec(provider).ok_or("Unknown agent")?;
             let bin = crate::providers::find_binary(spec.binary)
                 .ok_or_else(|| format!("{} isn't installed", spec.label))?;
             // Same as a real session: a key saved in AgentDeck is used for this run only.
             let mut env = Vec::new();
-            if let Some(k) = crate::secrets::get(&crate::acp::key_name(provider)).filter(|k| !k.trim().is_empty()) {
+            if let Some(k) = (!spec.key_env.is_empty())
+                .then(|| crate::secrets::get(&crate::acp::key_name(provider)))
+                .flatten()
+                .filter(|k| !k.trim().is_empty())
+            {
                 env.push((spec.key_env, k));
                 if provider == "gemini-cli" {
                     env.push(("GEMINI_CLI_AUTH_OVERRIDE", spec.key_method.to_string()));

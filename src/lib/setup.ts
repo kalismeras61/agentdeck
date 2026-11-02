@@ -1,7 +1,7 @@
 import { isTauri } from "./native";
 
 export interface AgentSetupState {
-  id: "claude-code" | "codex" | "gemini-cli" | "grok-build" | "antigravity";
+  id: "claude-code" | "codex" | "gemini-cli" | "grok-build" | "kimi-code" | "antigravity";
   name: string;
   maker: string;
   installed: boolean;

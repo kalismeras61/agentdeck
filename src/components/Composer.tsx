@@ -38,8 +38,8 @@ export function Composer({ session }: { session: Session }) {
   const profile = useStore((s) => (session.profileId ? s.profiles.find((m) => m.id === session.profileId) : undefined));
   const peer = useStore((s) => (relay ? s.sessions.find((x) => x.id === (relay.aSession === session.id ? relay.bSession : relay.aSession)) : undefined));
   // "@codex …" / "@claude …" sends to that agent when it's part of this relay.
-  const mention = /^@(claude|codex|gemini|grok|agy|antigravity)\b[\s,:]*/i.exec(draft);
-  const MENTION = { claude: "claude-code", codex: "codex", gemini: "gemini-cli", grok: "grok-build", agy: "antigravity", antigravity: "antigravity" } as const;
+  const mention = /^@(claude|codex|gemini|grok|kimi|agy|antigravity)\b[\s,:]*/i.exec(draft);
+  const MENTION = { claude: "claude-code", codex: "codex", gemini: "gemini-cli", grok: "grok-build", kimi: "kimi-code", agy: "antigravity", antigravity: "antigravity" } as const;
   const mentioned = mention ? MENTION[mention[1]!.toLowerCase() as keyof typeof MENTION] : undefined;
   const target = mentioned && peer && peer.provider === mentioned && session.provider !== mentioned ? peer : session;
   const canPlan = Boolean(session.live);
@@ -456,7 +456,7 @@ function AgentPicker({ session }: { session: Session }) {
       <Dropdown.Portal>
         <Dropdown.Content side="top" align="start" sideOffset={6} className="z-50 min-w-[220px] rounded-xl border border-line bg-elevated p-1 shadow-pop">
           <Dropdown.Label className="px-2 pb-1 pt-1.5 text-[11px] text-fg-3">Agents on this Mac</Dropdown.Label>
-          {withoutHidden(["claude-code", "codex", "gemini-cli", "grok-build", "antigravity"] as const, agyEnabled).map((p) => (
+          {withoutHidden(["claude-code", "codex", "gemini-cli", "grok-build", "kimi-code", "antigravity"] as const, agyEnabled).map((p) => (
             <Dropdown.Item key={p} onSelect={() => setAgent(session.id, p)} className={item}>
               <AgentMark provider={p} size={16} /> {providerLabel[p]}
               {session.provider === p && !session.profileId && <Check size={14} className="ml-auto text-violet-text" />}

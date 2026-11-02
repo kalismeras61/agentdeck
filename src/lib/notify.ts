@@ -1,7 +1,7 @@
 import type { LiveSessionRow } from "./live";
 import { useStore } from "../state/store";
 
-const LABEL: Record<string, string> = { "claude-code": "Claude Code", codex: "Codex", "gemini-cli": "Gemini CLI", "grok-build": "Grok Build", antigravity: "Antigravity" };
+const LABEL: Record<string, string> = { "claude-code": "Claude Code", codex: "Codex", "gemini-cli": "Gemini CLI", "grok-build": "Grok Build", "kimi-code": "Kimi Code", antigravity: "Antigravity" };
 
 let allowed: boolean | null = null;
 

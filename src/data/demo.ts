@@ -607,6 +607,7 @@ export const providerModels: Record<ProviderId, string[]> = {
   codex: ["gpt-5-codex"],
   "gemini-cli": [],
   "grok-build": [],
+  "kimi-code": [],
   antigravity: [],
   api: [],
 };
@@ -626,9 +627,10 @@ export const providerLabel: Record<ProviderId, string> = {
   codex: "Codex",
   "gemini-cli": "Gemini CLI",
   "grok-build": "Grok Build",
+  "kimi-code": "Kimi Code",
   antigravity: "Antigravity",
   api: "Model API",
 };
 
 /** Agents that can run as live sessions, in menu order. */
-export const liveProviders: ProviderId[] = ["claude-code", "codex", "gemini-cli", "grok-build", "antigravity"];
+export const liveProviders: ProviderId[] = ["claude-code", "codex", "gemini-cli", "grok-build", "kimi-code", "antigravity"];

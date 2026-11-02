@@ -4,7 +4,7 @@
 
 **One Mac workspace for every AI coding agent you already use.**
 
-Run Claude Code, Codex, Gemini CLI and your own models side by side. Read their work as clean, structured output, review every diff, answer their questions and approvals in one place, and let them plan, build and review each other's work.
+Run Claude Code, Codex, Gemini CLI, Kimi Code and your own models side by side. Read their work as clean, structured output, review every diff, answer their questions and approvals in one place, and let them plan, build and review each other's work.
 
 Your CLIs. Your accounts. No API keys required.
 
@@ -71,7 +71,7 @@ Type `/` in the message box for the agent's own commands in that folder (Claude 
 - **Agent setup.** Edit `CLAUDE.md`, `AGENTS.md`, `GEMINI.md`, skills, commands and subagents, global and per project, in one tree.
 - **Smart terminal.** Your own shell in the project folder. Ask any agent about the selection or the last 80 lines, with a one-click "Explain this error".
 - **Attach anything.** Drop files or folders, paste a screenshot, or pick files. Images reach the agent as images.
-- **Your own models.** DeepSeek, Kimi, Ollama, LM Studio, OpenRouter or any OpenAI- or Anthropic-compatible endpoint, with the same approvals, plan mode and workflows.
+- **Your own models.** DeepSeek, Kimi, GLM (Z.ai), Ollama, LM Studio, OpenRouter or any OpenAI- or Anthropic-compatible endpoint, with the same approvals, plan mode and workflows.
 - **Sign in where it fails.** When an agent needs a login, a button runs its own sign-in in a built-in terminal and sends your message again.
 - **Updates itself.** Signed updates, checked against a key built into the app.
 
@@ -97,6 +97,7 @@ The agents run as their own processes and use their own memory, roughly 140–21
 | **Codex** | `codex app-server`, JSON-RPC over stdio | ChatGPT plan or OpenAI API key |
 | **Gemini CLI** | Agent Client Protocol | Google Workspace or Cloud account, or a Gemini API key |
 | **Grok Build** | Agent Client Protocol | xAI account or API key |
+| **Kimi Code** | `kimi acp`, Agent Client Protocol | Kimi Code plan or Moonshot AI API key |
 | **Antigravity** *(experimental, off by default)* | `agy` headless stream-json | Google account; see the note in Settings about Google's terms |
 | **Your models** | AgentDeck's built-in agent, or inside Claude Code for Anthropic-compatible APIs | API key in your Keychain |
 

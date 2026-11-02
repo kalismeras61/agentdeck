@@ -61,6 +61,15 @@ pub const AGENTS: &[AgentSpec] = &[
         key_env: "XAI_API_KEY",
         key_method: "xai-api-key",
     },
+    AgentSpec {
+        provider: "kimi-code",
+        label: "Kimi Code",
+        binary: "kimi",
+        args: &["acp"],
+        sign_in: "Kimi Code isn't signed in. Run `kimi login` in a terminal (or Sign in below), then try again.",
+        key_env: "",
+        key_method: "",
+    },
 ];
 
 pub fn spec(provider: &str) -> Option<&'static AgentSpec> {
@@ -229,7 +238,10 @@ impl AcpManager {
         // The same environment the agent gets in Terminal (sign-in settings, proxies, keys).
         crate::shellenv::apply(&mut cmd);
         // An API key saved in AgentDeck (Keychain) goes to the agent's own variable.
-        let key = crate::secrets::get(&key_name(spec.provider)).filter(|k| !k.trim().is_empty());
+        let key = (!spec.key_env.is_empty())
+            .then(|| crate::secrets::get(&key_name(spec.provider)))
+            .flatten()
+            .filter(|k| !k.trim().is_empty());
         if let Some(k) = &key {
             cmd.env(spec.key_env, k);
             // Gemini CLI signs in at startup with whatever its settings name (a personal Google

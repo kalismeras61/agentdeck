@@ -15,7 +15,7 @@ pub const MAX_LIVE: usize = 6;
 pub const IDLE_CLOSE_MS: i64 = 10 * 60 * 1000;
 
 /// Providers AgentDeck can run as live sessions.
-pub const LIVE_PROVIDERS: &[&str] = &["claude-code", "codex", "gemini-cli", "grok-build", "antigravity", "api"];
+pub const LIVE_PROVIDERS: &[&str] = &["claude-code", "codex", "gemini-cli", "grok-build", "kimi-code", "antigravity", "api"];
 
 pub fn label(provider: &str) -> &'static str {
     match provider {
@@ -23,6 +23,7 @@ pub fn label(provider: &str) -> &'static str {
         "codex" => "Codex",
         "gemini-cli" => "Gemini CLI",
         "grok-build" => "Grok Build",
+        "kimi-code" => "Kimi Code",
         "antigravity" => "Antigravity",
         "api" => "Model API",
         _ => "another agent",

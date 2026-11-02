@@ -12,11 +12,12 @@ use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::time::{Duration, Instant};
 
-const KNOWN: [(&str, &str); 5] = [
+const KNOWN: [(&str, &str); 6] = [
     ("claude-code", "claude"),
     ("codex", "codex"),
     ("gemini-cli", "gemini"),
     ("grok-build", "grok"),
+    ("kimi-code", "kimi"),
     ("antigravity", "agy"),
 ];
 const VERSION_TIMEOUT: Duration = Duration::from_secs(5);
@@ -160,7 +161,7 @@ mod tests {
         let ids: Vec<_> = probe_all().into_iter().map(|p| p.id).collect();
         assert_eq!(
             ids,
-            vec!["claude-code", "codex", "gemini-cli", "grok-build", "antigravity"]
+            vec!["claude-code", "codex", "gemini-cli", "grok-build", "kimi-code", "antigravity"]
         );
     }
 }

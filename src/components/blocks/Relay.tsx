@@ -326,7 +326,7 @@ export function StartRelayDialog({ session, open, onOpenChange }: { session: Ses
                 <label className="block text-[12px] text-fg-2">
                   Partner
                   <select value={partner} onChange={(ev) => setPartner(ev.target.value)} className={cx(field, "mt-1")}>
-                    {withoutHidden(["codex", "claude-code", "gemini-cli", "grok-build", "antigravity"] as const, agyEnabled).map((p) => (
+                    {withoutHidden(["codex", "claude-code", "gemini-cli", "grok-build", "kimi-code", "antigravity"] as const, agyEnabled).map((p) => (
                       <option key={p} value={`new:${p}`}>
                         New {providerLabel[p]} session
                       </option>

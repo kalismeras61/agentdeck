@@ -17,7 +17,7 @@ export const STAGES: { id: StageId; label: string; verb: string; hint: string }[
   },
 ];
 
-export const CLI_AGENTS = ["claude-code", "codex", "gemini-cli", "grok-build", "antigravity"] as const;
+export const CLI_AGENTS = ["claude-code", "codex", "gemini-cli", "grok-build", "kimi-code", "antigravity"] as const;
 
 /** Ready-made workflows; saved ones come from the desktop app. */
 export const BUILT_IN: Workflow[] = [

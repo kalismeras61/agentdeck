@@ -6,7 +6,7 @@ import { z } from "zod";
  * so renderers only ever see validated, provider-neutral payloads.
  */
 
-export const ProviderId = z.enum(["claude-code", "codex", "gemini-cli", "grok-build", "antigravity", "api"]);
+export const ProviderId = z.enum(["claude-code", "codex", "gemini-cli", "grok-build", "kimi-code", "antigravity", "api"]);
 export type ProviderId = z.infer<typeof ProviderId>;
 
 /** Text with a size bound. Longer text (a huge shell command, a long tool target) is cut with

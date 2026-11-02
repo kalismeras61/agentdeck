@@ -198,7 +198,7 @@ export function Sidebar() {
                     <Dropdown.Separator className="my-1 h-px bg-line" />
                   </>
                 )}
-                {withoutHidden(["codex", "gemini-cli", "grok-build", "antigravity"] as const, agyEnabled).map((p) => {
+                {withoutHidden(["codex", "gemini-cli", "grok-build", "kimi-code", "antigravity"] as const, agyEnabled).map((p) => {
                   const liveOnly = p !== "codex" && !isLocal;
                   return (
                     <Dropdown.Item key={p} disabled={liveOnly} onSelect={() => newSession(undefined, p)} className={itemCls}>

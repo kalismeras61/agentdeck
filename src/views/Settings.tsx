@@ -39,6 +39,8 @@ const ROUTES: Record<ProviderId, string> = {
     "Runs `gemini --acp` from your installed Gemini CLI and talks the Agent Client Protocol over stdio. Plan mode uses Gemini's own read-only mode. Signs in with the API key below when you save one, otherwise with Gemini CLI's own sign-in.",
   "grok-build":
     "Runs `grok agent stdio` from your installed Grok Build and talks the Agent Client Protocol over stdio. Not tested here: Grok Build couldn't be installed in AgentDeck's test environment. Grok Build handles its own sign-in.",
+  "kimi-code":
+    "Runs `kimi acp` from your installed Kimi Code CLI and talks the Agent Client Protocol over stdio. Kimi Code handles its own sign-in (`kimi login`: a Kimi Code plan or a Moonshot API key).",
   antigravity:
     "Runs your installed Antigravity CLI (`agy`) in its documented headless mode (`--input-format stream-json --output-format stream-json`), one process per session; plan mode is agy's own. agy can't ask before acting there, so it edits files in the project without asking (review them in Changes) and skips anything else that needs approval. Sign-in stays with agy. Google's terms limit using personal Antigravity sign-ins through other tools; an API key or Workspace account is the safer choice.",
   api: "AgentDeck's own agent on an OpenAI-compatible API (DeepSeek, Kimi, OpenRouter, Ollama, LM Studio). Reads freely inside the project; every file change and command asks you first. Set it up under Models.",
@@ -240,7 +242,7 @@ export function Settings() {
                   Install or sign in to an agent…
                 </button>
               )}
-              {(["claude-code", "codex", "gemini-cli", "grok-build", "antigravity"] as const).map((id) => {
+              {(["claude-code", "codex", "gemini-cli", "grok-build", "kimi-code", "antigravity"] as const).map((id) => {
                 const p = probes?.find((x) => x.id === id);
                 const status = !isTauri
                   ? "Not checked"
@@ -272,7 +274,7 @@ export function Settings() {
                     <dl className="mt-2.5 grid grid-cols-[96px_minmax(0,1fr)] gap-x-3 gap-y-1.5 pl-[34px] text-[12.5px]">
                       <dt className="text-fg-3">Command</dt>
                       <dd className="font-mono text-fg-2">
-                        {p?.binary ?? ({ "claude-code": "claude", codex: "codex", "gemini-cli": "gemini", "grok-build": "grok", antigravity: "agy" } as const)[id]}
+                        {p?.binary ?? ({ "claude-code": "claude", codex: "codex", "gemini-cli": "gemini", "grok-build": "grok", "kimi-code": "kimi", antigravity: "agy" } as const)[id]}
                       </dd>
                       <dt className="text-fg-3">Path</dt>
                       <dd className="break-all font-mono text-fg-2">{p?.path ?? "—"}</dd>

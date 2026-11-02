@@ -107,6 +107,7 @@ export function AgentMark({ provider, size = 20 }: { provider: ProviderId; size?
     codex: { t: "CX", c: "bg-[color-mix(in_srgb,var(--blue)_14%,transparent)] text-blue" },
     "gemini-cli": { t: "GM", c: "bg-[color-mix(in_srgb,var(--success)_14%,transparent)] text-success" },
     "grok-build": { t: "GK", c: "bg-elevated text-fg" },
+    "kimi-code": { t: "KM", c: "bg-elevated text-fg" },
     antigravity: { t: "AG", c: "bg-[color-mix(in_srgb,var(--blue)_10%,var(--elevated))] text-fg" },
     api: { t: "AI", c: "bg-[color-mix(in_srgb,var(--warning)_14%,transparent)] text-warning" },
   }[provider];

@@ -7,7 +7,7 @@ import type { ProviderId } from "./events";
 type Json = Record<string, unknown>;
 const str = (v: unknown) => (typeof v === "string" ? v : undefined);
 const asProvider = (v: unknown): ProviderId =>
-  v === "codex" || v === "gemini-cli" || v === "grok-build" || v === "antigravity" || v === "api" ? v : "claude-code";
+  v === "codex" || v === "gemini-cli" || v === "grok-build" || v === "kimi-code" || v === "antigravity" || v === "api" ? v : "claude-code";
 
 const MODE_TEXT: Record<string, string> = {
   plan: "Plan mode on. The agent can read the project but AgentDeck refuses any change until you leave plan mode.",

@@ -13,7 +13,7 @@ import { CopyButton } from "./code";
 import { Markdown } from "./Markdown";
 
 /** Agents a plan can go to, in menu order. */
-const TARGETS: LiveProvider[] = ["codex", "claude-code", "gemini-cli", "grok-build", "antigravity"];
+const TARGETS: LiveProvider[] = ["codex", "claude-code", "gemini-cli", "grok-build", "kimi-code", "antigravity"];
 
 const itemCls = "flex items-center gap-2 rounded-lg px-2 py-1.5 text-[13px] outline-none data-[highlighted]:bg-surface data-[disabled]:opacity-45";
 

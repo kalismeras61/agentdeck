@@ -29,6 +29,11 @@ const PRESETS: { label: string; note: string; draft: Omit<Draft, "id" | "key"> }
     draft: { name: "Kimi API", kind: "openai", baseUrl: "https://api.moonshot.ai/v1", model: "kimi-k3", smallModel: "" },
   },
   {
+    label: "GLM (Z.ai) in Claude Code",
+    note: "Z.ai's Anthropic-compatible API, with a GLM Coding Plan key",
+    draft: { name: "GLM", kind: "anthropic", baseUrl: "https://api.z.ai/api/anthropic", model: "glm-5.3", smallModel: "glm-5.3-flash" },
+  },
+  {
     label: "Ollama in Claude Code",
     note: "Local; no key needed",
     draft: { name: "Ollama", kind: "anthropic", baseUrl: "http://localhost:11434", model: "qwen3-coder", smallModel: "" },

@@ -47,10 +47,11 @@ struct Known {
     docs: &'static str,
 }
 
-const AGENTS: [Known; 5] = [
+const AGENTS: [Known; 6] = [
     Known { id: "claude-code", name: "Claude Code", maker: "Anthropic", account: "A Claude Pro, Max, Team or Enterprise plan, or an Anthropic Console account.", docs: "https://code.claude.com/docs/en/setup" },
     Known { id: "codex", name: "Codex", maker: "OpenAI", account: "A ChatGPT Plus, Pro, Business or Enterprise plan, or an OpenAI API key.", docs: "https://github.com/openai/codex" },
     Known { id: "gemini-cli", name: "Gemini CLI", maker: "Google", account: "A Google Workspace or Cloud account, or a Gemini API key (personal Google accounts no longer work).", docs: "https://github.com/google-gemini/gemini-cli" },
+    Known { id: "kimi-code", name: "Kimi Code", maker: "Moonshot AI", account: "A Kimi Code plan, or a Moonshot AI API key.", docs: "https://github.com/MoonshotAI/kimi-code" },
     Known { id: "antigravity", name: "Antigravity", maker: "Google", account: "A personal Google account. Experimental in AgentDeck: see the note about Google's terms.", docs: "https://antigravity.google" },
     Known { id: "grok-build", name: "Grok Build", maker: "xAI", account: "An xAI account or API key.", docs: "https://x.ai" },
 ];
@@ -64,6 +65,7 @@ pub fn install_command(id: &str, npm: bool, brew: bool) -> Option<&'static str> 
         "gemini-cli" if npm => "npm install -g @google/gemini-cli",
         "gemini-cli" if brew => "brew install gemini-cli",
         "antigravity" => "curl -fsSL https://antigravity.google/cli/install.sh | bash",
+        "kimi-code" => "curl -fsSL https://code.kimi.com/kimi-code/install.sh | bash",
         _ => return None,
     })
 }
@@ -75,6 +77,7 @@ pub fn sign_in_command(id: &str) -> Option<&'static str> {
         // Gemini CLI asks how to sign in when it starts; /auth switches accounts later.
         "gemini-cli" => "gemini",
         "grok-build" => "grok",
+        "kimi-code" => "kimi login",
         "antigravity" => "agy",
         _ => return None,
     })

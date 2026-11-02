@@ -946,7 +946,7 @@ async fn list_models(
     provider: String,
     refresh: Option<bool>,
 ) -> CmdResult<models::ModelList> {
-    if !["claude-code", "codex", "gemini-cli", "grok-build", "antigravity"].contains(&provider.as_str()) {
+    if !["claude-code", "codex", "gemini-cli", "grok-build", "kimi-code", "antigravity"].contains(&provider.as_str()) {
         return Err(format!("Unknown agent: {provider}"));
     }
     let db = state.db.clone();
@@ -1090,7 +1090,9 @@ fn agent_keys() -> CmdResult<std::collections::HashMap<String, bool>> {
 /// running process is closed so the next message starts it with the new key.
 #[tauri::command]
 fn set_agent_key(state: State<'_, AppState>, provider: String, key: String) -> CmdResult<bool> {
-    acp::spec(&provider).ok_or("That agent doesn't take an API key here")?;
+    acp::spec(&provider)
+        .filter(|s| !s.key_env.is_empty())
+        .ok_or("That agent doesn't take an API key here")?;
     let key = key.trim();
     if key.len() > 512 || key.chars().any(char::is_whitespace) {
         return Err("That doesn't look like an API key".into());

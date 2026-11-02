@@ -33,7 +33,7 @@ export interface LiveSessionRow {
 }
 
 export type SessionMode = "default" | "plan";
-export type LiveProvider = "claude-code" | "codex" | "gemini-cli" | "grok-build" | "antigravity" | "api";
+export type LiveProvider = "claude-code" | "codex" | "gemini-cli" | "grok-build" | "kimi-code" | "antigravity" | "api";
 
 export type AgyApprovals = "edits" | "auto" | "all";
 
