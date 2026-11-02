@@ -1,0 +1,392 @@
+[
+  {
+    "sessionId": "s-fd0939f8-4950-4802-9945-2f6c17b908ec",
+    "seq": 1,
+    "ts": 1793568900714,
+    "source": "agentdeck",
+    "kind": "user_message",
+    "payload": {
+      "text": "please write the file"
+    }
+  },
+  {
+    "sessionId": "s-fd0939f8-4950-4802-9945-2f6c17b908ec",
+    "seq": 2,
+    "ts": 1793568902629,
+    "source": "acp",
+    "kind": "initialized",
+    "payload": {
+      "agentInfo": {
+        "name": "gemini-cli",
+        "title": "Gemini CLI",
+        "version": "0.66.0"
+      },
+      "loadSession": true
+    }
+  },
+  {
+    "sessionId": "s-fd0939f8-4950-4802-9945-2f6c17b908ec",
+    "seq": 3,
+    "ts": 1793568902680,
+    "source": "acp",
+    "kind": "session/opened",
+    "payload": {
+      "modes": [
+        "default",
+        "autoEdit",
+        "yolo",
+        "plan"
+      ],
+      "resumed": false,
+      "sessionId": "d1c907df-4584-4724-a529-3366609bccf0"
+    }
+  },
+  {
+    "sessionId": "s-fd0939f8-4950-4802-9945-2f6c17b908ec",
+    "seq": 4,
+    "ts": 1793568902919,
+    "source": "acp",
+    "kind": "agent_message",
+    "payload": {
+      "text": "I'll create the file."
+    }
+  },
+  {
+    "sessionId": "s-fd0939f8-4950-4802-9945-2f6c17b908ec",
+    "seq": 5,
+    "ts": 1793568902919,
+    "source": "acp",
+    "kind": "update/tool_call",
+    "payload": {
+      "content": [
+        {
+          "_meta": {
+            "kind": "add"
+          },
+          "newText": "hello from agentdeck\n",
+          "oldText": "",
+          "path": "/tmp/.tmp5lQkwc/project/hello.txt",
+          "type": "diff"
+        }
+      ],
+      "kind": "edit",
+      "locations": [
+        {
+          "path": "/tmp/.tmp5lQkwc/project/hello.txt"
+        }
+      ],
+      "sessionUpdate": "tool_call",
+      "status": "pending",
+      "title": "Writing to hello.txt",
+      "toolCallId": "write_file__write_file_1793568902757_0"
+    }
+  },
+  {
+    "sessionId": "s-fd0939f8-4950-4802-9945-2f6c17b908ec",
+    "seq": 6,
+    "ts": 1793568902920,
+    "source": "acp",
+    "kind": "approval",
+    "payload": {
+      "options": [
+        {
+          "kind": "allow_always",
+          "name": "Allow for this session",
+          "optionId": "proceed_always"
+        },
+        {
+          "kind": "allow_once",
+          "name": "Allow",
+          "optionId": "proceed_once"
+        },
+        {
+          "kind": "reject_once",
+          "name": "Reject",
+          "optionId": "cancel"
+        }
+      ],
+      "requestId": "637df9ef-0",
+      "toolCall": {
+        "content": [
+          {
+            "_meta": {
+              "kind": "add"
+            },
+            "newText": "hello from agentdeck\n",
+            "oldText": "",
+            "path": "/tmp/.tmp5lQkwc/project/hello.txt",
+            "type": "diff"
+          }
+        ],
+        "kind": "edit",
+        "locations": [
+          {
+            "path": "/tmp/.tmp5lQkwc/project/hello.txt"
+          }
+        ],
+        "status": "pending",
+        "title": "Writing to hello.txt",
+        "toolCallId": "write_file__write_file_1793568902757_0"
+      }
+    }
+  },
+  {
+    "sessionId": "s-fd0939f8-4950-4802-9945-2f6c17b908ec",
+    "seq": 7,
+    "ts": 1793568902920,
+    "source": "agentdeck",
+    "kind": "permission_decision",
+    "payload": {
+      "decision": "allow",
+      "requestId": "637df9ef-0"
+    }
+  },
+  {
+    "sessionId": "s-fd0939f8-4950-4802-9945-2f6c17b908ec",
+    "seq": 8,
+    "ts": 1793568902927,
+    "source": "acp",
+    "kind": "update/tool_call_update",
+    "payload": {
+      "content": [
+        {
+          "_meta": {
+            "kind": "add"
+          },
+          "newText": "hello from agentdeck\n",
+          "oldText": "",
+          "path": "/tmp/.tmp5lQkwc/project/hello.txt",
+          "type": "diff"
+        }
+      ],
+      "kind": "edit",
+      "locations": [
+        {
+          "path": "/tmp/.tmp5lQkwc/project/hello.txt"
+        }
+      ],
+      "sessionUpdate": "tool_call_update",
+      "status": "completed",
+      "title": "Writing to hello.txt",
+      "toolCallId": "write_file__write_file_1793568902757_0"
+    }
+  },
+  {
+    "sessionId": "s-fd0939f8-4950-4802-9945-2f6c17b908ec",
+    "seq": 9,
+    "ts": 1793568902938,
+    "source": "acp",
+    "kind": "agent_message",
+    "payload": {
+      "text": "Done. The command printed agentdeck-ok and the file is in place."
+    }
+  },
+  {
+    "sessionId": "s-fd0939f8-4950-4802-9945-2f6c17b908ec",
+    "seq": 10,
+    "ts": 1793568902938,
+    "source": "acp",
+    "kind": "turn/ended",
+    "payload": {
+      "lastText": "Done. The command printed agentdeck-ok and the file is in place.",
+      "stopReason": "end_turn"
+    }
+  },
+  {
+    "sessionId": "s-fd0939f8-4950-4802-9945-2f6c17b908ec",
+    "seq": 11,
+    "ts": 1793568903029,
+    "source": "agentdeck",
+    "kind": "process_exit",
+    "payload": {
+      "code": 0,
+      "expected": true,
+      "stderrTail": ""
+    }
+  },
+  {
+    "sessionId": "s-fd0939f8-4950-4802-9945-2f6c17b908ec",
+    "seq": 12,
+    "ts": 1793568903030,
+    "source": "agentdeck",
+    "kind": "user_message",
+    "payload": {
+      "text": "write it again"
+    }
+  },
+  {
+    "sessionId": "s-fd0939f8-4950-4802-9945-2f6c17b908ec",
+    "seq": 13,
+    "ts": 1793568904850,
+    "source": "acp",
+    "kind": "initialized",
+    "payload": {
+      "agentInfo": {
+        "name": "gemini-cli",
+        "title": "Gemini CLI",
+        "version": "0.66.0"
+      },
+      "loadSession": true
+    }
+  },
+  {
+    "sessionId": "s-fd0939f8-4950-4802-9945-2f6c17b908ec",
+    "seq": 14,
+    "ts": 1793568904906,
+    "source": "acp",
+    "kind": "session/opened",
+    "payload": {
+      "modes": [
+        "default",
+        "autoEdit",
+        "yolo",
+        "plan"
+      ],
+      "resumed": true,
+      "sessionId": "d1c907df-4584-4724-a529-3366609bccf0"
+    }
+  },
+  {
+    "sessionId": "s-fd0939f8-4950-4802-9945-2f6c17b908ec",
+    "seq": 15,
+    "ts": 1793568905628,
+    "source": "acp",
+    "kind": "agent_message",
+    "payload": {
+      "text": "I'll create the file."
+    }
+  },
+  {
+    "sessionId": "s-fd0939f8-4950-4802-9945-2f6c17b908ec",
+    "seq": 16,
+    "ts": 1793568905629,
+    "source": "acp",
+    "kind": "update/tool_call",
+    "payload": {
+      "content": [
+        {
+          "_meta": {
+            "kind": "add"
+          },
+          "newText": "hello from agentdeck\n",
+          "oldText": "",
+          "path": "/tmp/.tmp5lQkwc/project/hello.txt",
+          "type": "diff"
+        }
+      ],
+      "kind": "edit",
+      "locations": [
+        {
+          "path": "/tmp/.tmp5lQkwc/project/hello.txt"
+        }
+      ],
+      "sessionUpdate": "tool_call",
+      "status": "pending",
+      "title": "Writing to hello.txt",
+      "toolCallId": "write_file__write_file_1793568905486_0"
+    }
+  },
+  {
+    "sessionId": "s-fd0939f8-4950-4802-9945-2f6c17b908ec",
+    "seq": 17,
+    "ts": 1793568905629,
+    "source": "acp",
+    "kind": "approval",
+    "payload": {
+      "options": [
+        {
+          "kind": "allow_always",
+          "name": "Allow for this session",
+          "optionId": "proceed_always"
+        },
+        {
+          "kind": "allow_once",
+          "name": "Allow",
+          "optionId": "proceed_once"
+        },
+        {
+          "kind": "reject_once",
+          "name": "Reject",
+          "optionId": "cancel"
+        }
+      ],
+      "requestId": "be14afa0-0",
+      "toolCall": {
+        "content": [
+          {
+            "_meta": {
+              "kind": "add"
+            },
+            "newText": "hello from agentdeck\n",
+            "oldText": "",
+            "path": "/tmp/.tmp5lQkwc/project/hello.txt",
+            "type": "diff"
+          }
+        ],
+        "kind": "edit",
+        "locations": [
+          {
+            "path": "/tmp/.tmp5lQkwc/project/hello.txt"
+          }
+        ],
+        "status": "pending",
+        "title": "Writing to hello.txt",
+        "toolCallId": "write_file__write_file_1793568905486_0"
+      }
+    }
+  },
+  {
+    "sessionId": "s-fd0939f8-4950-4802-9945-2f6c17b908ec",
+    "seq": 18,
+    "ts": 1793568905630,
+    "source": "agentdeck",
+    "kind": "permission_decision",
+    "payload": {
+      "decision": "deny",
+      "requestId": "be14afa0-0"
+    }
+  },
+  {
+    "sessionId": "s-fd0939f8-4950-4802-9945-2f6c17b908ec",
+    "seq": 19,
+    "ts": 1793568905631,
+    "source": "acp",
+    "kind": "update/tool_call_update",
+    "payload": {
+      "content": [
+        {
+          "content": {
+            "text": "Tool \"write_file\" was canceled by the user.",
+            "type": "text"
+          },
+          "type": "content"
+        }
+      ],
+      "kind": "edit",
+      "sessionUpdate": "tool_call_update",
+      "status": "failed",
+      "toolCallId": "write_file__write_file_1793568905486_0"
+    }
+  },
+  {
+    "sessionId": "s-fd0939f8-4950-4802-9945-2f6c17b908ec",
+    "seq": 20,
+    "ts": 1793568905650,
+    "source": "acp",
+    "kind": "agent_message",
+    "payload": {
+      "text": "The action was not approved, so I stopped."
+    }
+  },
+  {
+    "sessionId": "s-fd0939f8-4950-4802-9945-2f6c17b908ec",
+    "seq": 21,
+    "ts": 1793568905650,
+    "source": "acp",
+    "kind": "turn/ended",
+    "payload": {
+      "lastText": "The action was not approved, so I stopped.",
+      "stopReason": "end_turn"
+    }
+  }
+]

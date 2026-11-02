@@ -1,0 +1,1006 @@
+[
+  {
+    "sessionId": "s-87f80cc5-c16f-48ec-8d40-044ee774ea3b",
+    "seq": 1,
+    "ts": 1793563189212,
+    "source": "agentdeck",
+    "kind": "user_message",
+    "payload": {
+      "text": "please write the file"
+    }
+  },
+  {
+    "sessionId": "s-87f80cc5-c16f-48ec-8d40-044ee774ea3b",
+    "seq": 2,
+    "ts": 1793563189502,
+    "source": "claude",
+    "kind": "system/init",
+    "payload": {
+      "additional_directories": [],
+      "agents": [
+        "claude",
+        "Explore",
+        "general-purpose",
+        "Plan",
+        "statusline-setup"
+      ],
+      "analytics_disabled": true,
+      "apiKeySource": "ANTHROPIC_API_KEY",
+      "capabilities": [
+        "interrupt_receipt_v1",
+        "interrupt_cancel_queued_v1",
+        "interrupt_send_now_v1",
+        "interrupt_requeue_taken_v1",
+        "msg_lifecycle_v1",
+        "request_marker_lists_v1",
+        "ask_user_question_unanswered_v1",
+        "lifecycle_wakeup_source_v1",
+        "sdk_mcp_tools_list_changed",
+        "sdk_mcp_manifests",
+        "mcp_read_resource_v1",
+        "mcp_tool_ui_meta_v1",
+        "ui_surface_v1",
+        "mcp_call_result_not_for_model_v1"
+      ],
+      "claude_code_version": "2.1.316",
+      "cwd": "/tmp/.tmphyb7hh/project",
+      "fast_mode_disabled_reason": "sdk_opt_in_required",
+      "fast_mode_state": "off",
+      "mcp_servers": [],
+      "memory_paths": {
+        "auto": "/root/.claude/projects/-tmp--tmphyb7hh-project/memory/"
+      },
+      "messaging_socket_path": "/tmp/cc-socks/7078.sock",
+      "model": "claude-sonnet-5-5",
+      "original_cwd": "/tmp/.tmphyb7hh/project",
+      "output_style": "default",
+      "per_turn_effort_active": true,
+      "permissionMode": "default",
+      "plugins": [
+        {
+          "name": "cc-plugin-agents-md",
+          "path": "builtin",
+          "source": "cc-plugin-agents-md@builtin"
+        },
+        {
+          "name": "cc-plugin-plugin-authoring",
+          "path": "builtin",
+          "source": "cc-plugin-plugin-authoring@builtin"
+        }
+      ],
+      "product_feedback_disabled": true,
+      "session_id": "38564555-95d1-4918-ad00-f6513e131111",
+      "skills": [
+        "file-reading",
+        "frontend-design",
+        "pdf-reading",
+        "product-self-knowledge",
+        "session-start-hook",
+        "deep-research",
+        "dataviz",
+        "update-config",
+        "verify",
+        "debug",
+        "code-review",
+        "simplify",
+        "batch",
+        "fewer-permission-prompts",
+        "doctor",
+        "loop",
+        "claude-api",
+        "workflow-authoring",
+        "run",
+        "run-skill-generator",
+        "plugin-authoring"
+      ],
+      "slash_commands": [
+        "file-reading",
+        "frontend-design",
+        "pdf-reading",
+        "product-self-knowledge",
+        "session-start-hook",
+        "deep-research",
+        "dataviz",
+        "update-config",
+        "verify",
+        "debug",
+        "code-review",
+        "simplify",
+        "batch",
+        "fewer-permission-prompts",
+        "doctor",
+        "loop",
+        "claude-api",
+        "workflow-authoring",
+        "run",
+        "run-skill-generator",
+        "plugin-authoring",
+        "agents",
+        "auto-mode-setup",
+        "autocompact",
+        "clear",
+        "color",
+        "compact",
+        "config",
+        "output-style",
+        "context",
+        "effort",
+        "fast",
+        "focus",
+        "heapdump",
+        "init",
+        "mcp",
+        "model",
+        "__remote-workflow",
+        "workflow-launch-exec",
+        "reload-plugins",
+        "reload-skills",
+        "rename",
+        "security-review",
+        "usage",
+        "insights",
+        "recap",
+        "goal",
+        "list-agents",
+        "team-onboarding"
+      ],
+      "subtype": "init",
+      "terminal_slash_commands": [
+        "doctor",
+        "color",
+        "focus",
+        "reload-plugins"
+      ],
+      "tools": [
+        "Task",
+        "AskUserQuestion",
+        "Bash",
+        "CronCreate",
+        "CronDelete",
+        "CronList",
+        "Edit",
+        "EnterPlanMode",
+        "EnterWorktree",
+        "ExitPlanMode",
+        "ExitWorktree",
+        "ListAgents",
+        "Monitor",
+        "NotebookEdit",
+        "Read",
+        "ReportFindings",
+        "ScheduleWakeup",
+        "SendMessage",
+        "Skill",
+        "TaskStop",
+        "ToolSearch",
+        "WebFetch",
+        "WebSearch",
+        "Workflow",
+        "Write"
+      ],
+      "type": "system",
+      "ultrathink_available": false,
+      "uuid": "59905324-8f98-4190-bef8-5cfbcdb0bc5f",
+      "view_mode": "default"
+    }
+  },
+  {
+    "sessionId": "s-87f80cc5-c16f-48ec-8d40-044ee774ea3b",
+    "seq": 3,
+    "ts": 1793563189554,
+    "source": "claude",
+    "kind": "assistant",
+    "payload": {
+      "message": {
+        "content": [
+          {
+            "text": "I'll create the file.",
+            "type": "text"
+          }
+        ],
+        "context_management": null,
+        "id": "msg_1793563189549390",
+        "model": "claude-sonnet-5-5",
+        "role": "assistant",
+        "stop_reason": null,
+        "stop_sequence": null,
+        "type": "message",
+        "usage": {
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 0,
+          "input_tokens": 10,
+          "output_tokens": 10
+        }
+      },
+      "parent_tool_use_id": null,
+      "session_id": "38564555-95d1-4918-ad00-f6513e131111",
+      "timestamp": "2026-11-01T19:59:49.552Z",
+      "type": "assistant",
+      "uuid": "b032b059-9bd5-4a38-bfa2-4528f2a2d79d"
+    }
+  },
+  {
+    "sessionId": "s-87f80cc5-c16f-48ec-8d40-044ee774ea3b",
+    "seq": 4,
+    "ts": 1793563189556,
+    "source": "claude",
+    "kind": "assistant",
+    "payload": {
+      "message": {
+        "content": [
+          {
+            "id": "toolu_w1793563189549",
+            "input": {
+              "content": "hello from agentdeck\n",
+              "file_path": "hello.txt"
+            },
+            "name": "Write",
+            "type": "tool_use"
+          }
+        ],
+        "context_management": null,
+        "id": "msg_1793563189549390",
+        "model": "claude-sonnet-5-5",
+        "role": "assistant",
+        "stop_reason": null,
+        "stop_sequence": null,
+        "type": "message",
+        "usage": {
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 0,
+          "input_tokens": 10,
+          "output_tokens": 10
+        }
+      },
+      "parent_tool_use_id": null,
+      "session_id": "38564555-95d1-4918-ad00-f6513e131111",
+      "timestamp": "2026-11-01T19:59:49.555Z",
+      "type": "assistant",
+      "uuid": "cc776f32-445d-42b7-b9cf-1ac45edb9202"
+    }
+  },
+  {
+    "sessionId": "s-87f80cc5-c16f-48ec-8d40-044ee774ea3b",
+    "seq": 5,
+    "ts": 1793563189577,
+    "source": "claude",
+    "kind": "control_request/can_use_tool",
+    "payload": {
+      "request": {
+        "description": "hello.txt",
+        "display_name": "Write",
+        "input": {
+          "content": "hello from agentdeck\n",
+          "file_path": "/tmp/.tmphyb7hh/project/hello.txt"
+        },
+        "permission_suggestions": [
+          {
+            "destination": "session",
+            "mode": "acceptEdits",
+            "type": "setMode"
+          }
+        ],
+        "subtype": "can_use_tool",
+        "tool_name": "Write",
+        "tool_use_id": "toolu_w1793563189549"
+      },
+      "request_id": "69a1ff5f-52f3-406f-bd14-b030fdbbb617",
+      "type": "control_request"
+    }
+  },
+  {
+    "sessionId": "s-87f80cc5-c16f-48ec-8d40-044ee774ea3b",
+    "seq": 6,
+    "ts": 1793563189577,
+    "source": "agentdeck",
+    "kind": "permission_decision",
+    "payload": {
+      "decision": "allow",
+      "requestId": "69a1ff5f-52f3-406f-bd14-b030fdbbb617"
+    }
+  },
+  {
+    "sessionId": "s-87f80cc5-c16f-48ec-8d40-044ee774ea3b",
+    "seq": 7,
+    "ts": 1793563189599,
+    "source": "claude",
+    "kind": "user",
+    "payload": {
+      "message": {
+        "content": [
+          {
+            "content": "File created successfully at: hello.txt (file state is current in your context — no need to Read it back)",
+            "tool_use_id": "toolu_w1793563189549",
+            "type": "tool_result"
+          }
+        ],
+        "role": "user"
+      },
+      "parent_tool_use_id": null,
+      "session_id": "38564555-95d1-4918-ad00-f6513e131111",
+      "timestamp": "2026-11-01T19:59:49.596Z",
+      "tool_result_meta": [
+        {
+          "id": "toolu_w1793563189549",
+          "permission_decision": {
+            "decision": "accept",
+            "source": "user_temporary"
+          }
+        }
+      ],
+      "tool_use_result": {
+        "content": "hello from agentdeck\n",
+        "filePath": "hello.txt",
+        "originalFile": null,
+        "structuredPatch": [],
+        "type": "create",
+        "userModified": false
+      },
+      "type": "user",
+      "uuid": "3ad2afce-6c85-46df-82a2-93e420af4f6b"
+    }
+  },
+  {
+    "sessionId": "s-87f80cc5-c16f-48ec-8d40-044ee774ea3b",
+    "seq": 8,
+    "ts": 1793563189627,
+    "source": "claude",
+    "kind": "assistant",
+    "payload": {
+      "message": {
+        "content": [
+          {
+            "text": "Done. The command printed agentdeck-ok and the file is in place.",
+            "type": "text"
+          }
+        ],
+        "context_management": null,
+        "id": "msg_1793563189622525",
+        "model": "claude-sonnet-5-5",
+        "role": "assistant",
+        "stop_reason": null,
+        "stop_sequence": null,
+        "type": "message",
+        "usage": {
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 0,
+          "input_tokens": 10,
+          "output_tokens": 10
+        }
+      },
+      "parent_tool_use_id": null,
+      "session_id": "38564555-95d1-4918-ad00-f6513e131111",
+      "timestamp": "2026-11-01T19:59:49.627Z",
+      "type": "assistant",
+      "uuid": "fe3d6625-8dfa-4f9a-baf5-0766a8ba0380"
+    }
+  },
+  {
+    "sessionId": "s-87f80cc5-c16f-48ec-8d40-044ee774ea3b",
+    "seq": 9,
+    "ts": 1793563189635,
+    "source": "claude",
+    "kind": "result/success",
+    "payload": {
+      "api_error_status": null,
+      "duration_api_ms": 43,
+      "duration_ms": 176,
+      "fast_mode_disabled_reason": "sdk_opt_in_required",
+      "fast_mode_state": "off",
+      "first_content_frame_ms": 95,
+      "flag_fetch_kick": "not_eligible",
+      "is_error": false,
+      "modelUsage": {
+        "claude-sonnet-5-5": {
+          "cacheCreationEphemeral1hInputTokens": 0,
+          "cacheCreationEphemeral5mInputTokens": 0,
+          "cacheCreationInputTokens": 0,
+          "cacheReadInputTokens": 0,
+          "canonicalModel": "claude-sonnet-5-5",
+          "contextWindow": 1000000,
+          "costBasis": "list",
+          "costUSD": 0.00024,
+          "inputTokens": 20,
+          "maxOutputTokens": 128000,
+          "outputTokens": 20,
+          "provider": "firstParty",
+          "thinkingTokens": 0,
+          "webSearchRequests": 0
+        }
+      },
+      "model_usage_since_last_result": {
+        "claude-sonnet-5-5": {
+          "cacheCreationEphemeral1hInputTokens": 0,
+          "cacheCreationEphemeral5mInputTokens": 0,
+          "cacheCreationInputTokens": 0,
+          "cacheReadInputTokens": 0,
+          "canonicalModel": "claude-sonnet-5-5",
+          "contextWindow": 1000000,
+          "costBasis": "list",
+          "costUSD": 0.00024,
+          "inputTokens": 20,
+          "maxOutputTokens": 128000,
+          "outputTokens": 20,
+          "provider": "firstParty",
+          "thinkingTokens": 0,
+          "webSearchRequests": 0
+        }
+      },
+      "num_turns": 2,
+      "permission_denials": [],
+      "queued_turn_count": 0,
+      "result": "Done. The command printed agentdeck-ok and the file is in place.",
+      "result_index": 0,
+      "safety_stops": 0,
+      "session_id": "38564555-95d1-4918-ad00-f6513e131111",
+      "stop_reason": "end_turn",
+      "subagent_stats": {
+        "by_type": {},
+        "completed": 0,
+        "failed": 0,
+        "killed": {
+          "parent": 0,
+          "system": 0,
+          "user": 0
+        },
+        "max_depth": 0,
+        "refused": {
+          "budget": 0,
+          "concurrency_limit": 0,
+          "depth_limit": 0
+        },
+        "requested": {
+          "background": 0,
+          "foreground": 0,
+          "unset": 0
+        },
+        "spawned": 0,
+        "spawned_by_subagents": 0,
+        "started_in_background": 0
+      },
+      "subtype": "success",
+      "terminal_reason": "completed",
+      "time_origin_ms": 1793563189159.3406,
+      "time_to_request_from_spawn_ms": 3888937,
+      "time_to_request_ms": 87,
+      "total_cost_usd": 0.00024,
+      "ttft_ms": 96,
+      "ttft_stream_ms": 94,
+      "type": "result",
+      "usage": {
+        "cache_creation": {
+          "ephemeral_1h_input_tokens": 0,
+          "ephemeral_5m_input_tokens": 0
+        },
+        "cache_creation_input_tokens": 0,
+        "cache_read_input_tokens": 0,
+        "fallback_credit": null,
+        "inference_geo": "",
+        "input_tokens": 20,
+        "iterations": [],
+        "output_tokens": 20,
+        "output_tokens_details": {
+          "thinking_tokens": 0
+        },
+        "server_tool_use": {
+          "web_fetch_requests": 0,
+          "web_search_requests": 0
+        },
+        "service_tier": "standard",
+        "speed": "standard"
+      },
+      "uuid": "f5b6eda2-ff1f-485b-b150-a7e6ea061d5a",
+      "warm_spare_claimed": false
+    }
+  },
+  {
+    "sessionId": "s-87f80cc5-c16f-48ec-8d40-044ee774ea3b",
+    "seq": 10,
+    "ts": 1793563189660,
+    "source": "agentdeck",
+    "kind": "process_exit",
+    "payload": {
+      "code": 0,
+      "expected": true,
+      "stderrTail": ""
+    }
+  },
+  {
+    "sessionId": "s-87f80cc5-c16f-48ec-8d40-044ee774ea3b",
+    "seq": 11,
+    "ts": 1793563189662,
+    "source": "agentdeck",
+    "kind": "user_message",
+    "payload": {
+      "text": "write it again"
+    }
+  },
+  {
+    "sessionId": "s-87f80cc5-c16f-48ec-8d40-044ee774ea3b",
+    "seq": 12,
+    "ts": 1793563190112,
+    "source": "claude",
+    "kind": "system/init",
+    "payload": {
+      "additional_directories": [],
+      "agents": [
+        "claude",
+        "Explore",
+        "general-purpose",
+        "Plan",
+        "statusline-setup"
+      ],
+      "analytics_disabled": true,
+      "apiKeySource": "ANTHROPIC_API_KEY",
+      "capabilities": [
+        "interrupt_receipt_v1",
+        "interrupt_cancel_queued_v1",
+        "interrupt_send_now_v1",
+        "interrupt_requeue_taken_v1",
+        "msg_lifecycle_v1",
+        "request_marker_lists_v1",
+        "ask_user_question_unanswered_v1",
+        "lifecycle_wakeup_source_v1",
+        "sdk_mcp_tools_list_changed",
+        "sdk_mcp_manifests",
+        "mcp_read_resource_v1",
+        "mcp_tool_ui_meta_v1",
+        "ui_surface_v1",
+        "mcp_call_result_not_for_model_v1"
+      ],
+      "claude_code_version": "2.1.316",
+      "cwd": "/tmp/.tmphyb7hh/project",
+      "fast_mode_disabled_reason": "sdk_opt_in_required",
+      "fast_mode_state": "off",
+      "mcp_servers": [],
+      "memory_paths": {
+        "auto": "/root/.claude/projects/-tmp--tmphyb7hh-project/memory/"
+      },
+      "messaging_socket_path": "/tmp/cc-socks/7096.sock",
+      "model": "claude-sonnet-5-5",
+      "original_cwd": "/tmp/.tmphyb7hh/project",
+      "output_style": "default",
+      "per_turn_effort_active": true,
+      "permissionMode": "default",
+      "plugins": [
+        {
+          "name": "cc-plugin-agents-md",
+          "path": "builtin",
+          "source": "cc-plugin-agents-md@builtin"
+        },
+        {
+          "name": "cc-plugin-plugin-authoring",
+          "path": "builtin",
+          "source": "cc-plugin-plugin-authoring@builtin"
+        }
+      ],
+      "product_feedback_disabled": true,
+      "session_id": "38564555-95d1-4918-ad00-f6513e131111",
+      "skills": [
+        "file-reading",
+        "frontend-design",
+        "pdf-reading",
+        "product-self-knowledge",
+        "session-start-hook",
+        "deep-research",
+        "dataviz",
+        "update-config",
+        "verify",
+        "debug",
+        "code-review",
+        "simplify",
+        "batch",
+        "fewer-permission-prompts",
+        "doctor",
+        "loop",
+        "claude-api",
+        "workflow-authoring",
+        "run",
+        "run-skill-generator",
+        "plugin-authoring"
+      ],
+      "slash_commands": [
+        "file-reading",
+        "frontend-design",
+        "pdf-reading",
+        "product-self-knowledge",
+        "session-start-hook",
+        "deep-research",
+        "dataviz",
+        "update-config",
+        "verify",
+        "debug",
+        "code-review",
+        "simplify",
+        "batch",
+        "fewer-permission-prompts",
+        "doctor",
+        "loop",
+        "claude-api",
+        "workflow-authoring",
+        "run",
+        "run-skill-generator",
+        "plugin-authoring",
+        "agents",
+        "auto-mode-setup",
+        "autocompact",
+        "clear",
+        "color",
+        "compact",
+        "config",
+        "output-style",
+        "context",
+        "effort",
+        "fast",
+        "focus",
+        "heapdump",
+        "init",
+        "mcp",
+        "model",
+        "__remote-workflow",
+        "workflow-launch-exec",
+        "reload-plugins",
+        "reload-skills",
+        "rename",
+        "security-review",
+        "usage",
+        "insights",
+        "recap",
+        "goal",
+        "list-agents",
+        "team-onboarding"
+      ],
+      "subtype": "init",
+      "terminal_slash_commands": [
+        "doctor",
+        "color",
+        "focus",
+        "reload-plugins"
+      ],
+      "tools": [
+        "Task",
+        "AskUserQuestion",
+        "Bash",
+        "CronCreate",
+        "CronDelete",
+        "CronList",
+        "Edit",
+        "EnterPlanMode",
+        "EnterWorktree",
+        "ExitPlanMode",
+        "ExitWorktree",
+        "ListAgents",
+        "Monitor",
+        "NotebookEdit",
+        "Read",
+        "ReportFindings",
+        "ScheduleWakeup",
+        "SendMessage",
+        "Skill",
+        "TaskStop",
+        "ToolSearch",
+        "WebFetch",
+        "WebSearch",
+        "Workflow",
+        "Write"
+      ],
+      "type": "system",
+      "ultrathink_available": false,
+      "uuid": "ebc6a02e-10fc-47c3-8cd2-b2dcbeb2efa9",
+      "view_mode": "default"
+    }
+  },
+  {
+    "sessionId": "s-87f80cc5-c16f-48ec-8d40-044ee774ea3b",
+    "seq": 13,
+    "ts": 1793563190162,
+    "source": "claude",
+    "kind": "assistant",
+    "payload": {
+      "message": {
+        "content": [
+          {
+            "text": "I'll create the file.",
+            "type": "text"
+          }
+        ],
+        "context_management": null,
+        "id": "msg_1793563190155502",
+        "model": "claude-sonnet-5-5",
+        "role": "assistant",
+        "stop_reason": null,
+        "stop_sequence": null,
+        "type": "message",
+        "usage": {
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 0,
+          "input_tokens": 10,
+          "output_tokens": 10
+        }
+      },
+      "parent_tool_use_id": null,
+      "session_id": "38564555-95d1-4918-ad00-f6513e131111",
+      "timestamp": "2026-11-01T19:59:50.159Z",
+      "type": "assistant",
+      "uuid": "1719ef6d-f75f-4ca3-871f-95a2e53030a1"
+    }
+  },
+  {
+    "sessionId": "s-87f80cc5-c16f-48ec-8d40-044ee774ea3b",
+    "seq": 14,
+    "ts": 1793563190164,
+    "source": "claude",
+    "kind": "assistant",
+    "payload": {
+      "message": {
+        "content": [
+          {
+            "id": "toolu_w1793563190155",
+            "input": {
+              "content": "hello from agentdeck\n",
+              "file_path": "hello.txt"
+            },
+            "name": "Write",
+            "type": "tool_use"
+          }
+        ],
+        "context_management": null,
+        "id": "msg_1793563190155502",
+        "model": "claude-sonnet-5-5",
+        "role": "assistant",
+        "stop_reason": null,
+        "stop_sequence": null,
+        "type": "message",
+        "usage": {
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 0,
+          "input_tokens": 10,
+          "output_tokens": 10
+        }
+      },
+      "parent_tool_use_id": null,
+      "session_id": "38564555-95d1-4918-ad00-f6513e131111",
+      "timestamp": "2026-11-01T19:59:50.162Z",
+      "type": "assistant",
+      "uuid": "818d8cae-c6fd-49fb-bb4d-4d51c152895a"
+    }
+  },
+  {
+    "sessionId": "s-87f80cc5-c16f-48ec-8d40-044ee774ea3b",
+    "seq": 15,
+    "ts": 1793563190184,
+    "source": "claude",
+    "kind": "control_request/can_use_tool",
+    "payload": {
+      "request": {
+        "description": "hello.txt",
+        "display_name": "Write",
+        "input": {
+          "content": "hello from agentdeck\n",
+          "file_path": "/tmp/.tmphyb7hh/project/hello.txt"
+        },
+        "permission_suggestions": [
+          {
+            "destination": "session",
+            "mode": "acceptEdits",
+            "type": "setMode"
+          }
+        ],
+        "subtype": "can_use_tool",
+        "tool_name": "Write",
+        "tool_use_id": "toolu_w1793563190155"
+      },
+      "request_id": "c8de245c-4523-4586-b593-1b665f4b482d",
+      "type": "control_request"
+    }
+  },
+  {
+    "sessionId": "s-87f80cc5-c16f-48ec-8d40-044ee774ea3b",
+    "seq": 16,
+    "ts": 1793563190184,
+    "source": "agentdeck",
+    "kind": "permission_decision",
+    "payload": {
+      "decision": "deny",
+      "requestId": "c8de245c-4523-4586-b593-1b665f4b482d"
+    }
+  },
+  {
+    "sessionId": "s-87f80cc5-c16f-48ec-8d40-044ee774ea3b",
+    "seq": 17,
+    "ts": 1793563190188,
+    "source": "claude",
+    "kind": "user",
+    "payload": {
+      "message": {
+        "content": [
+          {
+            "content": "The user denied this in AgentDeck.",
+            "is_error": true,
+            "tool_use_id": "toolu_w1793563190155",
+            "type": "tool_result"
+          }
+        ],
+        "role": "user"
+      },
+      "parent_tool_use_id": null,
+      "session_id": "38564555-95d1-4918-ad00-f6513e131111",
+      "timestamp": "2026-11-01T19:59:50.185Z",
+      "tool_result_meta": [
+        {
+          "id": "toolu_w1793563190155",
+          "non_execution_kind": "permission-rule",
+          "permission_decision": {
+            "decision": "reject",
+            "source": "user_reject"
+          }
+        }
+      ],
+      "tool_use_result": "Error: The user denied this in AgentDeck.",
+      "type": "user",
+      "uuid": "83877bf3-125e-4a5f-9435-a7cc06ba25e1"
+    }
+  },
+  {
+    "sessionId": "s-87f80cc5-c16f-48ec-8d40-044ee774ea3b",
+    "seq": 18,
+    "ts": 1793563190212,
+    "source": "claude",
+    "kind": "assistant",
+    "payload": {
+      "message": {
+        "content": [
+          {
+            "text": "The tool was not allowed, so I stopped.",
+            "type": "text"
+          }
+        ],
+        "context_management": null,
+        "id": "msg_1793563190203311",
+        "model": "claude-sonnet-5-5",
+        "role": "assistant",
+        "stop_reason": null,
+        "stop_sequence": null,
+        "type": "message",
+        "usage": {
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 0,
+          "input_tokens": 10,
+          "output_tokens": 10
+        }
+      },
+      "parent_tool_use_id": null,
+      "session_id": "38564555-95d1-4918-ad00-f6513e131111",
+      "timestamp": "2026-11-01T19:59:50.210Z",
+      "type": "assistant",
+      "uuid": "a6df9639-8f91-434f-91cb-fc186d8e7597"
+    }
+  },
+  {
+    "sessionId": "s-87f80cc5-c16f-48ec-8d40-044ee774ea3b",
+    "seq": 19,
+    "ts": 1793563190217,
+    "source": "claude",
+    "kind": "result/success",
+    "payload": {
+      "api_error_status": null,
+      "duration_api_ms": 85,
+      "duration_ms": 150,
+      "fast_mode_disabled_reason": "sdk_opt_in_required",
+      "fast_mode_state": "off",
+      "first_content_frame_ms": 93,
+      "flag_fetch_kick": "not_eligible",
+      "is_error": false,
+      "modelUsage": {
+        "claude-sonnet-5-5": {
+          "cacheCreationEphemeral1hInputTokens": 0,
+          "cacheCreationEphemeral5mInputTokens": 0,
+          "cacheCreationInputTokens": 0,
+          "cacheReadInputTokens": 0,
+          "canonicalModel": "claude-sonnet-5-5",
+          "contextWindow": 1000000,
+          "costBasis": "list",
+          "costUSD": 0.00048,
+          "inputTokens": 40,
+          "maxOutputTokens": 128000,
+          "outputTokens": 40,
+          "provider": "firstParty",
+          "thinkingTokens": 0,
+          "webSearchRequests": 0
+        }
+      },
+      "model_usage_since_last_result": {
+        "claude-sonnet-5-5": {
+          "cacheCreationEphemeral1hInputTokens": 0,
+          "cacheCreationEphemeral5mInputTokens": 0,
+          "cacheCreationInputTokens": 0,
+          "cacheReadInputTokens": 0,
+          "canonicalModel": "claude-sonnet-5-5",
+          "contextWindow": 1000000,
+          "costBasis": "list",
+          "costUSD": 0.00024,
+          "inputTokens": 20,
+          "maxOutputTokens": 128000,
+          "outputTokens": 20,
+          "provider": "firstParty",
+          "thinkingTokens": 0,
+          "webSearchRequests": 0
+        }
+      },
+      "num_turns": 2,
+      "permission_denials": [
+        {
+          "tool_input": {
+            "content": "hello from agentdeck\n",
+            "file_path": "/tmp/.tmphyb7hh/project/hello.txt"
+          },
+          "tool_name": "Write",
+          "tool_use_id": "toolu_w1793563190155"
+        }
+      ],
+      "queued_turn_count": 0,
+      "result": "The tool was not allowed, so I stopped.",
+      "result_index": 0,
+      "safety_stops": 0,
+      "session_id": "38564555-95d1-4918-ad00-f6513e131111",
+      "stop_reason": "end_turn",
+      "subagent_stats": {
+        "by_type": {},
+        "completed": 0,
+        "failed": 0,
+        "killed": {
+          "parent": 0,
+          "system": 0,
+          "user": 0
+        },
+        "max_depth": 0,
+        "refused": {
+          "budget": 0,
+          "concurrency_limit": 0,
+          "depth_limit": 0
+        },
+        "requested": {
+          "background": 0,
+          "foreground": 0,
+          "unset": 0
+        },
+        "spawned": 0,
+        "spawned_by_subagents": 0,
+        "started_in_background": 0
+      },
+      "subtype": "success",
+      "terminal_reason": "completed",
+      "time_origin_ms": 1793563189665.679,
+      "time_to_request_from_spawn_ms": 3889543,
+      "time_to_request_ms": 85,
+      "total_cost_usd": 0.00048,
+      "ttft_ms": 95,
+      "ttft_stream_ms": 92,
+      "type": "result",
+      "usage": {
+        "cache_creation": {
+          "ephemeral_1h_input_tokens": 0,
+          "ephemeral_5m_input_tokens": 0
+        },
+        "cache_creation_input_tokens": 0,
+        "cache_read_input_tokens": 0,
+        "fallback_credit": null,
+        "inference_geo": "",
+        "input_tokens": 20,
+        "iterations": [],
+        "output_tokens": 20,
+        "output_tokens_details": {
+          "thinking_tokens": 0
+        },
+        "server_tool_use": {
+          "web_fetch_requests": 0,
+          "web_search_requests": 0
+        },
+        "service_tier": "standard",
+        "speed": "standard"
+      },
+      "uuid": "4fc3cebc-fcf4-4a92-9e20-9e49337c767a",
+      "warm_spare_claimed": false
+    }
+  }
+]

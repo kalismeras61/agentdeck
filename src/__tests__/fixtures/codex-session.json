@@ -1,0 +1,701 @@
+[
+  {
+    "sessionId": "s-2606d535-a1e2-47f7-9747-db534236acbd",
+    "seq": 1,
+    "ts": 1793566390115,
+    "source": "agentdeck",
+    "kind": "user_message",
+    "payload": {
+      "text": "please run the check"
+    }
+  },
+  {
+    "sessionId": "s-2606d535-a1e2-47f7-9747-db534236acbd",
+    "seq": 2,
+    "ts": 1793566390344,
+    "source": "codex",
+    "kind": "thread/opened",
+    "payload": {
+      "model": "mock-model",
+      "threadId": "01a198e3-3827-7e02-a553-d253068c0801"
+    }
+  },
+  {
+    "sessionId": "s-2606d535-a1e2-47f7-9747-db534236acbd",
+    "seq": 3,
+    "ts": 1793566390345,
+    "source": "codex",
+    "kind": "thread/started",
+    "payload": {
+      "thread": {
+        "agentNickname": null,
+        "agentRole": null,
+        "canAcceptDirectInput": true,
+        "cliVersion": "0.166.0",
+        "createdAt": 1793566390,
+        "cwd": "/tmp/.tmpVrPx6f/project",
+        "daybreakEnabled": null,
+        "environments": [
+          {
+            "cwd": "/tmp/.tmpVrPx6f/project",
+            "environmentId": "local",
+            "runtimeWorkspaceRoots": [
+              "/tmp/.tmpVrPx6f/project"
+            ]
+          }
+        ],
+        "ephemeral": false,
+        "extra": null,
+        "forkedFromId": null,
+        "gitInfo": null,
+        "historyMode": "paginated",
+        "id": "01a198e3-3827-7e02-a553-d253068c0801",
+        "model": "mock-model",
+        "modelProvider": "agentdeck_mock",
+        "name": null,
+        "originator": "agentdeck",
+        "parentThreadId": null,
+        "path": "/tmp/.tmpVrPx6f/codexhome/sessions/2026/11/01/rollout-2026-11-01T23-53-10-01a198e3-3827-7e02-a553-d253068c0801.jsonl",
+        "preview": "",
+        "projectId": null,
+        "reasoningEffort": null,
+        "recencyAt": 1793566390,
+        "section": null,
+        "sectionEnteredAt": null,
+        "sessionId": "01a198e3-3827-7e02-a553-d253068c0801",
+        "source": "vscode",
+        "status": {
+          "type": "idle"
+        },
+        "threadSource": null,
+        "turns": [],
+        "updatedAt": 1793566390
+      }
+    }
+  },
+  {
+    "sessionId": "s-2606d535-a1e2-47f7-9747-db534236acbd",
+    "seq": 4,
+    "ts": 1793566390351,
+    "source": "codex",
+    "kind": "warning",
+    "payload": {
+      "message": "Model metadata for `mock-model` not found. Defaulting to fallback metadata; this can degrade performance and cause issues.",
+      "threadId": "01a198e3-3827-7e02-a553-d253068c0801"
+    }
+  },
+  {
+    "sessionId": "s-2606d535-a1e2-47f7-9747-db534236acbd",
+    "seq": 5,
+    "ts": 1793566390372,
+    "source": "codex",
+    "kind": "turn/started",
+    "payload": {
+      "threadId": "01a198e3-3827-7e02-a553-d253068c0801",
+      "turn": {
+        "completedAt": null,
+        "durationMs": null,
+        "error": null,
+        "id": "01a198e3-384c-7ff0-87b7-3765decca3b2",
+        "items": [],
+        "itemsView": "notLoaded",
+        "rootTurnId": "01a198e3-384c-7ff0-87b7-3765decca3b2",
+        "startedAt": 1793566390,
+        "status": "inProgress"
+      }
+    }
+  },
+  {
+    "sessionId": "s-2606d535-a1e2-47f7-9747-db534236acbd",
+    "seq": 6,
+    "ts": 1793566390386,
+    "source": "codex",
+    "kind": "item/started",
+    "payload": {
+      "item": {
+        "clientId": null,
+        "completedAtMs": null,
+        "content": [
+          {
+            "text": "please run the check",
+            "text_elements": [],
+            "type": "text"
+          }
+        ],
+        "id": "01a198e3-386f-7643-a07d-23c5dd5a10cf",
+        "startedAtMs": 1793566390386,
+        "type": "userMessage"
+      },
+      "startedAtMs": 1793566390386,
+      "threadId": "01a198e3-3827-7e02-a553-d253068c0801",
+      "turnId": "01a198e3-384c-7ff0-87b7-3765decca3b2"
+    }
+  },
+  {
+    "sessionId": "s-2606d535-a1e2-47f7-9747-db534236acbd",
+    "seq": 7,
+    "ts": 1793566390390,
+    "source": "codex",
+    "kind": "item/completed",
+    "payload": {
+      "completedAtMs": 1793566390386,
+      "item": {
+        "clientId": null,
+        "completedAtMs": 1793566390386,
+        "content": [
+          {
+            "text": "please run the check",
+            "text_elements": [],
+            "type": "text"
+          }
+        ],
+        "id": "01a198e3-386f-7643-a07d-23c5dd5a10cf",
+        "startedAtMs": 1793566390386,
+        "type": "userMessage"
+      },
+      "threadId": "01a198e3-3827-7e02-a553-d253068c0801",
+      "turnId": "01a198e3-384c-7ff0-87b7-3765decca3b2"
+    }
+  },
+  {
+    "sessionId": "s-2606d535-a1e2-47f7-9747-db534236acbd",
+    "seq": 8,
+    "ts": 1793566390423,
+    "source": "codex",
+    "kind": "item/completed",
+    "payload": {
+      "completedAtMs": 1793566390417,
+      "item": {
+        "completedAtMs": 1793566390417,
+        "delivery": null,
+        "id": "msg_resp_1793566390415507_0",
+        "memoryCitation": null,
+        "phase": null,
+        "questions": null,
+        "startedAtMs": 1793566390416,
+        "text": "I'll run a quick check.",
+        "type": "agentMessage"
+      },
+      "threadId": "01a198e3-3827-7e02-a553-d253068c0801",
+      "turnId": "01a198e3-384c-7ff0-87b7-3765decca3b2"
+    }
+  },
+  {
+    "sessionId": "s-2606d535-a1e2-47f7-9747-db534236acbd",
+    "seq": 9,
+    "ts": 1793566390452,
+    "source": "codex",
+    "kind": "item/started",
+    "payload": {
+      "item": {
+        "aggregatedOutput": null,
+        "command": "/bin/bash -lc 'touch marker.txt && echo agentdeck-ok'",
+        "commandActions": [
+          {
+            "command": "touch marker.txt && echo agentdeck-ok",
+            "type": "unknown"
+          }
+        ],
+        "completedAtMs": null,
+        "cwd": "/tmp/.tmpVrPx6f/project",
+        "durationMs": null,
+        "exitCode": null,
+        "id": "call_resp_1793566390415507_1",
+        "pluginId": null,
+        "processId": null,
+        "scriptPath": null,
+        "source": "agent",
+        "startedAtMs": 1793566390450,
+        "status": "inProgress",
+        "type": "commandExecution"
+      },
+      "startedAtMs": 1793566390450,
+      "threadId": "01a198e3-3827-7e02-a553-d253068c0801",
+      "turnId": "01a198e3-384c-7ff0-87b7-3765decca3b2"
+    }
+  },
+  {
+    "sessionId": "s-2606d535-a1e2-47f7-9747-db534236acbd",
+    "seq": 10,
+    "ts": 1793566390453,
+    "source": "codex",
+    "kind": "approval",
+    "payload": {
+      "method": "item/commandExecution/requestApproval",
+      "params": {
+        "availableDecisions": [
+          "accept",
+          {
+            "acceptWithExecpolicyAmendment": {
+              "execpolicy_amendment": [
+                "touch",
+                "marker.txt"
+              ]
+            }
+          },
+          "cancel"
+        ],
+        "command": "/bin/bash -lc 'touch marker.txt && echo agentdeck-ok'",
+        "commandActions": [
+          {
+            "command": "touch marker.txt && echo agentdeck-ok",
+            "type": "unknown"
+          }
+        ],
+        "cwd": "/tmp/.tmpVrPx6f/project",
+        "environmentId": "local",
+        "itemId": "call_resp_1793566390415507_1",
+        "kind": "command",
+        "proposedExecpolicyAmendment": [
+          "touch",
+          "marker.txt"
+        ],
+        "startedAtMs": 1793566390450,
+        "threadId": "01a198e3-3827-7e02-a553-d253068c0801",
+        "turnId": "01a198e3-384c-7ff0-87b7-3765decca3b2"
+      },
+      "requestId": "930eb162-0"
+    }
+  },
+  {
+    "sessionId": "s-2606d535-a1e2-47f7-9747-db534236acbd",
+    "seq": 11,
+    "ts": 1793566390453,
+    "source": "agentdeck",
+    "kind": "permission_decision",
+    "payload": {
+      "decision": "allow",
+      "requestId": "930eb162-0"
+    }
+  },
+  {
+    "sessionId": "s-2606d535-a1e2-47f7-9747-db534236acbd",
+    "seq": 12,
+    "ts": 1793566390456,
+    "source": "codex",
+    "kind": "serverRequest/resolved",
+    "payload": {
+      "requestId": "930eb162-0",
+      "threadId": "01a198e3-3827-7e02-a553-d253068c0801"
+    }
+  },
+  {
+    "sessionId": "s-2606d535-a1e2-47f7-9747-db534236acbd",
+    "seq": 13,
+    "ts": 1793566390536,
+    "source": "codex",
+    "kind": "item/completed",
+    "payload": {
+      "completedAtMs": 1793566390533,
+      "item": {
+        "aggregatedOutput": "agentdeck-ok\n",
+        "command": "/bin/bash -lc 'touch marker.txt && echo agentdeck-ok'",
+        "commandActions": [
+          {
+            "command": "touch marker.txt && echo agentdeck-ok",
+            "type": "unknown"
+          }
+        ],
+        "completedAtMs": 1793566390533,
+        "cwd": "/tmp/.tmpVrPx6f/project",
+        "durationMs": 0,
+        "exitCode": 0,
+        "id": "call_resp_1793566390415507_1",
+        "pluginId": null,
+        "processId": "65225",
+        "scriptPath": null,
+        "source": "unifiedExecStartup",
+        "startedAtMs": 1793566390450,
+        "status": "completed",
+        "type": "commandExecution"
+      },
+      "threadId": "01a198e3-3827-7e02-a553-d253068c0801",
+      "turnId": "01a198e3-384c-7ff0-87b7-3765decca3b2"
+    }
+  },
+  {
+    "sessionId": "s-2606d535-a1e2-47f7-9747-db534236acbd",
+    "seq": 14,
+    "ts": 1793566390566,
+    "source": "codex",
+    "kind": "item/completed",
+    "payload": {
+      "completedAtMs": 1793566390564,
+      "item": {
+        "completedAtMs": 1793566390564,
+        "delivery": null,
+        "id": "msg_resp_1793566390562908_0",
+        "memoryCitation": null,
+        "phase": null,
+        "questions": null,
+        "startedAtMs": 1793566390563,
+        "text": "Done. The command printed agentdeck-ok and the file is in place.",
+        "type": "agentMessage"
+      },
+      "threadId": "01a198e3-3827-7e02-a553-d253068c0801",
+      "turnId": "01a198e3-384c-7ff0-87b7-3765decca3b2"
+    }
+  },
+  {
+    "sessionId": "s-2606d535-a1e2-47f7-9747-db534236acbd",
+    "seq": 15,
+    "ts": 1793566390581,
+    "source": "codex",
+    "kind": "turn/completed",
+    "payload": {
+      "threadId": "01a198e3-3827-7e02-a553-d253068c0801",
+      "turn": {
+        "completedAt": 1793566390,
+        "durationMs": 225,
+        "error": null,
+        "id": "01a198e3-384c-7ff0-87b7-3765decca3b2",
+        "items": [
+          {
+            "completedAtMs": 1793566390564,
+            "delivery": null,
+            "id": "msg_resp_1793566390562908_0",
+            "memoryCitation": null,
+            "phase": null,
+            "questions": null,
+            "startedAtMs": 1793566390563,
+            "text": "Done. The command printed agentdeck-ok and the file is in place.",
+            "type": "agentMessage"
+          }
+        ],
+        "itemsView": "summary",
+        "rootTurnId": "01a198e3-384c-7ff0-87b7-3765decca3b2",
+        "startedAt": 1793566390,
+        "status": "completed"
+      }
+    }
+  },
+  {
+    "sessionId": "s-2606d535-a1e2-47f7-9747-db534236acbd",
+    "seq": 16,
+    "ts": 1793566390605,
+    "source": "agentdeck",
+    "kind": "process_exit",
+    "payload": {
+      "code": 0,
+      "expected": true,
+      "stderrTail": ""
+    }
+  },
+  {
+    "sessionId": "s-2606d535-a1e2-47f7-9747-db534236acbd",
+    "seq": 17,
+    "ts": 1793566390607,
+    "source": "agentdeck",
+    "kind": "user_message",
+    "payload": {
+      "text": "run it again"
+    }
+  },
+  {
+    "sessionId": "s-2606d535-a1e2-47f7-9747-db534236acbd",
+    "seq": 18,
+    "ts": 1793566390853,
+    "source": "codex",
+    "kind": "thread/opened",
+    "payload": {
+      "model": "mock-model",
+      "threadId": "01a198e3-3827-7e02-a553-d253068c0801"
+    }
+  },
+  {
+    "sessionId": "s-2606d535-a1e2-47f7-9747-db534236acbd",
+    "seq": 19,
+    "ts": 1793566390864,
+    "source": "codex",
+    "kind": "warning",
+    "payload": {
+      "message": "Model metadata for `mock-model` not found. Defaulting to fallback metadata; this can degrade performance and cause issues.",
+      "threadId": "01a198e3-3827-7e02-a553-d253068c0801"
+    }
+  },
+  {
+    "sessionId": "s-2606d535-a1e2-47f7-9747-db534236acbd",
+    "seq": 20,
+    "ts": 1793566390869,
+    "source": "codex",
+    "kind": "turn/started",
+    "payload": {
+      "threadId": "01a198e3-3827-7e02-a553-d253068c0801",
+      "turn": {
+        "completedAt": null,
+        "durationMs": null,
+        "error": null,
+        "id": "01a198e3-3a4c-7ec2-8253-ec8086d8c787",
+        "items": [],
+        "itemsView": "notLoaded",
+        "rootTurnId": "01a198e3-3a4c-7ec2-8253-ec8086d8c787",
+        "startedAt": 1793566390,
+        "status": "inProgress"
+      }
+    }
+  },
+  {
+    "sessionId": "s-2606d535-a1e2-47f7-9747-db534236acbd",
+    "seq": 21,
+    "ts": 1793566390882,
+    "source": "codex",
+    "kind": "item/started",
+    "payload": {
+      "item": {
+        "clientId": null,
+        "completedAtMs": null,
+        "content": [
+          {
+            "text": "run it again",
+            "text_elements": [],
+            "type": "text"
+          }
+        ],
+        "id": "01a198e3-3a60-72d0-9852-7e96808d3e31",
+        "startedAtMs": 1793566390881,
+        "type": "userMessage"
+      },
+      "startedAtMs": 1793566390881,
+      "threadId": "01a198e3-3827-7e02-a553-d253068c0801",
+      "turnId": "01a198e3-3a4c-7ec2-8253-ec8086d8c787"
+    }
+  },
+  {
+    "sessionId": "s-2606d535-a1e2-47f7-9747-db534236acbd",
+    "seq": 22,
+    "ts": 1793566390885,
+    "source": "codex",
+    "kind": "item/completed",
+    "payload": {
+      "completedAtMs": 1793566390881,
+      "item": {
+        "clientId": null,
+        "completedAtMs": 1793566390881,
+        "content": [
+          {
+            "text": "run it again",
+            "text_elements": [],
+            "type": "text"
+          }
+        ],
+        "id": "01a198e3-3a60-72d0-9852-7e96808d3e31",
+        "startedAtMs": 1793566390881,
+        "type": "userMessage"
+      },
+      "threadId": "01a198e3-3827-7e02-a553-d253068c0801",
+      "turnId": "01a198e3-3a4c-7ec2-8253-ec8086d8c787"
+    }
+  },
+  {
+    "sessionId": "s-2606d535-a1e2-47f7-9747-db534236acbd",
+    "seq": 23,
+    "ts": 1793566390915,
+    "source": "codex",
+    "kind": "item/completed",
+    "payload": {
+      "completedAtMs": 1793566390912,
+      "item": {
+        "completedAtMs": 1793566390912,
+        "delivery": null,
+        "id": "msg_resp_1793566390911117_0",
+        "memoryCitation": null,
+        "phase": null,
+        "questions": null,
+        "startedAtMs": 1793566390911,
+        "text": "I'll run a quick check.",
+        "type": "agentMessage"
+      },
+      "threadId": "01a198e3-3827-7e02-a553-d253068c0801",
+      "turnId": "01a198e3-3a4c-7ec2-8253-ec8086d8c787"
+    }
+  },
+  {
+    "sessionId": "s-2606d535-a1e2-47f7-9747-db534236acbd",
+    "seq": 24,
+    "ts": 1793566390952,
+    "source": "codex",
+    "kind": "item/started",
+    "payload": {
+      "item": {
+        "aggregatedOutput": null,
+        "command": "/bin/bash -lc 'touch marker.txt && echo agentdeck-ok'",
+        "commandActions": [
+          {
+            "command": "touch marker.txt && echo agentdeck-ok",
+            "type": "unknown"
+          }
+        ],
+        "completedAtMs": null,
+        "cwd": "/tmp/.tmpVrPx6f/project",
+        "durationMs": null,
+        "exitCode": null,
+        "id": "call_resp_1793566390911117_1",
+        "pluginId": null,
+        "processId": null,
+        "scriptPath": null,
+        "source": "agent",
+        "startedAtMs": 1793566390952,
+        "status": "inProgress",
+        "type": "commandExecution"
+      },
+      "startedAtMs": 1793566390952,
+      "threadId": "01a198e3-3827-7e02-a553-d253068c0801",
+      "turnId": "01a198e3-3a4c-7ec2-8253-ec8086d8c787"
+    }
+  },
+  {
+    "sessionId": "s-2606d535-a1e2-47f7-9747-db534236acbd",
+    "seq": 25,
+    "ts": 1793566390953,
+    "source": "codex",
+    "kind": "approval",
+    "payload": {
+      "method": "item/commandExecution/requestApproval",
+      "params": {
+        "availableDecisions": [
+          "accept",
+          {
+            "acceptWithExecpolicyAmendment": {
+              "execpolicy_amendment": [
+                "touch",
+                "marker.txt"
+              ]
+            }
+          },
+          "cancel"
+        ],
+        "command": "/bin/bash -lc 'touch marker.txt && echo agentdeck-ok'",
+        "commandActions": [
+          {
+            "command": "touch marker.txt && echo agentdeck-ok",
+            "type": "unknown"
+          }
+        ],
+        "cwd": "/tmp/.tmpVrPx6f/project",
+        "environmentId": "local",
+        "itemId": "call_resp_1793566390911117_1",
+        "kind": "command",
+        "proposedExecpolicyAmendment": [
+          "touch",
+          "marker.txt"
+        ],
+        "startedAtMs": 1793566390952,
+        "threadId": "01a198e3-3827-7e02-a553-d253068c0801",
+        "turnId": "01a198e3-3a4c-7ec2-8253-ec8086d8c787"
+      },
+      "requestId": "2a57e3e1-0"
+    }
+  },
+  {
+    "sessionId": "s-2606d535-a1e2-47f7-9747-db534236acbd",
+    "seq": 26,
+    "ts": 1793566390953,
+    "source": "agentdeck",
+    "kind": "permission_decision",
+    "payload": {
+      "decision": "deny",
+      "requestId": "2a57e3e1-0"
+    }
+  },
+  {
+    "sessionId": "s-2606d535-a1e2-47f7-9747-db534236acbd",
+    "seq": 27,
+    "ts": 1793566390953,
+    "source": "codex",
+    "kind": "serverRequest/resolved",
+    "payload": {
+      "requestId": "2a57e3e1-0",
+      "threadId": "01a198e3-3827-7e02-a553-d253068c0801"
+    }
+  },
+  {
+    "sessionId": "s-2606d535-a1e2-47f7-9747-db534236acbd",
+    "seq": 28,
+    "ts": 1793566390954,
+    "source": "codex",
+    "kind": "item/completed",
+    "payload": {
+      "completedAtMs": 1793566390953,
+      "item": {
+        "aggregatedOutput": null,
+        "command": "/bin/bash -lc 'touch marker.txt && echo agentdeck-ok'",
+        "commandActions": [
+          {
+            "command": "touch marker.txt && echo agentdeck-ok",
+            "type": "unknown"
+          }
+        ],
+        "completedAtMs": 1793566390953,
+        "cwd": "/tmp/.tmpVrPx6f/project",
+        "durationMs": null,
+        "exitCode": null,
+        "id": "call_resp_1793566390911117_1",
+        "pluginId": null,
+        "processId": null,
+        "scriptPath": null,
+        "source": "agent",
+        "startedAtMs": 1793566390952,
+        "status": "declined",
+        "type": "commandExecution"
+      },
+      "threadId": "01a198e3-3827-7e02-a553-d253068c0801",
+      "turnId": "01a198e3-3a4c-7ec2-8253-ec8086d8c787"
+    }
+  },
+  {
+    "sessionId": "s-2606d535-a1e2-47f7-9747-db534236acbd",
+    "seq": 29,
+    "ts": 1793566390984,
+    "source": "codex",
+    "kind": "item/completed",
+    "payload": {
+      "completedAtMs": 1793566390982,
+      "item": {
+        "completedAtMs": 1793566390982,
+        "delivery": null,
+        "id": "msg_resp_1793566390981503_0",
+        "memoryCitation": null,
+        "phase": null,
+        "questions": null,
+        "startedAtMs": 1793566390982,
+        "text": "The action was not approved, so I stopped.",
+        "type": "agentMessage"
+      },
+      "threadId": "01a198e3-3827-7e02-a553-d253068c0801",
+      "turnId": "01a198e3-3a4c-7ec2-8253-ec8086d8c787"
+    }
+  },
+  {
+    "sessionId": "s-2606d535-a1e2-47f7-9747-db534236acbd",
+    "seq": 30,
+    "ts": 1793566390994,
+    "source": "codex",
+    "kind": "turn/completed",
+    "payload": {
+      "threadId": "01a198e3-3827-7e02-a553-d253068c0801",
+      "turn": {
+        "completedAt": 1793566390,
+        "durationMs": 125,
+        "error": null,
+        "id": "01a198e3-3a4c-7ec2-8253-ec8086d8c787",
+        "items": [
+          {
+            "completedAtMs": 1793566390982,
+            "delivery": null,
+            "id": "msg_resp_1793566390981503_0",
+            "memoryCitation": null,
+            "phase": null,
+            "questions": null,
+            "startedAtMs": 1793566390982,
+            "text": "The action was not approved, so I stopped.",
+            "type": "agentMessage"
+          }
+        ],
+        "itemsView": "summary",
+        "rootTurnId": "01a198e3-3a4c-7ec2-8253-ec8086d8c787",
+        "startedAt": 1793566390,
+        "status": "completed"
+      }
+    }
+  }
+]
