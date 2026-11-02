@@ -80,6 +80,7 @@ CONF=$(node -e '
   if (require("fs").existsSync("dist/index.html")) c.build = { beforeBuildCommand: "" };
   console.log(JSON.stringify(c));' "$PUBKEY")
 npm run tauri build -- --target universal-apple-darwin --bundles app --config "$CONF"
+node scripts/check-dist.mjs || { echo "BUILD FAILED: the interface has no styles; not releasing it."; exit 1; }
 BUNDLE="src-tauri/target/universal-apple-darwin/release/bundle/macos"
 APP="$BUNDLE/AgentDeck.app"
 [ -d "$APP" ] || { echo "BUILD FAILED: $APP not found"; exit 1; }
