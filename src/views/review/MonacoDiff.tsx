@@ -1,6 +1,7 @@
 import { forwardRef, useEffect, useImperativeHandle, useLayoutEffect, useRef, useState } from "react";
 import type * as MonacoApi from "monaco-editor/editor/editor.api";
 import { loadMonaco, type Monaco } from "../../lib/monaco";
+import { t } from "../../lib/i18n";
 
 export interface DiffHandle {
   next: () => void;
@@ -50,7 +51,7 @@ export const MonacoDiff = forwardRef<DiffHandle, Props>(function MonacoDiff({ or
     let alive = true;
     loadMonaco()
       .then((m) => alive && setMonaco(m))
-      .catch((e: unknown) => alive && setFailed(e instanceof Error ? e.message : "Monaco failed to load"));
+      .catch((e: unknown) => alive && setFailed(e instanceof Error ? e.message : t("Monaco failed to load")));
     return () => {
       alive = false;
     };
@@ -112,9 +113,9 @@ export const MonacoDiff = forwardRef<DiffHandle, Props>(function MonacoDiff({ or
   }, [split, monaco, fileOnly]);
 
   useEffect(() => {
-    diffEditor.current?.getModifiedEditor().updateOptions({ ariaLabel: `${label}, new version` });
-    diffEditor.current?.getOriginalEditor().updateOptions({ ariaLabel: `${label}, previous version` });
-    fileEditor.current?.updateOptions({ ariaLabel: `${label}, new version` });
+    diffEditor.current?.getModifiedEditor().updateOptions({ ariaLabel: t("{name}, new version", { name: label }) });
+    diffEditor.current?.getOriginalEditor().updateOptions({ ariaLabel: t("{name}, previous version", { name: label }) });
+    fileEditor.current?.updateOptions({ ariaLabel: t("{name}, new version", { name: label }) });
   }, [label, monaco, fileOnly]);
 
   useEffect(() => {
@@ -129,13 +130,13 @@ export const MonacoDiff = forwardRef<DiffHandle, Props>(function MonacoDiff({ or
   if (failed) {
     return (
       <div className="flex h-full items-center justify-center px-8 text-center text-[13px] text-fg-2">
-        The diff editor couldn't start: {failed}
+        {t("The diff editor couldn't start: {error}", { error: failed })}
       </div>
     );
   }
   return (
     <div className="relative h-full">
-      {!monaco && <div className="absolute inset-0 flex items-center justify-center text-xs text-fg-3">Loading the diff editor…</div>}
+      {!monaco && <div className="absolute inset-0 flex items-center justify-center text-xs text-fg-3">{t("Loading the diff editor…")}</div>}
       <div ref={host} className="h-full" />
     </div>
   );

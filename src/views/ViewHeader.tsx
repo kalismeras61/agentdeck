@@ -13,7 +13,7 @@ export function ViewHeader({ title, children }: { title: string; children?: Reac
   return (
     <header data-tauri-drag-region className="drag relative flex h-12 shrink-0 items-center gap-3 border-b border-line-soft px-3">
       {!sidebarOpen && (
-        <div className="flex items-center gap-2 pl-[66px]">
+        <div className="flex items-center gap-2 pl-[66px] rtl:order-last">
           <span aria-hidden className="absolute left-4 top-[18px] flex gap-2" data-web-only>
             <span className="h-3 w-3 rounded-full bg-[#ff5f57]" />
             <span className="h-3 w-3 rounded-full bg-[#febc2e]" />
@@ -24,8 +24,8 @@ export function ViewHeader({ title, children }: { title: string; children?: Reac
           </IconButton>
         </div>
       )}
-      <h1 className="truncate pl-1 text-[13px] font-medium text-fg">{title}</h1>
-      <div className="ml-auto flex shrink-0 items-center gap-1.5">
+      <h1 className="truncate ps-1 text-[13px] font-medium text-fg">{title}</h1>
+      <div className="ms-auto flex shrink-0 items-center gap-1.5">
         {children}
         {demo && <DemoBadge />}
       </div>

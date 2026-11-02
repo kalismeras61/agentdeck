@@ -222,7 +222,7 @@ export function ImportDialog() {
               </button>
             </span>
             <span className="text-[11.5px] text-fg-3">{t("{agent} sessions can't be imported yet.", { agent: "Grok Build" })}</span>
-            <span className="ml-auto flex gap-2">
+            <span className="ms-auto flex gap-2">
               <Dialog.Close className="h-8 rounded-lg border border-line px-3 text-[13px] hover:bg-elevated">{t("Close")}</Dialog.Close>
               <button
                 type="button"

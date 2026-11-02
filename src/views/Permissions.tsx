@@ -56,7 +56,7 @@ export function Permissions() {
                           onClick={() => setChosen(event.payload.requestId)}
                           aria-current={active ? "true" : undefined}
                           className={cx(
-                            "relative w-full rounded-xl border px-3 py-2.5 text-left",
+                            "relative w-full rounded-xl border px-3 py-2.5 text-start",
                             active ? "border-warning/40 bg-surface" : "border-transparent hover:bg-surface/60",
                           )}
                         >
@@ -98,7 +98,7 @@ export function Permissions() {
                               </span>
                             ) : null,
                           )}
-                        <button type="button" onClick={() => select(focus.session.id)} className="ml-auto rounded text-violet-text hover:underline">
+                        <button type="button" onClick={() => select(focus.session.id)} className="ms-auto rounded text-violet-text hover:underline">
                           {t("Open “{title}”", { title: focus.session.title === "New session" ? t("New session") : focus.session.title })}
                         </button>
                       </div>

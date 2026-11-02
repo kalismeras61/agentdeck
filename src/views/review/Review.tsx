@@ -10,6 +10,7 @@ import { useResolvedTheme } from "../../hooks/useTheme";
 import { sidesFromDiff } from "../../lib/events";
 import { basename, dirname } from "../../lib/format";
 import { useStore } from "../../state/store";
+import { t, tn } from "../../lib/i18n";
 import { ViewHeader } from "../ViewHeader";
 import { MonacoDiff, type DiffHandle } from "./MonacoDiff";
 
@@ -44,9 +45,9 @@ export function Review() {
   // Review keys work while focus is outside text inputs and the editor (F7 / ⇧F7 work inside Monaco).
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      const t = e.target as HTMLElement | null;
+      const el = e.target as HTMLElement | null;
       if (!file || !current || e.metaKey || e.ctrlKey || e.altKey) return;
-      if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
+      if (el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.isContentEditable)) return;
       if (e.key === "j" && idx < files.length - 1) setPath(files[idx + 1]!.path);
       else if (e.key === "k" && idx > 0) setPath(files[idx - 1]!.path);
       else if (e.key === "n") diff.current?.next();
@@ -62,11 +63,11 @@ export function Review() {
   if (!current || !file) {
     return (
       <div className="flex h-full flex-col">
-        <ViewHeader title="Review changes" />
+        <ViewHeader title={t("Review changes")} />
         <div className="flex flex-1 flex-col items-center justify-center px-8 text-center">
           <GitCompareArrows size={20} className="mb-3 text-fg-3" />
-          <p className="text-[14px] font-medium text-fg-2">No changes to review</p>
-          <p className="mt-1 max-w-[360px] text-[13px] text-fg-3">When an agent edits files, they show up here with a side-by-side diff.</p>
+          <p className="text-[14px] font-medium text-fg-2">{t("No changes to review")}</p>
+          <p className="mt-1 max-w-[360px] text-[13px] text-fg-3">{t("When an agent edits files, they show up here with a side-by-side diff.")}</p>
         </div>
       </div>
     );
@@ -74,20 +75,20 @@ export function Review() {
 
   return (
     <div className="flex h-full flex-col">
-      <ViewHeader title="Review changes" />
+      <ViewHeader title={t("Review changes")} />
       <div className="flex min-h-0 flex-1">
         {/* File list */}
-        <aside className="flex w-[280px] shrink-0 flex-col border-r border-line-soft bg-sidebar">
+        <aside className="flex w-[280px] shrink-0 flex-col border-e border-line-soft bg-sidebar">
           <div className="border-b border-line-soft p-3">
             <Dropdown.Root>
-              <Dropdown.Trigger className="flex w-full items-center gap-2 rounded-lg border border-line bg-bg/40 px-2.5 py-2 text-left hover:bg-surface data-[state=open]:bg-surface">
+              <Dropdown.Trigger className="flex w-full items-center gap-2 rounded-lg border border-line bg-bg/40 px-2.5 py-2 text-start hover:bg-surface data-[state=open]:bg-surface">
                 <AgentMark provider={current.session.provider} size={18} />
                 <span className="min-w-0 flex-1 truncate text-[13px]">{current.session.title}</span>
                 <ChevronDown size={14} className="text-fg-3" />
               </Dropdown.Trigger>
               <Dropdown.Portal>
                 <Dropdown.Content align="start" sideOffset={6} className="z-50 w-[256px] rounded-xl border border-line bg-elevated p-1 shadow-pop">
-                  <Dropdown.Label className="px-2 pb-1 pt-1.5 text-[11px] text-fg-3">Sessions with changes</Dropdown.Label>
+                  <Dropdown.Label className="px-2 pb-1 pt-1.5 text-[11px] text-fg-3">{t("Sessions with changes")}</Dropdown.Label>
                   {all.map((c) => (
                     <Dropdown.Item
                       key={c.session.id}
@@ -104,17 +105,17 @@ export function Review() {
             </Dropdown.Root>
             <div className="mt-3 flex items-baseline justify-between text-xs text-fg-3">
               <span>
-                {files.length} {files.length === 1 ? "file" : "files"}
+                {tn(files.length, "{n} file", "{n} files")}
               </span>
               <span className="tabular-nums">
-                {viewedCount} of {files.length} viewed
+                {t("{viewed} of {total} viewed", { viewed: viewedCount, total: files.length })}
               </span>
             </div>
             <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-elevated">
               <div className="h-full rounded-full bg-violet transition-[width] duration-300" style={{ width: `${(viewedCount / files.length) * 100}%` }} />
             </div>
           </div>
-          <ul className="scroll-quiet min-h-0 flex-1 overflow-y-auto p-2" aria-label="Changed files">
+          <ul className="scroll-quiet min-h-0 flex-1 overflow-y-auto p-2" aria-label={t("Changed files")}>
             {files.map((f) => {
               const v = Boolean(viewed[key(f.path)]);
               const active = f.path === file.path;
@@ -124,7 +125,7 @@ export function Review() {
                     type="button"
                     onClick={() => setPath(f.path)}
                     aria-current={active ? "true" : undefined}
-                    className={cx("w-full rounded-lg py-2 pl-2.5 pr-9 text-left", active ? "bg-elevated" : "hover:bg-surface")}
+                    className={cx("w-full rounded-lg py-2 ps-2.5 pe-9 text-start", active ? "bg-elevated" : "hover:bg-surface")}
                   >
                     <span className="flex items-center gap-2">
                       <span className={cx("w-3 shrink-0 font-mono text-[11px] font-medium", f.change === "added" ? "text-success" : f.change === "deleted" ? "text-error" : "text-warning")}>
@@ -132,19 +133,19 @@ export function Review() {
                       </span>
                       <span className={cx("truncate font-mono text-[12.5px]", v ? "text-fg-3" : "text-fg")}>{basename(f.path)}</span>
                     </span>
-                    <span className="mt-0.5 flex items-center gap-2 pl-5">
+                    <span className="mt-0.5 flex items-center gap-2 ps-5">
                       <span className="min-w-0 truncate font-mono text-[11px] text-fg-3">{dirname(f.path)}</span>
-                      <ChangeStat additions={f.additions} deletions={f.deletions} className="ml-auto shrink-0" />
+                      <ChangeStat additions={f.additions} deletions={f.deletions} className="ms-auto shrink-0" />
                     </span>
                   </button>
                   <button
                     type="button"
                     role="checkbox"
                     aria-checked={v}
-                    aria-label={`Viewed ${basename(f.path)}`}
+                    aria-label={t("Viewed {name}", { name: basename(f.path) })}
                     onClick={() => toggleViewed(current.session.id, f.path)}
                     className={cx(
-                      "absolute right-2 top-2.5 flex h-[18px] w-[18px] items-center justify-center rounded-[5px] border",
+                      "absolute end-2 top-2.5 flex h-[18px] w-[18px] items-center justify-center rounded-[5px] border",
                       v ? "border-violet bg-violet text-white" : "border-line text-transparent hover:border-fg-3",
                     )}
                   >
@@ -155,24 +156,24 @@ export function Review() {
             })}
           </ul>
           <p className="border-t border-line-soft px-4 py-3 text-[11.5px] leading-[1.55] text-fg-3">
-            Viewed marks stay on this device. They don't commit, push, or approve anything, and the agent isn't told.
+            {t("Viewed marks stay on this device. They don't commit, push, or approve anything, and the agent isn't told.")}
           </p>
         </aside>
 
         {/* Diff */}
-        <section className="flex min-w-0 flex-1 flex-col" aria-label={`Diff of ${file.path}`}>
-          <div className="flex h-12 shrink-0 items-center gap-2 border-b border-line-soft pl-4 pr-2">
+        <section className="flex min-w-0 flex-1 flex-col" aria-label={t("Diff of {path}", { path: file.path })}>
+          <div className="flex h-12 shrink-0 items-center gap-2 border-b border-line-soft ps-4 pe-2">
             <FileCode2 size={15} className="shrink-0 text-fg-3" />
             <span className="min-w-0 truncate font-mono text-[12.5px]" title={file.path}>
               {dirname(file.path) && <span className="text-fg-3">{dirname(file.path)}/</span>}
               <span className="text-fg">{basename(file.path)}</span>
             </span>
             <ChangeStat additions={file.additions} deletions={file.deletions} className="shrink-0" />
-            {file.change === "added" && !fileOnly && <span className="hidden shrink-0 text-xs text-fg-3 2xl:inline">New file, shown unified</span>}
-            <div className="ml-auto flex shrink-0 items-center gap-1">
-              <div role="radiogroup" aria-label="Diff layout" className="mr-1 flex rounded-lg border border-line bg-bg/40 p-0.5">
+            {file.change === "added" && !fileOnly && <span className="hidden shrink-0 text-xs text-fg-3 2xl:inline">{t("New file, shown unified")}</span>}
+            <div className="ms-auto flex shrink-0 items-center gap-1">
+              <div role="radiogroup" aria-label={t("Diff layout")} className="me-1 flex rounded-lg border border-line bg-bg/40 p-0.5">
                 {(
-                  [
+                  /* i18n */ [
                     ["split", "Side by side", Columns2],
                     ["unified", "Unified", Rows2],
                   ] as const
@@ -192,7 +193,7 @@ export function Review() {
                     )}
                   >
                     <Icon size={13} />
-                    <span className="hidden xl:inline">{label}</span>
+                    <span className="hidden xl:inline">{t(label)}</span>
                   </button>
                 ))}
                 <button
@@ -203,27 +204,27 @@ export function Review() {
                   className={cx("inline-flex h-6 items-center gap-1.5 rounded-md px-2 text-xs", fileOnly ? "bg-elevated text-fg shadow-card" : "text-fg-2 hover:text-fg")}
                 >
                   <FileCode2 size={13} />
-                  <span className="hidden xl:inline">Whole file</span>
+                  <span className="hidden xl:inline">{t("Whole file")}</span>
                 </button>
               </div>
-              <IconButton label="Previous change" shortcut="P" size="sm" disabled={fileOnly} onClick={() => diff.current?.previous()}>
+              <IconButton label={t("Previous change")} shortcut="P" size="sm" disabled={fileOnly} onClick={() => diff.current?.previous()}>
                 <ChevronUp size={15} />
               </IconButton>
-              <IconButton label="Next change" shortcut="N" size="sm" disabled={fileOnly} onClick={() => diff.current?.next()}>
+              <IconButton label={t("Next change")} shortcut="N" size="sm" disabled={fileOnly} onClick={() => diff.current?.next()}>
                 <ChevronDown size={15} />
               </IconButton>
-              <CopyButton text={file.path} label="Copy path" />
+              <CopyButton text={file.path} label={t("Copy path")} />
               <button
                 type="button"
                 onClick={() => toggleViewed(current.session.id, file.path)}
                 aria-pressed={isViewed}
                 className={cx(
-                  "ml-1 inline-flex h-8 items-center gap-1.5 rounded-lg px-3 text-[12.5px] font-medium",
+                  "ms-1 inline-flex h-8 items-center gap-1.5 rounded-lg px-3 text-[12.5px] font-medium",
                   isViewed ? "border border-line text-fg-2 hover:bg-elevated" : "bg-violet-strong text-white hover:brightness-110",
                 )}
               >
                 {isViewed && <Check size={14} />}
-                {isViewed ? "Viewed" : "Mark viewed"}
+                {isViewed ? t("Viewed") : t("Mark viewed")}
               </button>
             </div>
           </div>
@@ -242,17 +243,17 @@ export function Review() {
           <div className="flex h-9 shrink-0 items-center gap-3 border-t border-line-soft px-4 text-[11.5px] text-fg-3">
             <span className="inline-flex items-center gap-1.5">
               <Kbd>J</Kbd>
-              <Kbd>K</Kbd> next / previous file
+              <Kbd>K</Kbd> {t("next / previous file")}
             </span>
             <span className="inline-flex items-center gap-1.5">
               <Kbd>N</Kbd>
-              <Kbd>P</Kbd> next / previous change
+              <Kbd>P</Kbd> {t("next / previous change")}
             </span>
             <span className="inline-flex items-center gap-1.5">
-              <Kbd>V</Kbd> mark viewed
+              <Kbd>V</Kbd> {t("mark viewed")}
             </span>
-            <button type="button" onClick={() => select(current.session.id)} className="ml-auto inline-flex items-center gap-1.5 rounded text-fg-2 hover:text-fg">
-              <AgentMark provider={current.session.provider} size={14} /> Open in {providerLabel[current.session.provider]} session
+            <button type="button" onClick={() => select(current.session.id)} className="ms-auto inline-flex items-center gap-1.5 rounded text-fg-2 hover:text-fg">
+              <AgentMark provider={current.session.provider} size={14} /> {t("Open in {agent} session", { agent: providerLabel[current.session.provider] })}
             </button>
           </div>
         </section>

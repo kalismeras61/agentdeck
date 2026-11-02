@@ -7,6 +7,7 @@ import { providerLabel, type Session } from "../../data/demo";
 import type { EventOf } from "../../lib/events";
 import type { LiveProvider } from "../../lib/live";
 import { clock } from "../../lib/format";
+import { t } from "../../lib/i18n";
 import { useStore } from "../../state/store";
 import { AgentMark, cx } from "../ui";
 import { CopyButton } from "./code";
@@ -44,7 +45,7 @@ export function HandOffMenu({
     <Dropdown.Root>
       <Dropdown.Trigger
         disabled={Boolean(busy)}
-        aria-label="Hand off to another agent"
+        aria-label={t("Hand off to another agent")}
         className={cx(
           "inline-flex items-center gap-1.5 rounded-lg text-[13px] font-medium disabled:opacity-60",
           variant === "button" ? "h-8 border border-line px-3 text-fg hover:bg-elevated" : "h-7 px-2 text-fg-2 hover:bg-surface hover:text-fg",
@@ -52,17 +53,17 @@ export function HandOffMenu({
         )}
       >
         <Send size={13} />
-        {busy ? `Handing to ${busy}…` : "Hand off"}
+        {busy ? t("Handing to {name}…", { name: busy }) : t("Hand off")}
         <ChevronDown size={13} className="text-fg-3" />
       </Dropdown.Trigger>
       <Dropdown.Portal>
         <Dropdown.Content align="start" sideOffset={6} className="z-50 w-[250px] rounded-xl border border-line bg-elevated p-1 shadow-pop">
-          <Dropdown.Label className="px-2 pb-1 pt-1.5 text-[11px] text-fg-3">New session in this project, with this as its task</Dropdown.Label>
-          {withoutHidden(TARGETS, agyEnabled).map((t) => (
-            <Dropdown.Item key={t} onSelect={() => go(t, providerLabel[t])} className={itemCls}>
-              <AgentMark provider={t} size={18} />
-              {providerLabel[t]}
-              {t === session.provider && !session.profileId && <span className="ml-auto text-[11px] text-fg-3">fresh context</span>}
+          <Dropdown.Label className="px-2 pb-1 pt-1.5 text-[11px] text-fg-3">{t("New session in this project, with this as its task")}</Dropdown.Label>
+          {withoutHidden(TARGETS, agyEnabled).map((to) => (
+            <Dropdown.Item key={to} onSelect={() => go(to, providerLabel[to])} className={itemCls}>
+              <AgentMark provider={to} size={18} />
+              {providerLabel[to]}
+              {to === session.provider && !session.profileId && <span className="ms-auto text-[11px] text-fg-3">{t("fresh context")}</span>}
             </Dropdown.Item>
           ))}
           {profiles.length > 0 && <Dropdown.Separator className="my-1 h-px bg-line" />}
@@ -70,7 +71,7 @@ export function HandOffMenu({
             <Dropdown.Item key={m.id} onSelect={() => go(m.kind === "anthropic" ? "claude-code" : "api", m.name, m.id)} className={itemCls}>
               <AgentMark provider={m.kind === "anthropic" ? "claude-code" : "api"} size={18} />
               <span className="truncate">{m.name}</span>
-              {m.id === session.profileId && <span className="ml-auto text-[11px] text-fg-3">fresh context</span>}
+              {m.id === session.profileId && <span className="ms-auto text-[11px] text-fg-3">{t("fresh context")}</span>}
             </Dropdown.Item>
           ))}
         </Dropdown.Content>
@@ -79,7 +80,7 @@ export function HandOffMenu({
   );
 }
 
-const planState = {
+const planState = /* i18n */ {
   approved: {
     text: "Approved. Building it in this session.",
     cls: "text-success",
@@ -102,23 +103,23 @@ export function PlanCard({ e, session }: { e: EventOf<"plan">; session: Session 
 
   return (
     <section
-      aria-label="Proposed plan"
+      aria-label={t("Proposed plan")}
       className={cx("overflow-hidden rounded-2xl border bg-surface", pending ? "border-violet/45 shadow-card" : "border-line-soft")}
     >
       <header className="flex items-center gap-2.5 border-b border-line-soft px-4 py-3">
         <ClipboardList size={16} className="shrink-0 text-violet-text" />
-        <h3 className="text-[14px] font-semibold">{pending ? `${who} has a plan` : "Plan"}</h3>
+        <h3 className="text-[14px] font-semibold">{pending ? t("{who} has a plan", { who }) : t("Plan")}</h3>
         {p.filePath && <span className="min-w-0 truncate font-mono text-[11.5px] text-fg-3">{p.filePath}</span>}
-        <span className="ml-auto shrink-0 text-xs text-fg-3">{clock(e.ts)}</span>
-        <CopyButton text={p.markdown} label="Copy plan" />
+        <span className="ms-auto shrink-0 text-xs text-fg-3">{clock(e.ts)}</span>
+        <CopyButton text={p.markdown} label={t("Copy plan")} />
       </header>
       <div className="scroll-quiet max-h-[420px] overflow-auto px-4 py-3">
-        {p.markdown.trim() ? <Markdown text={p.markdown} /> : <p className="text-[13px] text-fg-3">The agent didn't include the plan text.</p>}
+        {p.markdown.trim() ? <Markdown text={p.markdown} /> : <p className="text-[13px] text-fg-3">{t("The agent didn't include the plan text.")}</p>}
       </div>
       {pending ? (
         <footer className="flex flex-wrap items-center gap-2 border-t border-line-soft px-4 py-3">
-          <p className="mr-auto max-w-[300px] text-xs leading-[1.5] text-fg-3">
-            {inFlight ? `Sent. Waiting for ${who}.` : "Nothing has changed yet. Build it here, give it to another agent, or ask for changes."}
+          <p className="me-auto max-w-[300px] text-xs leading-[1.5] text-fg-3">
+            {inFlight ? t("Sent. Waiting for {who}.", { who }) : t("Nothing has changed yet. Build it here, give it to another agent, or ask for changes.")}
           </p>
           <button
             type="button"
@@ -126,7 +127,7 @@ export function PlanCard({ e, session }: { e: EventOf<"plan">; session: Session 
             onClick={() => resolve(e.sessionId, p.requestId!, "deny")}
             className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-line px-3 text-[13px] font-medium text-fg hover:bg-elevated disabled:opacity-50"
           >
-            <PencilLine size={13} /> Keep planning
+            <PencilLine size={13} /> {t("Keep planning")}
           </button>
           <HandOffMenu session={session} text={p.markdown} planRequestId={p.requestId} variant="button" />
           <button
@@ -135,12 +136,12 @@ export function PlanCard({ e, session }: { e: EventOf<"plan">; session: Session 
             onClick={() => resolve(e.sessionId, p.requestId!, "allow")}
             className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-violet-strong px-3.5 text-[13px] font-medium text-white shadow-[0_1px_0_rgb(255_255_255/0.15)_inset] hover:brightness-110 disabled:opacity-60"
           >
-            <Hammer size={13} /> {inFlight === "allow" ? "Starting…" : "Build it here"}
+            <Hammer size={13} /> {inFlight === "allow" ? t("Starting…") : t("Build it here")}
           </button>
         </footer>
       ) : (
         <footer className="flex flex-wrap items-center gap-2 border-t border-line-soft px-4 py-2.5 text-[12.5px]">
-          {p.state !== "pending" && <span className={planState[p.state].cls}>{planState[p.state].text}</span>}
+          {p.state !== "pending" && <span className={planState[p.state].cls}>{t(planState[p.state].text)}</span>}
           {p.handedTo && (
             <button
               type="button"
@@ -148,12 +149,12 @@ export function PlanCard({ e, session }: { e: EventOf<"plan">; session: Session 
               className="inline-flex items-center gap-1.5 rounded-md px-1.5 py-0.5 text-fg hover:bg-elevated"
             >
               <AgentMark provider={p.handedTo.provider} size={16} />
-              {linked?.title ?? `${providerLabel[p.handedTo.provider]} session`}
+              {linked?.title ?? t("{agent} session", { agent: providerLabel[p.handedTo.provider] })}
               <ArrowUpRight size={13} className="text-fg-3" />
             </button>
           )}
           {session.live && p.state !== "handed_off" && p.state !== "workflow" && (
-            <span className="ml-auto">
+            <span className="ms-auto">
               <HandOffMenu session={session} text={p.markdown} />
             </span>
           )}
@@ -171,34 +172,34 @@ export function HandoffBlock({ e, session }: { e: EventOf<"handoff">; session: S
   const [open, setOpen] = useState(p.direction === "in");
   const incoming = p.direction === "in";
   return (
-    <section aria-label={incoming ? "Plan received" : "Plan handed off"} className="overflow-hidden rounded-xl border border-line-soft bg-surface/60">
+    <section aria-label={incoming ? t("Plan received") : t("Plan handed off")} className="overflow-hidden rounded-xl border border-line-soft bg-surface/60">
       <div className="flex flex-wrap items-center gap-2 px-3.5 py-2.5 text-[13px]">
         {incoming ? (
           <>
             <AgentMark provider={p.provider} size={18} />
-            <ArrowRight size={13} className="text-fg-3" />
+            <ArrowRight size={13} className="rtl:-scale-x-100 text-fg-3" />
             <AgentMark provider={session.provider} size={18} />
             <span className="text-fg">
-              Plan from {providerLabel[p.provider]}
+              {t("Plan from {agent}", { agent: providerLabel[p.provider] })}
               {p.title && <span className="text-fg-2"> · {p.title}</span>}
             </span>
           </>
         ) : (
           <>
             <AgentMark provider={session.provider} size={18} />
-            <ArrowRight size={13} className="text-fg-3" />
+            <ArrowRight size={13} className="rtl:-scale-x-100 text-fg-3" />
             <AgentMark provider={p.provider} size={18} />
-            <span className="text-fg">Handed to {providerLabel[p.provider]}</span>
+            <span className="text-fg">{t("Handed to {agent}", { agent: providerLabel[p.provider] })}</span>
           </>
         )}
-        <span className="ml-auto flex items-center gap-1">
+        <span className="ms-auto flex items-center gap-1">
           <button
             type="button"
             onClick={() => setOpen((v) => !v)}
             aria-expanded={open}
             className="rounded-md px-1.5 py-0.5 text-fg-2 hover:bg-elevated hover:text-fg"
           >
-            {open ? "Hide plan" : "Show plan"}
+            {open ? t("Hide plan") : t("Show plan")}
           </button>
           {other ? (
             <button
@@ -206,10 +207,10 @@ export function HandoffBlock({ e, session }: { e: EventOf<"handoff">; session: S
               onClick={() => select(other.id)}
               className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-fg-2 hover:bg-elevated hover:text-fg"
             >
-              Open session <ArrowUpRight size={13} />
+              {t("Open session")} <ArrowUpRight size={13} />
             </button>
           ) : (
-            <span className="px-1.5 text-fg-3">Session deleted</span>
+            <span className="px-1.5 text-fg-3">{t("Session deleted")}</span>
           )}
         </span>
       </div>

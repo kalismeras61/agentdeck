@@ -87,7 +87,7 @@ export function WorkflowsSettings() {
       <div className="min-w-0 flex-1">
         <div className="text-[13px] text-fg">
           {builtIn ? t(w.name) : w.name}
-          {builtIn && <span className="ml-2 text-[11.5px] text-fg-3">{t("Ready-made")}</span>}
+          {builtIn && <span className="ms-2 text-[11.5px] text-fg-3">{t("Ready-made")}</span>}
         </div>
         <div className="truncate text-[12px] text-fg-3">
           {lineup(w, profiles)}

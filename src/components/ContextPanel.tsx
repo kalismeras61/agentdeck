@@ -41,7 +41,7 @@ export function ContextPanel({ session }: { session: Session }) {
 
   return (
     <Tabs.Root value={tab} onValueChange={(v) => setTab(v as ContextTab)} className="flex h-full flex-col bg-sidebar">
-      <div data-tauri-drag-region className="drag flex h-12 shrink-0 items-center gap-1 border-b border-line-soft pl-3 pr-2">
+      <div data-tauri-drag-region className="drag flex h-12 shrink-0 items-center gap-1 border-b border-line-soft ps-3 pe-2">
         <Tabs.List aria-label={t("Context")} className="flex gap-0.5">
           {TABS.map((x) => (
             <Tabs.Trigger
@@ -51,11 +51,11 @@ export function ContextPanel({ session }: { session: Session }) {
               className="relative h-7 rounded-md px-2.5 text-[12.5px] text-fg-2 hover:text-fg data-[state=active]:bg-elevated data-[state=active]:text-fg"
             >
               {t(x.label)}
-              {x.id === "changes" && d.changes.length > 0 && <span className="ml-1.5 text-[11px] tabular-nums text-fg-3">{d.changes.length}</span>}
+              {x.id === "changes" && d.changes.length > 0 && <span className="ms-1.5 text-[11px] tabular-nums text-fg-3">{d.changes.length}</span>}
             </Tabs.Trigger>
           ))}
         </Tabs.List>
-        <IconButton label={t("Hide panel")} shortcut={`${MOD}.`} onClick={toggle} size="sm" className="ml-auto">
+        <IconButton label={t("Hide panel")} shortcut={`${MOD}.`} onClick={toggle} size="sm" className="ms-auto">
           <PanelRightClose size={16} />
         </IconButton>
       </div>
@@ -142,7 +142,7 @@ function FilesTab({ changes, session }: { changes: FileChange[]; session: Sessio
 
   const render = (nodes: TreeNode[], depth: number) =>
     nodes.map((n) => {
-      const pad = { paddingLeft: 10 + depth * 14 };
+      const pad = { paddingInlineStart: 10 + depth * 14 };
       if (n.children) {
         const isOpen = open[n.path] ?? false;
         const hasChange = [...changed.keys()].some((k) => k.startsWith(`${n.path}/`));
@@ -152,12 +152,12 @@ function FilesTab({ changes, session }: { changes: FileChange[]; session: Sessio
               type="button"
               style={pad}
               onClick={() => setOpen({ ...open, [n.path]: !isOpen })}
-              className="flex h-7 w-full items-center gap-1.5 rounded-md pr-2 text-left text-[13px] text-fg-2 hover:bg-surface hover:text-fg"
+              className="flex h-7 w-full items-center gap-1.5 rounded-md pe-2 text-start text-[13px] text-fg-2 hover:bg-surface hover:text-fg"
             >
-              <ChevronRight size={12} className={cx("shrink-0 text-fg-3 transition-transform", isOpen && "rotate-90")} />
+              <ChevronRight size={12} className={cx("rtl:-scale-x-100 shrink-0 text-fg-3 transition-transform", isOpen && "rotate-90 rtl:-rotate-90")} />
               {isOpen ? <FolderOpen size={14} className="shrink-0 text-fg-3" /> : <Folder size={14} className="shrink-0 text-fg-3" />}
               <span className="truncate">{n.name}</span>
-              {hasChange && !isOpen && <span className="ml-auto h-1.5 w-1.5 rounded-full bg-warning" aria-label={t("Contains changes")} />}
+              {hasChange && !isOpen && <span className="ms-auto h-1.5 w-1.5 rounded-full bg-warning" aria-label={t("Contains changes")} />}
             </button>
             {isOpen && <ul role="group">{render(n.children, depth + 1)}</ul>}
           </li>
@@ -170,7 +170,7 @@ function FilesTab({ changes, session }: { changes: FileChange[]; session: Sessio
           <FileCode2 size={14} className={cx("shrink-0", change ? "text-fg-2" : "text-fg-3")} />
           <span className={cx("truncate", change ? "text-fg" : "text-fg-2")}>{n.name}</span>
           {change && (
-            <span className={cx("ml-auto font-mono text-[11px] font-medium", change === "added" ? "text-success" : "text-warning")}>
+            <span className={cx("ms-auto font-mono text-[11px] font-medium", change === "added" ? "text-success" : "text-warning")}>
               {change === "added" ? "A" : "M"}
             </span>
           )}
@@ -184,12 +184,12 @@ function FilesTab({ changes, session }: { changes: FileChange[]; session: Sessio
               style={pad}
               onClick={() => openChange(n.path)}
               title={t("Show changes")}
-              className="flex h-7 w-full items-center gap-1.5 rounded-md pr-2.5 text-left text-[13px] hover:bg-surface"
+              className="flex h-7 w-full items-center gap-1.5 rounded-md pe-2.5 text-start text-[13px] hover:bg-surface"
             >
               {inner}
             </button>
           ) : (
-            <div style={pad} className="flex h-7 items-center gap-1.5 pr-2.5 text-[13px]">
+            <div style={pad} className="flex h-7 items-center gap-1.5 pe-2.5 text-[13px]">
               {inner}
             </div>
           )}
@@ -233,7 +233,7 @@ function ChangesTab({ changes, sessionId }: { changes: FileChange[]; sessionId: 
               onClick={() => openChange(f.path)}
               aria-current={f.path === current.path}
               className={cx(
-                "flex h-7 w-full items-center gap-2 rounded-md px-2 text-left text-[12.5px]",
+                "flex h-7 w-full items-center gap-2 rounded-md px-2 text-start text-[12.5px]",
                 f.path === current.path ? "bg-elevated text-fg" : "text-fg-2 hover:bg-surface hover:text-fg",
               )}
             >
@@ -241,12 +241,12 @@ function ChangesTab({ changes, sessionId }: { changes: FileChange[]; sessionId: 
                 {f.change === "added" ? "A" : "M"}
               </span>
               <span className="truncate font-mono">{basename(f.path)}</span>
-              <ChangeStat additions={f.additions} deletions={f.deletions} className="ml-auto" />
+              <ChangeStat additions={f.additions} deletions={f.deletions} className="ms-auto" />
             </button>
           </li>
         ))}
       </ul>
-      <div className="flex shrink-0 items-center gap-1 border-b border-line-soft py-1.5 pl-3 pr-1.5">
+      <div className="flex shrink-0 items-center gap-1 border-b border-line-soft py-1.5 ps-3 pe-1.5">
         <span className="min-w-0 flex-1 truncate font-mono text-[11.5px] text-fg-3" title={current.path}>
           {dirname(current.path) ? `${dirname(current.path)}/` : t("Project root")}
         </span>
@@ -281,7 +281,7 @@ function PreviewImage({ image }: { image: EventOf<"image"> }) {
   if (!src) return <Empty icon={ImageIcon} title={error ? t("Couldn't show the image") : t("Loading image…")} body={error ?? image.payload.path ?? ""} />;
   return (
     <div className="flex h-full flex-col">
-      <div className="flex shrink-0 items-center gap-2 border-b border-line-soft py-1.5 pl-3 pr-1.5">
+      <div className="flex shrink-0 items-center gap-2 border-b border-line-soft py-1.5 ps-3 pe-1.5">
         <span className="min-w-0 flex-1 truncate font-mono text-[11.5px] text-fg-3">{caption}</span>
         {width && height ? (
           <span className="text-[11px] tabular-nums text-fg-3">
@@ -406,12 +406,12 @@ function ActivityTab({ session, events }: { session: Session; events: AgentEvent
       )}
       <h3 className="mb-2 text-[13px] font-medium">{t("Timeline")}</h3>
       <ol className="relative">
-        <span aria-hidden className="absolute bottom-2 left-[3px] top-2 w-px bg-line" />
+        <span aria-hidden className="absolute bottom-2 start-[3px] top-2 w-px bg-line" />
         {timeline.map((e) => (
-          <li key={e.eventId} className="relative flex items-start gap-3 py-1.5 pl-4 text-[12.5px]">
+          <li key={e.eventId} className="relative flex items-start gap-3 py-1.5 ps-4 text-[12.5px]">
             <span
               className={cx(
-                "absolute left-0 top-[11px] h-[7px] w-[7px] rounded-full ring-2 ring-sidebar",
+                "absolute start-0 top-[11px] h-[7px] w-[7px] rounded-full ring-2 ring-sidebar",
                 e.type === "error"
                   ? "bg-error"
                   : e.type === "permission" && e.payload.state === "pending"

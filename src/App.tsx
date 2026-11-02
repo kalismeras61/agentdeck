@@ -24,7 +24,7 @@ import { CONTEXT, SIDEBAR, useStore } from "./state/store";
 import { Overview } from "./views/Overview";
 import { Permissions } from "./views/Permissions";
 import { startUpdateChecks } from "./lib/updates";
-import { systemLocale, t, useI18n } from "./lib/i18n";
+import { LOCALES, systemLocale, t, useI18n } from "./lib/i18n";
 import { setupApi } from "./lib/setup";
 
 const CENTER_MIN = 560;
@@ -73,6 +73,7 @@ function Workspace({ width }: { width: number }) {
 
   const resolvedTheme = theme === "system" ? (prefersLight ? "light" : "dark") : theme;
   const reduced = motion === "reduced" || (motion === "system" && prefersReduced);
+  const dir = useI18n((s) => (LOCALES.find((l) => l.id === s.locale)?.rtl ? "rtl" : "ltr"));
   useEffect(() => {
     document.documentElement.dataset.theme = resolvedTheme;
     document.documentElement.dataset.motion = reduced ? "reduced" : "full";
@@ -86,10 +87,11 @@ function Workspace({ width }: { width: number }) {
   return (
     <MotionConfig reducedMotion={reduced ? "always" : motion === "full" ? "never" : "user"}>
       <Tooltip.Provider>
-        <div className="flex h-full w-full overflow-hidden bg-bg text-fg">
+        {/* The three columns keep their order in Arabic too: macOS keeps the window buttons top-left. Each column mirrors inside. */}
+        <div dir="ltr" className="flex h-full w-full overflow-hidden bg-bg text-fg">
           {sidebarOpen && (
             <>
-              <aside style={{ width: sidebarWidth }} className="h-full shrink-0">
+              <aside dir={dir} style={{ width: sidebarWidth }} className="h-full shrink-0">
                 <Sidebar />
               </aside>
               <Resizer
@@ -104,7 +106,7 @@ function Workspace({ width }: { width: number }) {
             </>
           )}
 
-          <main className="relative flex min-w-0 flex-1 flex-col" style={{ minWidth: Math.min(CENTER_MIN, width - sideW) }}>
+          <main dir={dir} className="relative flex min-w-0 flex-1 flex-col" style={{ minWidth: Math.min(CENTER_MIN, width - sideW) }}>
             <Suspense fallback={null}>
               {view === "overview" ? (
                 <Overview />
@@ -162,7 +164,7 @@ function Workspace({ width }: { width: number }) {
                 def={CONTEXT.def}
                 onChange={setContextWidth}
               />
-              <aside style={{ width: contextWidth }} className="h-full shrink-0">
+              <aside dir={dir} style={{ width: contextWidth }} className="h-full shrink-0">
                 <ContextPanel session={session} />
               </aside>
             </>

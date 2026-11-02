@@ -60,7 +60,7 @@ export function RenameField({ sessionId, title, className }: { sessionId: string
           className,
         )}
       />
-      {error && <span className="absolute left-0 top-full z-10 mt-1 rounded-md bg-elevated px-2 py-1 text-[11.5px] text-error shadow-pop">{error}</span>}
+      {error && <span className="absolute start-0 top-full z-10 mt-1 rounded-md bg-elevated px-2 py-1 text-[11.5px] text-error shadow-pop">{error}</span>}
     </span>
   );
 }

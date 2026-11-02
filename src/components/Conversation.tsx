@@ -8,6 +8,7 @@ import { useParsedEvents } from "../hooks/useSession";
 import type { AgentEvent, ParsedEvent } from "../lib/events";
 import { clock } from "../lib/format";
 import { useStore } from "../state/store";
+import { t } from "../lib/i18n";
 import {
   Changeset,
   ErrorBlock,
@@ -216,7 +217,7 @@ function AgentRun({ items, session, live }: { items: ParsedEvent[]; session: Ses
       </div>
       <div className="relative">
         {/* The thread rail */}
-        <span aria-hidden className="absolute bottom-3 left-[10px] top-3 w-px bg-line" />
+        <span aria-hidden className="absolute bottom-3 start-[10px] top-3 w-px bg-line" />
         <ol className="space-y-5">
           {items.map((p) => (
             <li key={p.ok ? p.event.eventId : p.eventId} className="grid grid-cols-[22px_1fr] gap-x-4">
@@ -244,13 +245,13 @@ function AgentRun({ items, session, live }: { items: ParsedEvent[]; session: Ses
               <p className="pt-0.5 text-xs text-fg-3">
                 {session.status === "waiting"
                   ? items.some((p) => p.ok && p.event.type === "plan" && p.event.payload.state === "pending")
-                    ? "Waiting for your decision on the plan."
+                    ? t("Waiting for your decision on the plan.")
                     : items.some((p) => p.ok && p.event.type === "question" && p.event.payload.state === "pending")
-                      ? "Waiting for your answer above."
-                      : "Paused until you allow or deny the request above."
+                      ? t("Waiting for your answer above.")
+                      : t("Paused until you allow or deny the request above.")
                   : streaming
-                    ? "Writing…"
-                    : "Working…"}
+                    ? t("Writing…")
+                    : t("Working…")}
               </p>
             </li>
           )}
@@ -260,22 +261,30 @@ function AgentRun({ items, session, live }: { items: ParsedEvent[]; session: Ses
   );
 }
 
-const DEMO_SUGGESTIONS = [
+const DEMO_SUGGESTIONS = /* i18n */ [
   "Find why the bookings list re-renders on every scroll and fix it",
   "Add golden tests for the login screen in light and dark themes",
   "Explain how routing is set up in lib/app/router.dart",
 ];
-const CHAT_SUGGESTIONS = [
+const CHAT_SUGGESTIONS = /* i18n */ [
   "Explain how OAuth refresh tokens work, with a small example",
   "Write a shell one-liner that finds the 10 largest files here",
   "Start a new Vite + React app in a folder called my-app",
 ];
 
-const LIVE_SUGGESTIONS = [
+const LIVE_SUGGESTIONS = /* i18n */ [
   "Explain what this project does and how it's organized",
   "Run the tests and tell me what fails",
   "Find one small bug and propose a fix before changing anything",
 ];
+
+/** A translated sentence with elements (paths, branch names) in place of its {placeholders}. */
+function rich(text: string, parts: Record<string, ReactNode>): ReactNode[] {
+  return text.split(/(\{\w+\})/).map((seg, i) => {
+    const key = /^\{(\w+)\}$/.exec(seg)?.[1];
+    return key && key in parts ? <Fragment key={i}>{parts[key]}</Fragment> : seg;
+  });
+}
 
 function EmptySession({ session }: { session: Session }) {
   const setDraft = useStore((s) => s.setDraft);
@@ -290,25 +299,29 @@ function EmptySession({ session }: { session: Session }) {
         <Sparkles size={18} />
       </div>
       <h2 className="text-[20px] font-semibold tracking-[-0.01em]">
-        {isChat ? `Ask ${agentLabel(session)} anything` : `What should ${agentLabel(session)} work on?`}
+        {isChat ? t("Ask {agent} anything", { agent: agentLabel(session) }) : t("What should {agent} work on?", { agent: agentLabel(session) })}
       </h2>
       {isChat ? (
         <p className="mt-1.5 text-[14px] text-fg-2">
-          No project needed. Files it makes go to <span className="font-mono text-[13px] text-fg">{project?.path.replace(/^\/(Users|home)\/[^/]+/, "~")}</span>;
-          move the session into a project later from its ⋯ menu.
+          {rich(t("No project needed. Files it makes go to {path}; move the session into a project later from its {menu} menu."), {
+            path: <span className="font-mono text-[13px] text-fg">{project?.path.replace(/^\/(Users|home)\/[^/]+/, "~")}</span>,
+            menu: "⋯",
+          })}
         </p>
       ) : (
         <p className="mt-1.5 text-[14px] text-fg-2">
           {session.worktree ? (
             <>
-              The session works in its own worktree,{" "}
-              <span className="font-mono text-[13px] text-fg">{session.worktree.replace(/^\/(Users|home)\/[^/]+/, "~")}</span>, on the branch{" "}
-              <span className="font-mono text-[13px] text-fg">{session.branch}</span>. The project folder stays as it is until you merge.
+              {rich(t("The session works in its own worktree, {path}, on the branch {branch}. The project folder stays as it is until you merge."), {
+                path: <span className="font-mono text-[13px] text-fg">{session.worktree.replace(/^\/(Users|home)\/[^/]+/, "~")}</span>,
+                branch: <span className="font-mono text-[13px] text-fg">{session.branch}</span>,
+              })}
             </>
           ) : (
             <>
-              The session runs in <span className="font-mono text-[13px] text-fg">{project?.path}</span>. Describe the outcome you want; you'll approve
-              anything risky before it runs.
+              {rich(t("The session runs in {path}. Describe the outcome you want; you'll approve anything risky before it runs."), {
+                path: <span className="font-mono text-[13px] text-fg">{project?.path}</span>,
+              })}
             </>
           )}
         </p>
@@ -318,22 +331,22 @@ function EmptySession({ session }: { session: Session }) {
           <button
             type="button"
             onClick={() => setMode(session.id, "plan")}
-            className="rounded-xl border border-line-soft bg-surface/50 px-3.5 py-2.5 text-left hover:border-line hover:bg-surface"
+            className="rounded-xl border border-line-soft bg-surface/50 px-3.5 py-2.5 text-start hover:border-line hover:bg-surface"
           >
             <span className="flex items-center gap-2 text-[13.5px] text-fg">
-              <ClipboardList size={14} className="text-violet-text" /> Plan first
+              <ClipboardList size={14} className="text-violet-text" /> {t("Plan first")}
             </span>
-            <span className="mt-0.5 block text-[12px] leading-[1.5] text-fg-3">It reads and proposes a plan; build it here or hand it to another agent.</span>
+            <span className="mt-0.5 block text-[12px] leading-[1.5] text-fg-3">{t("It reads and proposes a plan; build it here or hand it to another agent.")}</span>
           </button>
           <button
             type="button"
             onClick={() => openRelay(session.id)}
-            className="rounded-xl border border-line-soft bg-surface/50 px-3.5 py-2.5 text-left hover:border-line hover:bg-surface"
+            className="rounded-xl border border-line-soft bg-surface/50 px-3.5 py-2.5 text-start hover:border-line hover:bg-surface"
           >
             <span className="flex items-center gap-2 text-[13.5px] text-fg">
-              <Repeat2 size={14} className="text-violet-text" /> Plan, build, review
+              <Repeat2 size={14} className="text-violet-text" /> {t("Plan, build, review")}
             </span>
-            <span className="mt-0.5 block text-[12px] leading-[1.5] text-fg-3">One agent plans, another builds, a third reviews. You pick who.</span>
+            <span className="mt-0.5 block text-[12px] leading-[1.5] text-fg-3">{t("One agent plans, another builds, a third reviews. You pick who.")}</span>
           </button>
         </div>
       )}
@@ -343,12 +356,12 @@ function EmptySession({ session }: { session: Session }) {
             key={s}
             type="button"
             onClick={() => {
-              setDraft(session.id, s);
+              setDraft(session.id, t(s));
               focusComposer();
             }}
-            className="block w-full rounded-xl border border-line-soft bg-surface/50 px-3.5 py-2.5 text-left text-[13.5px] text-fg-2 hover:border-line hover:bg-surface hover:text-fg"
+            className="block w-full rounded-xl border border-line-soft bg-surface/50 px-3.5 py-2.5 text-start text-[13.5px] text-fg-2 hover:border-line hover:bg-surface hover:text-fg"
           >
-            {s}
+            {t(s)}
           </button>
         ))}
       </div>
@@ -374,7 +387,7 @@ export function Conversation({ session }: { session: Session }) {
     () => (merged && peer && relay ? mergeRelay(session, ownEvents, peer, peerEvents, relay.id) : ownEvents.map((p) => ({ p, session }))),
     [merged, peer, relay, session, ownEvents, peerEvents],
   );
-  const events = useMemo(() => tagged.map((t) => t.p), [tagged]);
+  const events = useMemo(() => tagged.map((x) => x.p), [tagged]);
   const busy = (s?: Session) => Boolean(s && (s.status === "running" || s.status === "waiting"));
   const live = busy(session) || (merged && busy(peer));
   const runs = useMemo(() => {
@@ -428,7 +441,7 @@ export function Conversation({ session }: { session: Session }) {
   if (!loaded)
     return (
       <div className="flex h-full items-center justify-center text-[13px] text-fg-3" role="status">
-        Loading conversation…
+        {t("Loading conversation…")}
       </div>
     );
   if (events.length === 0) return <EmptySession session={session} />;
@@ -436,7 +449,7 @@ export function Conversation({ session }: { session: Session }) {
   return (
     <div className="flex h-full flex-col">
       {showFlow && flow ? <FlowBar session={session} flow={flow} /> : relay && <RelayBar session={session} relay={relay} />}
-      <div ref={scroller} className="scroll-quiet relative min-h-0 flex-1 overflow-y-auto" role="log" aria-label={`${session.title} conversation`}>
+      <div ref={scroller} className="scroll-quiet relative min-h-0 flex-1 overflow-y-auto" role="log" aria-label={t("{title} conversation", { title: session.title })}>
         <motion.div
           key={session.id}
           initial={{ opacity: 0, y: 6 }}
@@ -455,7 +468,7 @@ export function Conversation({ session }: { session: Session }) {
                 }}
                 className="rounded-full border border-line-soft px-3 py-1 text-[12.5px] text-fg-2 hover:bg-surface hover:text-fg"
               >
-                Show earlier ({hidden} more)
+                {t("Show earlier ({n} more)", { n: hidden })}
               </button>
             </div>
           )}

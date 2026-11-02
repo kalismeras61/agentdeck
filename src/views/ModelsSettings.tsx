@@ -201,7 +201,7 @@ function Editor({ initial, hasKey, onDone }: { initial: Draft; hasKey: boolean; 
       <div className="flex flex-wrap items-center gap-2">
         {d.id &&
           (confirmDelete ? (
-            <span className="mr-auto flex items-center gap-2 text-[12.5px] text-fg-2">
+            <span className="me-auto flex items-center gap-2 text-[12.5px] text-fg-2">
               {t("Delete “{name}”? Its sessions keep their history.", { name: d.name })}
               <button
                 type="button"
@@ -218,12 +218,12 @@ function Editor({ initial, hasKey, onDone }: { initial: Draft; hasKey: boolean; 
             <button
               type="button"
               onClick={() => setConfirmDelete(true)}
-              className="mr-auto inline-flex h-8 items-center gap-1.5 rounded-lg px-2 text-[13px] text-fg-3 hover:bg-elevated hover:text-error"
+              className="me-auto inline-flex h-8 items-center gap-1.5 rounded-lg px-2 text-[13px] text-fg-3 hover:bg-elevated hover:text-error"
             >
               <Trash2 size={13} /> {t("Delete")}
             </button>
           ))}
-        {!d.id && <span className="mr-auto" />}
+        {!d.id && <span className="me-auto" />}
         <button type="button" onClick={onDone} className="h-8 rounded-lg px-3 text-[13px] text-fg-2 hover:bg-elevated hover:text-fg">
           {t("Close")}
         </button>

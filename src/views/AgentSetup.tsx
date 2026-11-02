@@ -216,7 +216,7 @@ export function AgentSetup() {
         type="button"
         onClick={() => open(i.path)}
         aria-current={i.path === openPath ? "true" : undefined}
-        className={cx("flex w-full items-start gap-2 rounded-lg py-1.5 pl-[42px] pr-2 text-left", i.path === openPath ? "bg-elevated" : "hover:bg-surface")}
+        className={cx("flex w-full items-start gap-2 rounded-lg py-1.5 ps-[42px] pe-2 text-start", i.path === openPath ? "bg-elevated" : "hover:bg-surface")}
       >
         <span className="mt-[1px] flex shrink-0 -space-x-1">
           {i.agents.map((a) => (
@@ -250,9 +250,9 @@ export function AgentSetup() {
           type="button"
           aria-expanded={isOpen}
           onClick={() => toggle(key)}
-          className="flex w-full items-center gap-2 px-3 py-2.5 text-left hover:bg-surface"
+          className="flex w-full items-center gap-2 px-3 py-2.5 text-start hover:bg-surface"
         >
-          <ChevronRight size={13} className={cx("shrink-0 text-fg-3 transition-transform", isOpen && "rotate-90")} />
+          <ChevronRight size={13} className={cx("rtl:-scale-x-100 shrink-0 text-fg-3 transition-transform", isOpen && "rotate-90 rtl:-rotate-90")} />
           {icon}
           <span className="min-w-0 flex-1">
             <span className="block truncate text-[13px] font-semibold text-fg">{title}</span>
@@ -280,15 +280,15 @@ export function AgentSetup() {
                 const isAdding = adding?.key === key && adding.kind === kind;
                 return (
                   <div key={kind}>
-                    <div className="group flex items-center pr-2">
+                    <div className="group flex items-center pe-2">
                       <button
                         type="button"
                         aria-expanded={kOpen}
                         onClick={() => setExpanded((x) => ({ ...x, [kKey]: !kOpen }))}
-                        className="flex min-w-0 flex-1 items-center gap-1.5 py-1 pl-7 pr-1 text-left"
+                        className="flex min-w-0 flex-1 items-center gap-1.5 py-1 ps-7 pe-1 text-start"
                         title={t(note)}
                       >
-                        <ChevronRight size={11} className={cx("shrink-0 text-fg-3 transition-transform", kOpen && "rotate-90")} />
+                        <ChevronRight size={11} className={cx("rtl:-scale-x-100 shrink-0 text-fg-3 transition-transform", kOpen && "rotate-90 rtl:-rotate-90")} />
                         <span className="text-[12px] font-medium text-fg-2">{t(kt)}</span>
                         <span className="text-[11px] tabular-nums text-fg-3">{list.filter((i) => i.exists).length}</span>
                       </button>
@@ -323,7 +323,7 @@ export function AgentSetup() {
                           />
                         )}
                         <ul className="space-y-px px-1">{list.map((i) => itemRow(i, kind))}</ul>
-                        {list.length === 0 && !isAdding && <p className="pb-1 pl-[42px] text-[11.5px] text-fg-3">{t("None yet")}</p>}
+                        {list.length === 0 && !isAdding && <p className="pb-1 ps-[42px] text-[11.5px] text-fg-3">{t("None yet")}</p>}
                       </>
                     )}
                   </div>
@@ -352,7 +352,7 @@ export function AgentSetup() {
 
       <div className="flex min-h-0 flex-1">
         {/* The tree */}
-        <div className="flex w-[340px] shrink-0 flex-col border-r border-line-soft">
+        <div className="flex w-[340px] shrink-0 flex-col border-e border-line-soft">
           <div className="space-y-2.5 border-b border-line-soft px-3 py-3">
             <div role="radiogroup" aria-label={t("Agent")} className="flex flex-wrap gap-1">
               {(["all", ...AGENTS] as const).map((a) => (
@@ -533,7 +533,7 @@ function NewItemForm({
 
   return (
     <form
-      className="mb-1 ml-[42px] mr-2 mt-1 space-y-2.5 rounded-xl border border-line bg-surface p-3"
+      className="mb-1 ms-[42px] me-2 mt-1 space-y-2.5 rounded-xl border border-line bg-surface p-3"
       onSubmit={(e) => {
         e.preventDefault();
         setBusy(true);

@@ -37,7 +37,7 @@ export function SlashMenu({
       id="slash-menu"
       role="listbox"
       aria-label={t("Commands")}
-      className="scroll-quiet absolute bottom-full left-0 right-0 z-30 mb-2 max-h-[320px] overflow-y-auto rounded-xl border border-line bg-elevated p-1 shadow-pop"
+      className="scroll-quiet absolute bottom-full start-0 end-0 z-30 mb-2 max-h-[320px] overflow-y-auto rounded-xl border border-line bg-elevated p-1 shadow-pop"
     >
       {items.length === 0 && (
         <p className="flex items-center gap-2 px-3 py-2.5 text-[12.5px] text-fg-3">
@@ -70,7 +70,7 @@ export function SlashMenu({
                   onMouseDown={(e) => e.preventDefault()}
                   onClick={() => onPick(c)}
                   onMouseMove={() => onHover(i)}
-                  className={cx("flex w-full items-baseline gap-2 rounded-lg px-2 py-1.5 text-left", i === active ? "bg-surface" : "")}
+                  className={cx("flex w-full items-baseline gap-2 rounded-lg px-2 py-1.5 text-start", i === active ? "bg-surface" : "")}
                 >
                   <span className="shrink-0 font-mono text-[12.5px] text-fg">/{c.name}</span>
                   {c.hint && <span className="shrink-0 font-mono text-[11.5px] text-fg-3">{c.hint}</span>}

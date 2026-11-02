@@ -96,7 +96,7 @@ function Switch({ checked, onChange, label }: { checked: boolean; onChange: (v: 
       onClick={() => onChange(!checked)}
       className={cx("relative h-[22px] w-[38px] shrink-0 rounded-full transition-colors", checked ? "bg-violet-strong" : "bg-elevated ring-1 ring-line")}
     >
-      <span className={cx("absolute top-[3px] h-4 w-4 rounded-full bg-white shadow transition-[left] duration-150", checked ? "left-[19px]" : "left-[3px]")} />
+      <span className={cx("absolute top-[3px] h-4 w-4 rounded-full bg-white shadow transition-[left] duration-150", checked ? "start-[19px]" : "start-[3px]")} />
     </button>
   );
 }
@@ -183,7 +183,7 @@ export function Settings() {
     <div className="flex h-full flex-col">
       <ViewHeader title={t("Settings")} />
       <div className="flex min-h-0 flex-1">
-        <nav aria-label={t("Settings sections")} className="hidden w-[200px] shrink-0 border-r border-line-soft p-3 lg:block">
+        <nav aria-label={t("Settings sections")} className="hidden w-[200px] shrink-0 border-e border-line-soft p-3 lg:block">
           <ul className="space-y-px">
             {SECTIONS.map(([id, label]) => (
               <li key={id}>
@@ -287,7 +287,7 @@ export function Settings() {
                       <p className="text-[13.5px] font-medium">{providerLabel[id]}</p>
                       <span
                         className={cx(
-                          "ml-auto rounded-full px-2 py-0.5 text-xs",
+                          "ms-auto rounded-full px-2 py-0.5 text-xs",
                           status === "found"
                             ? "bg-success/12 text-success"
                             : status === "missing" || status === "broken"
@@ -298,7 +298,7 @@ export function Settings() {
                         {t(STATUS_TEXT[status])}
                       </span>
                     </div>
-                    <dl className="mt-2.5 grid grid-cols-[96px_minmax(0,1fr)] gap-x-3 gap-y-1.5 pl-[34px] text-[12.5px]">
+                    <dl className="mt-2.5 grid grid-cols-[96px_minmax(0,1fr)] gap-x-3 gap-y-1.5 ps-[34px] text-[12.5px]">
                       <dt className="text-fg-3">{t("Command")}</dt>
                       <dd className="font-mono text-fg-2">
                         {p?.binary ?? ({ "claude-code": "claude", codex: "codex", "gemini-cli": "gemini", "grok-build": "grok", "kimi-code": "kimi", antigravity: "agy" } as const)[id]}

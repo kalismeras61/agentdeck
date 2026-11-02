@@ -76,7 +76,7 @@ export function NewProjectDialog() {
               >
                 {t("Use a folder I have…")}
               </button>
-              <span className="ml-auto flex gap-2">
+              <span className="ms-auto flex gap-2">
                 <Dialog.Close className="h-8 rounded-lg border border-line px-3 text-[13px] hover:bg-elevated">{t("Cancel")}</Dialog.Close>
                 <button
                   type="submit"

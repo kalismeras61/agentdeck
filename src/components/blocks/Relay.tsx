@@ -7,6 +7,7 @@ import { providerLabel, type Session } from "../../data/demo";
 import type { EventOf, ProviderId } from "../../lib/events";
 import type { LiveProvider, RelayRow } from "../../lib/live";
 import { useStore } from "../../state/store";
+import { t, tn } from "../../lib/i18n";
 import { AgentMark, cx } from "../ui";
 import { WorkflowForm } from "./Workflow";
 import { Markdown } from "./Markdown";
@@ -56,22 +57,26 @@ export function RelayBar({ session, relay }: { session: Session; relay: RelayRow
           {b && <AgentMark provider={b.provider} size={18} />}
         </span>
         <span className="text-fg">
-          {active ? "Relay" : relay.status === "done" ? "Relay finished" : "Relay stopped"}
+          {active ? t("Relay") : relay.status === "done" ? t("Relay finished") : t("Relay stopped")}
           <span className="text-fg-2">
             {" "}
-            · round {relay.rounds} of {relay.maxRounds}
+            · {t("round {round} of {max}", { round: relay.rounds, max: relay.maxRounds })}
           </span>
         </span>
         {active && (
           <span className="text-fg-2" aria-live="polite">
-            {turn ? `${providerLabel[turn.provider]} is ${turn.status === "waiting" ? "waiting for you" : "replying"}` : "Passing the reply on…"}
+            {turn
+              ? turn.status === "waiting"
+                ? t("{agent} is waiting for you", { agent: providerLabel[turn.provider] })
+                : t("{agent} is replying", { agent: providerLabel[turn.provider] })
+              : t("Passing the reply on…")}
           </span>
         )}
         {!active && relay.reason && <span className="min-w-0 truncate text-fg-3">{relay.reason}</span>}
-        <span className="ml-auto flex items-center gap-1">
-          <div role="radiogroup" aria-label="Relay view" className="flex rounded-lg border border-line-soft p-0.5">
+        <span className="ms-auto flex items-center gap-1">
+          <div role="radiogroup" aria-label={t("Relay view")} className="flex rounded-lg border border-line-soft p-0.5">
             {(
-              [
+              /* i18n */ [
                 ["both", "Both agents"],
                 ["one", "This session"],
               ] as const
@@ -84,7 +89,7 @@ export function RelayBar({ session, relay }: { session: Session; relay: RelayRow
                 onClick={() => setView(v)}
                 className={cx("rounded-md px-2 py-0.5", view === v ? "bg-elevated text-fg" : "text-fg-2 hover:text-fg")}
               >
-                {label}
+                {t(label)}
               </button>
             ))}
           </div>
@@ -94,7 +99,7 @@ export function RelayBar({ session, relay }: { session: Session; relay: RelayRow
               onClick={() => select(peer.id)}
               className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-fg-2 hover:bg-elevated hover:text-fg"
             >
-              Open {providerLabel[peer.provider]} <ArrowUpRight size={13} />
+              {t("Open {agent}", { agent: providerLabel[peer.provider] })} <ArrowUpRight size={13} />
             </button>
           )}
           {active && (
@@ -103,7 +108,7 @@ export function RelayBar({ session, relay }: { session: Session; relay: RelayRow
               onClick={() => stop(relay.id)}
               className="inline-flex h-7 items-center gap-1.5 rounded-lg border border-line px-2.5 font-medium text-fg hover:bg-elevated"
             >
-              <Square size={10} fill="currentColor" /> Stop relay
+              <Square size={10} fill="currentColor" /> {t("Stop relay")}
             </button>
           )}
         </span>
@@ -120,20 +125,20 @@ export function RelayBlock({ e, session, compact = false }: { e: RelayEvent; ses
 
   if (p.kind === "started") {
     return (
-      <section aria-label="Relay started" className="rounded-xl border border-line-soft bg-surface/60 px-3.5 py-2.5 text-[13px]">
+      <section aria-label={t("Relay started")} className="rounded-xl border border-line-soft bg-surface/60 px-3.5 py-2.5 text-[13px]">
         <div className="flex flex-wrap items-center gap-2">
           <Repeat2 size={15} className="text-violet-text" />
           <span className="text-fg">
-            {p.starts ? `Relay with ${providerLabel[p.peerProvider]}` : `${providerLabel[p.peerProvider]} started a relay with this session`}
+            {p.starts ? t("Relay with {agent}", { agent: providerLabel[p.peerProvider] }) : t("{agent} started a relay with this session", { agent: providerLabel[p.peerProvider] })}
           </span>
-          <span className="text-fg-3">up to {p.maxRounds} rounds</span>
+          <span className="text-fg-3">{tn(p.maxRounds, "up to {n} round", "up to {n} rounds")}</span>
           <button
             type="button"
             onClick={() => setOpen((v) => !v)}
             aria-expanded={open}
-            className="ml-auto rounded-md px-1.5 py-0.5 text-fg-2 hover:bg-elevated hover:text-fg"
+            className="ms-auto rounded-md px-1.5 py-0.5 text-fg-2 hover:bg-elevated hover:text-fg"
           >
-            {open ? "Hide task" : "Show task"}
+            {open ? t("Hide task") : t("Show task")}
           </button>
         </div>
         {open && (
@@ -150,9 +155,9 @@ export function RelayBlock({ e, session, compact = false }: { e: RelayEvent; ses
     return (
       <div className="flex items-center gap-2 px-1 text-[12.5px]">
         {done ? <CheckCircle2 size={14} className="text-success" /> : <CircleSlash size={14} className="text-fg-3" />}
-        <span className="text-fg">{done ? "Relay finished" : "Relay stopped"}</span>
+        <span className="text-fg">{done ? t("Relay finished") : t("Relay stopped")}</span>
         <span className="text-fg-3">
-          {p.reason} · {p.rounds} {p.rounds === 1 ? "round" : "rounds"}
+          {p.reason} · {tn(p.rounds, "{n} round", "{n} rounds")}
         </span>
       </div>
     );
@@ -163,29 +168,29 @@ export function RelayBlock({ e, session, compact = false }: { e: RelayEvent; ses
     return (
       <div className="flex items-center gap-2 px-1 text-[12px] text-fg-3">
         <span className="h-px w-6 bg-line" />
-        Passed to {agentLabel(session)} · round {p.round} of {p.maxRounds}
-        <ArrowRight size={12} />
+        {t("Passed to {agent} · round {round} of {max}", { agent: agentLabel(session), round: p.round, max: p.maxRounds })}
+        <ArrowRight className="rtl:-scale-x-100" size={12} />
         <span className="h-px flex-1 bg-line" />
       </div>
     );
   }
   return (
-    <section aria-label={`Message from ${providerLabel[p.fromProvider]}`} className="rounded-2xl border border-line bg-surface">
+    <section aria-label={t("Message from {agent}", { agent: providerLabel[p.fromProvider] })} className="rounded-2xl border border-line bg-surface">
       <header className="flex items-center gap-2 border-b border-line-soft px-4 py-2.5 text-[13px]">
         <AgentMark provider={p.fromProvider} size={18} />
         <span className="font-medium text-fg">{providerLabel[p.fromProvider]}</span>
-        <ArrowRight size={13} className="text-fg-3" />
+        <ArrowRight size={13} className="rtl:-scale-x-100 text-fg-3" />
         <AgentMark provider={session.provider} size={18} />
         <span className="text-fg-2">{agentLabel(session)}</span>
         <span className="text-fg-3">
-          · round {p.round} of {p.maxRounds}
+          · {t("round {round} of {max}", { round: p.round, max: p.maxRounds })}
         </span>
         <button
           type="button"
           onClick={() => select(p.fromSessionId)}
-          className="ml-auto inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-fg-2 hover:bg-elevated hover:text-fg"
+          className="ms-auto inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-fg-2 hover:bg-elevated hover:text-fg"
         >
-          Open <ArrowUpRight size={13} />
+          {t("Open")} <ArrowUpRight size={13} />
         </button>
       </header>
       <div className="px-4 py-3">
@@ -198,22 +203,22 @@ export function RelayBlock({ e, session, compact = false }: { e: RelayEvent; ses
 const PRESETS: { id: string; label: (me: string, peer: string) => string; hint: (me: string, peer: string) => string; me: string; peer: string }[] = [
   {
     id: "plan-build",
-    label: (me, peer) => `${me} plans and reviews, ${peer} builds`,
-    hint: (me, peer) => `${me} writes the plan and reviews each change; ${peer} implements it and reports back.`,
+    label: (me, peer) => t("{me} plans and reviews, {peer} builds", { me, peer }),
+    hint: (me, peer) => t("{me} writes the plan and reviews each change; {peer} implements it and reports back.", { me, peer }),
     me: "plan the work and review what the other agent builds",
     peer: "implement the plan and report what you changed",
   },
   {
     id: "build-review",
-    label: (me, peer) => `${me} builds, ${peer} reviews`,
-    hint: (me, peer) => `${me} implements the task; ${peer} reviews each change and points out problems.`,
+    label: (me, peer) => t("{me} builds, {peer} reviews", { me, peer }),
+    hint: (me, peer) => t("{me} implements the task; {peer} reviews each change and points out problems.", { me, peer }),
     me: "implement the task and report what you changed",
     peer: "review each change and point out problems",
   },
   {
     id: "pair",
-    label: () => "Equal partners",
-    hint: () => "Both agents work on the task and check each other's work.",
+    label: () => t("Equal partners"),
+    hint: () => t("Both agents work on the task and check each other's work."),
     me: "work on the task together with the other agent",
     peer: "work on the task together with the other agent",
   },
@@ -278,17 +283,17 @@ export function StartRelayDialog({ session, open, onOpenChange }: { session: Ses
           <div className="flex items-start gap-3">
             <div className="min-w-0 flex-1">
               <Dialog.Title className="flex items-center gap-2 text-[15px] font-semibold">
-                <Repeat2 size={16} className="text-violet-text" /> Work with other agents
+                <Repeat2 size={16} className="text-violet-text" /> {t("Work with other agents")}
               </Dialog.Title>
               <Dialog.Description className="mt-1.5 text-[13px] leading-[1.6] text-fg-2">
                 {tab === "workflow"
-                  ? "Give each stage to the agent you trust with it. Each stage's result goes to the next one automatically; every approval still comes to you."
-                  : "Two agents pass replies back and forth until one of them says DONE, the round limit, or you press Stop. Every approval still comes to you."}
+                  ? t("Give each stage to the agent you trust with it. Each stage's result goes to the next one automatically; every approval still comes to you.")
+                  : t("Two agents pass replies back and forth until one of them says {done}, the round limit, or you press Stop. Every approval still comes to you.", { done: "DONE" })}
               </Dialog.Description>
             </div>
-            <div role="tablist" aria-label="How the agents work together" className="flex shrink-0 rounded-lg border border-line bg-bg/40 p-0.5">
+            <div role="tablist" aria-label={t("How the agents work together")} className="flex shrink-0 rounded-lg border border-line bg-bg/40 p-0.5">
               {(
-                [
+                /* i18n */ [
                   ["workflow", "Workflow"],
                   ["relay", "Conversation"],
                 ] as const
@@ -301,7 +306,7 @@ export function StartRelayDialog({ session, open, onOpenChange }: { session: Ses
                   onClick={() => setTab(id)}
                   className={cx("h-7 rounded-md px-2.5 text-xs transition-colors", tab === id ? "bg-elevated text-fg shadow-card" : "text-fg-2 hover:text-fg")}
                 >
-                  {label}
+                  {t(label)}
                 </button>
               ))}
             </div>
@@ -311,7 +316,7 @@ export function StartRelayDialog({ session, open, onOpenChange }: { session: Ses
               <WorkflowForm
                 session={session}
                 onDone={() => onOpenChange(false)}
-                footerStart={<Dialog.Close className="h-8 rounded-lg border border-line px-3 text-[13px] hover:bg-elevated">Cancel</Dialog.Close>}
+                footerStart={<Dialog.Close className="h-8 rounded-lg border border-line px-3 text-[13px] hover:bg-elevated">{t("Cancel")}</Dialog.Close>}
               />
             </div>
           ) : (
@@ -324,16 +329,16 @@ export function StartRelayDialog({ session, open, onOpenChange }: { session: Ses
             >
               <div className="grid grid-cols-2 gap-3">
                 <label className="block text-[12px] text-fg-2">
-                  Partner
+                  {t("Partner")}
                   <select value={partner} onChange={(ev) => setPartner(ev.target.value)} className={cx(field, "mt-1")}>
                     {withoutHidden(["codex", "claude-code", "gemini-cli", "grok-build", "kimi-code", "antigravity"] as const, agyEnabled).map((p) => (
                       <option key={p} value={`new:${p}`}>
-                        New {providerLabel[p]} session
+                        {t("New {agent} session", { agent: providerLabel[p] })}
                       </option>
                     ))}
                     {profiles.map((m) => (
                       <option key={m.id} value={`profile:${m.id}`}>
-                        New {m.name} session
+                        {t("New {agent} session", { agent: m.name })}
                       </option>
                     ))}
                     {others.map((s) => (
@@ -344,7 +349,7 @@ export function StartRelayDialog({ session, open, onOpenChange }: { session: Ses
                   </select>
                 </label>
                 <label className="block text-[12px] text-fg-2">
-                  Rounds at most
+                  {t("Rounds at most")}
                   <select value={rounds} onChange={(ev) => setRounds(Number(ev.target.value))} className={cx(field, "mt-1")}>
                     {[2, 4, 6, 8, 10, 14, 20].map((n) => (
                       <option key={n} value={n}>
@@ -355,25 +360,25 @@ export function StartRelayDialog({ session, open, onOpenChange }: { session: Ses
                 </label>
               </div>
               <label className="block text-[12px] text-fg-2">
-                Roles
+                {t("Roles")}
                 <select value={preset} onChange={(ev) => setPreset(ev.target.value)} className={cx(field, "mt-1")}>
                   {PRESETS.map((x) => (
                     <option key={x.id} value={x.id}>
-                      {x.label(agentLabel(session), partnerProfile ? partnerProfile.name : partnerProvider ? providerLabel[partnerProvider] : "the partner")}
+                      {x.label(agentLabel(session), partnerProfile ? partnerProfile.name : partnerProvider ? providerLabel[partnerProvider] : t("the partner"))}
                     </option>
                   ))}
                 </select>
                 <span className="mt-1 block text-[11.5px] leading-[1.5] text-fg-3">
-                  {p.hint(agentLabel(session), partnerProfile ? partnerProfile.name : partnerProvider ? providerLabel[partnerProvider] : "the partner")}
+                  {p.hint(agentLabel(session), partnerProfile ? partnerProfile.name : partnerProvider ? providerLabel[partnerProvider] : t("the partner"))}
                 </span>
               </label>
               <label className="block text-[12px] text-fg-2">
-                Task
+                {t("Task")}
                 <textarea
                   value={task}
                   onChange={(ev) => setTask(ev.target.value)}
                   rows={4}
-                  placeholder="Fix the discount being applied after tax in invoice.py, with a test."
+                  placeholder={t("Fix the discount being applied after tax in {file}, with a test.", { file: "invoice.py" })}
                   className={cx(field, "mt-1 h-auto resize-none py-2 leading-[1.55]")}
                 />
               </label>
@@ -383,13 +388,13 @@ export function StartRelayDialog({ session, open, onOpenChange }: { session: Ses
                 </p>
               )}
               <div className="flex justify-end gap-2 pt-1">
-                <Dialog.Close className="h-8 rounded-lg border border-line px-3 text-[13px] hover:bg-elevated">Cancel</Dialog.Close>
+                <Dialog.Close className="h-8 rounded-lg border border-line px-3 text-[13px] hover:bg-elevated">{t("Cancel")}</Dialog.Close>
                 <button
                   type="submit"
                   disabled={busy || !task.trim()}
                   className="h-8 rounded-lg bg-violet-strong px-3.5 text-[13px] font-medium text-white hover:brightness-110 disabled:opacity-50"
                 >
-                  {busy ? "Starting…" : "Start relay"}
+                  {busy ? t("Starting…") : t("Start relay")}
                 </button>
               </div>
             </form>

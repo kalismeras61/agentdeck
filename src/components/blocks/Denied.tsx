@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import type { Session } from "../../data/demo";
 import type { EventOf } from "../../lib/events";
 import { errorText, liveApi } from "../../lib/live";
+import { t, tn } from "../../lib/i18n";
 import { useStore } from "../../state/store";
 import { cx } from "../ui";
 import { useAgyApprovals } from "../AgyApprovals";
@@ -23,6 +24,10 @@ export function DeniedCard({ e, session }: { e: EventOf<"denied">; session: Sess
   const startSignIn = useStore((s) => s.startSignIn);
   const clearError = useStore((s) => s.clearSessionError);
   const rules = e.payload.rules;
+  const [exBefore, exAfter = ""] = t(
+    "agy didn't say which rule would allow it. Add one with {command} in agy (for example {example}), then send your message again.",
+    { command: "/permissions" },
+  ).split("{example}");
 
   const allow = async () => {
     setState("busy");
@@ -43,15 +48,18 @@ export function DeniedCard({ e, session }: { e: EventOf<"denied">; session: Sess
       <div className="flex items-start gap-2.5">
         <ShieldAlert size={16} className="mt-0.5 shrink-0 text-warning" />
         <div className="min-w-0 flex-1">
-          <p className="text-[13px] font-medium text-fg">Antigravity skipped what needs your OK</p>
+          <p className="text-[13px] font-medium text-fg">{t("Antigravity skipped what needs your OK")}</p>
           <p className="mt-0.5 text-[12.5px] leading-[1.55] text-fg-2">
-            It can't ask in AgentDeck, so these didn't run: <span className="font-mono text-[12px] text-fg">{e.payload.actions.join(", ")}</span>
+            {t("It can't ask in AgentDeck, so these didn't run:")} <span className="font-mono text-[12px] text-fg">{e.payload.actions.join(", ")}</span>
           </p>
           {e.payload.notice && <pre className="mt-1.5 whitespace-pre-wrap font-mono text-[11.5px] leading-[1.5] text-fg-3">{e.payload.notice}</pre>}
 
           {state === "done" ? (
             <p role="status" className="mt-2 flex items-center gap-1.5 text-[12.5px] text-success">
-              <ShieldCheck size={14} /> Allowed in Antigravity's settings{file ? ` (${file.replace(/^\/(Users|home)\/[^/]+/, "~")})` : ""}. Your message went again.
+              <ShieldCheck size={14} />{" "}
+              {file
+                ? t("Allowed in Antigravity's settings ({file}). Your message went again.", { file: file.replace(/^\/(Users|home)\/[^/]+/, "~") })
+                : t("Allowed in Antigravity's settings. Your message went again.")}
             </p>
           ) : rules.length > 0 ? (
             <div className="mt-2.5 space-y-2">
@@ -73,14 +81,18 @@ export function DeniedCard({ e, session }: { e: EventOf<"denied">; session: Sess
                         className="accent-[var(--violet)]"
                       />
                       <code className="rounded bg-elevated px-1.5 py-0.5 font-mono text-[12px] text-fg">{r}</code>
-                      {RISKY.test(r) && <span className="text-[11.5px] text-warning">can delete or change things for good; allowing it is up to you</span>}
+                      {RISKY.test(r) && <span className="text-[11.5px] text-warning">{t("can delete or change things for good; allowing it is up to you")}</span>}
                     </label>
                   </li>
                 ))}
               </ul>
               <p className="text-[11.5px] leading-[1.5] text-fg-3">
-                Allowing adds {picked.size === 1 ? "this rule" : "these rules"} to Antigravity's own settings: it then does this without asking, in every project. You can remove
-                rules there or with /permissions in agy.
+                {tn(
+                  picked.size,
+                  "Allowing adds this rule to Antigravity's own settings: it then does this without asking, in every project. You can remove rules there or with {command} in agy.",
+                  "Allowing adds these rules to Antigravity's own settings: it then does this without asking, in every project. You can remove rules there or with {command} in agy.",
+                  { command: "/permissions" },
+                )}
               </p>
               <div className="flex flex-wrap gap-2">
                 <button
@@ -89,22 +101,23 @@ export function DeniedCard({ e, session }: { e: EventOf<"denied">; session: Sess
                   onClick={() => void allow()}
                   className="inline-flex h-7 items-center gap-1.5 rounded-lg bg-violet-strong px-3 text-[12.5px] font-medium text-white hover:brightness-110 disabled:opacity-50"
                 >
-                  <ShieldCheck size={13} /> {state === "busy" ? "Allowing…" : "Allow and send again"}
+                  <ShieldCheck size={13} /> {state === "busy" ? t("Allowing…") : t("Allow and send again")}
                 </button>
               </div>
             </div>
           ) : (
             <div className="mt-2 flex flex-wrap items-center gap-2">
               <p className="text-[12px] leading-[1.5] text-fg-3">
-                agy didn't say which rule would allow it. Add one with /permissions in agy (for example{" "}
-                <code className="font-mono text-[11.5px]">command(npm test)</code>), then send your message again.
+                {exBefore}
+                <code className="font-mono text-[11.5px]">command(npm test)</code>
+                {exAfter}
               </p>
               <button
                 type="button"
                 onClick={() => startSignIn(session.id, "antigravity")}
                 className={cx("inline-flex h-7 items-center rounded-lg border border-line px-2.5 text-[12.5px] text-fg hover:bg-elevated")}
               >
-                Open agy in the terminal
+                {t("Open agy in the terminal")}
               </button>
             </div>
           )}
@@ -143,17 +156,17 @@ function AutoChoices({ session }: { session: Session }) {
   if (level === "all") return null;
   return (
     <div className="mt-3 border-t border-warning/20 pt-2.5">
-      <p className="text-[11.5px] text-fg-3">Or change what Antigravity may do without asking, for all its sessions:</p>
+      <p className="text-[11.5px] text-fg-3">{t("Or change what Antigravity may do without asking, for all its sessions:")}</p>
       <div className="mt-1.5 flex flex-wrap items-center gap-2">
         {level !== "auto" && (
           <button
             type="button"
             disabled={busy}
             onClick={() => void go("auto")}
-            title="Antigravity's own Auto mode: safe edits and commands go ahead, irreversible ones are still skipped"
+            title={t("Antigravity's own Auto mode: safe edits and commands go ahead, irreversible ones are still skipped")}
             className="h-7 rounded-lg border border-line px-2.5 text-[12.5px] text-fg hover:bg-elevated disabled:opacity-50"
           >
-            Use Auto mode and send again
+            {t("Use Auto mode and send again")}
           </button>
         )}
         <button
@@ -165,9 +178,9 @@ function AutoChoices({ session }: { session: Session }) {
             confirm ? "border-error/60 bg-error/10 text-error" : "border-line text-fg-2 hover:bg-elevated hover:text-fg",
           )}
         >
-          {confirm ? "Yes, skip every approval and send again" : "Skip all approvals…"}
+          {confirm ? t("Yes, skip every approval and send again") : t("Skip all approvals…")}
         </button>
-        {confirm && <span className="text-[11.5px] text-error">Commands, deletions and pushes then run without asking.</span>}
+        {confirm && <span className="text-[11.5px] text-error">{t("Commands, deletions and pushes then run without asking.")}</span>}
       </div>
       {error && <p className="mt-1 text-[12px] text-error">{error}</p>}
     </div>

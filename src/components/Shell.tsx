@@ -62,7 +62,7 @@ export function SessionHeader({ session }: { session: Session }) {
   return (
     <header data-tauri-drag-region className="drag relative flex h-12 shrink-0 items-center gap-3 border-b border-line-soft px-3">
       {!sidebarOpen && (
-        <div className="flex items-center gap-2 pl-[66px]">
+        <div className="flex items-center gap-2 pl-[66px] rtl:order-last">
           <span aria-hidden className="absolute left-4 top-[18px] flex gap-2" data-web-only>
             <span className="h-3 w-3 rounded-full bg-[#ff5f57]" />
             <span className="h-3 w-3 rounded-full bg-[#febc2e]" />
@@ -100,14 +100,14 @@ export function SessionHeader({ session }: { session: Session }) {
         <StatusPill status={session.status} />
       </span>
 
-      <div className="ml-auto flex shrink-0 items-center gap-1.5">
-        {session.demo && <DemoBadge className="mr-1" />}
+      <div className="ms-auto flex shrink-0 items-center gap-1.5">
+        {session.demo && <DemoBadge className="me-1" />}
         {canRelay && !busyWithOthers && (
           <button
             type="button"
             onClick={() => setRelayOpen(true)}
             title={t("Give planning, building and reviewing to different agents, or let two agents talk")}
-            className="mr-1 inline-flex h-7 items-center gap-1.5 rounded-lg border border-line px-2.5 text-xs text-fg-2 hover:bg-elevated hover:text-fg"
+            className="me-1 inline-flex h-7 items-center gap-1.5 rounded-lg border border-line px-2.5 text-xs text-fg-2 hover:bg-elevated hover:text-fg"
           >
             <Repeat2 size={13} /> {t("Work with…")}
           </button>
@@ -162,7 +162,7 @@ export function SessionHeader({ session }: { session: Session }) {
                 className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-[13px] outline-none data-[disabled]:opacity-45 data-[highlighted]:bg-surface"
               >
                 <Square size={13} className="text-fg-3" /> {t("Stop this turn")}
-                {session.status !== "running" && session.status !== "waiting" && <span className="ml-auto text-[11px] text-fg-3">{t("Not working")}</span>}
+                {session.status !== "running" && session.status !== "waiting" && <span className="ms-auto text-[11px] text-fg-3">{t("Not working")}</span>}
               </Dropdown.Item>
               {canRelay && (
                 <Dropdown.Item
@@ -171,7 +171,7 @@ export function SessionHeader({ session }: { session: Session }) {
                   className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-[13px] outline-none data-[disabled]:opacity-45 data-[highlighted]:bg-surface"
                 >
                   <Repeat2 size={14} className="text-fg-3" /> {t("Work with other agents…")}
-                  {busyWithOthers && <span className="ml-auto text-[11px] text-fg-3">{t("Busy")}</span>}
+                  {busyWithOthers && <span className="ms-auto text-[11px] text-fg-3">{t("Busy")}</span>}
                 </Dropdown.Item>
               )}
               {session.live && (
@@ -181,7 +181,7 @@ export function SessionHeader({ session }: { session: Session }) {
                     className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-[13px] outline-none data-[disabled]:opacity-45 data-[highlighted]:bg-surface data-[state=open]:bg-surface"
                   >
                     <FolderInput size={14} className="text-fg-3" /> {t("Move to…")}
-                    <ChevronRight size={13} className="ml-auto text-fg-3" />
+                    <ChevronRight size={13} className="rtl:-scale-x-100 ms-auto text-fg-3" />
                   </Dropdown.SubTrigger>
                   <Dropdown.Portal>
                     <Dropdown.SubContent
@@ -353,8 +353,8 @@ export function Resizer({
       onKeyDown={onKeyDown}
       className="group relative z-20 w-px shrink-0 cursor-col-resize bg-line-soft outline-none focus-visible:shadow-[0_0_0_1px_var(--violet)]"
     >
-      <span className="absolute inset-y-0 -left-[3px] -right-[3px]" />
-      <span className="absolute inset-y-0 -left-px -right-px bg-violet opacity-0 transition-opacity duration-150 group-hover:opacity-60 group-focus-visible:opacity-100 group-active:opacity-100" />
+      <span className="absolute inset-y-0 -start-[3px] -end-[3px]" />
+      <span className="absolute inset-y-0 -start-px -end-px bg-violet opacity-0 transition-opacity duration-150 group-hover:opacity-60 group-focus-visible:opacity-100 group-active:opacity-100" />
     </div>
   );
 }

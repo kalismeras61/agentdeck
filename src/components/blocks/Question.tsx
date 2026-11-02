@@ -5,6 +5,7 @@ import { agentLabel } from "../../lib/agentName";
 import type { EventOf } from "../../lib/events";
 import { clock } from "../../lib/format";
 import { errorText, liveApi } from "../../lib/live";
+import { t, tn } from "../../lib/i18n";
 import { cx } from "../ui";
 
 type Q = EventOf<"question">["payload"]["questions"][number];
@@ -37,7 +38,7 @@ function QuestionField({
       <legend className="mb-2 flex flex-wrap items-center gap-2">
         {q.header && <span className="rounded-md bg-violet/12 px-1.5 py-0.5 text-[11px] font-medium text-violet-text">{q.header}</span>}
         <span className="text-[13.5px] font-medium leading-[1.5] text-fg">{q.question}</span>
-        {q.multiSelect && <span className="text-[11.5px] text-fg-3">Pick any</span>}
+        {q.multiSelect && <span className="text-[11.5px] text-fg-3">{t("Pick any")}</span>}
       </legend>
       {q.options.length > 0 && (
         <div role={q.multiSelect ? "group" : "radiogroup"} className="grid gap-1.5">
@@ -51,7 +52,7 @@ function QuestionField({
                 aria-checked={on}
                 onClick={() => toggle(o.label)}
                 className={cx(
-                  "flex items-start gap-2.5 rounded-xl border px-3 py-2 text-left transition-colors",
+                  "flex items-start gap-2.5 rounded-xl border px-3 py-2 text-start transition-colors",
                   on ? "border-violet bg-violet/10" : "border-line bg-bg hover:border-violet/50 hover:bg-elevated",
                 )}
               >
@@ -82,8 +83,8 @@ function QuestionField({
             onOther(e.target.value);
             if (!q.multiSelect && e.target.value) onPick([]);
           }}
-          placeholder={q.options.length ? "Or write your own answer" : "Your answer"}
-          aria-label={`Your answer to: ${q.question}`}
+          placeholder={q.options.length ? t("Or write your own answer") : t("Your answer")}
+          aria-label={t("Your answer to: {question}", { question: q.question })}
           maxLength={4000}
           autoComplete="off"
           className="h-9 w-full rounded-lg border border-line bg-bg px-3 text-[13px] text-fg outline-none placeholder:text-fg-3 focus:border-violet"
@@ -108,14 +109,14 @@ export function QuestionCard({ e, session }: { e: EventOf<"question">; session: 
       <div className="rounded-xl border border-line-soft bg-surface/60 px-3.5 py-2.5 text-[13px]">
         <div className="flex items-center gap-2">
           {p.state === "answered" ? <Check size={15} className="text-success" /> : <CircleSlash size={15} className="text-fg-3" />}
-          <span className="text-fg">{p.state === "answered" ? "You answered" : p.state === "skipped" ? "You skipped the question" : "Expired, never answered"}</span>
+          <span className="text-fg">{p.state === "answered" ? t("You answered") : p.state === "skipped" ? t("You skipped the question") : t("Expired, never answered")}</span>
         </div>
         {p.state === "answered" && (
-          <ul className="mt-1.5 space-y-1 pl-[23px]">
+          <ul className="mt-1.5 space-y-1 ps-[23px]">
             {p.questions.map((q) => (
               <li key={q.id} className="text-[12.5px] leading-[1.5] text-fg-2">
                 <span className="text-fg-3">{q.header ?? q.question}: </span>
-                {q.secret ? "(hidden)" : (answers[q.id] ?? []).join(", ") || "—"}
+                {q.secret ? t("(hidden)") : (answers[q.id] ?? []).join(", ") || "—"}
               </li>
             ))}
           </ul>
@@ -141,13 +142,13 @@ export function QuestionCard({ e, session }: { e: EventOf<"question">; session: 
   };
 
   return (
-    <section aria-label={`Question from ${agent}`} className="overflow-hidden rounded-2xl border border-violet/45 bg-surface shadow-card">
+    <section aria-label={t("Question from {agent}", { agent })} className="overflow-hidden rounded-2xl border border-violet/45 bg-surface shadow-card">
       <header className="flex items-center gap-2.5 border-b border-line-soft bg-violet/[0.07] px-4 py-3">
         <MessageCircleQuestion size={17} className="shrink-0 text-violet-text" />
         <h3 className="text-[14px] font-semibold">
-          {agent} {p.questions.length > 1 ? `has ${p.questions.length} questions` : "has a question"}
+          {tn(p.questions.length, "{agent} has a question", "{agent} has {n} questions", { agent })}
         </h3>
-        <span className="ml-auto shrink-0 text-xs text-fg-3">{clock(e.ts)}</span>
+        <span className="ms-auto shrink-0 text-xs text-fg-3">{clock(e.ts)}</span>
       </header>
       <form
         className="space-y-5 px-4 py-4"
@@ -178,7 +179,7 @@ export function QuestionCard({ e, session }: { e: EventOf<"question">; session: 
             disabled={!ready || busy || !session.live}
             className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-violet-strong px-3 text-[13px] font-medium text-white hover:brightness-110 disabled:opacity-45"
           >
-            <Check size={14} /> Send answer
+            <Check size={14} /> {t("Send answer")}
           </button>
           <button
             type="button"
@@ -186,9 +187,9 @@ export function QuestionCard({ e, session }: { e: EventOf<"question">; session: 
             onClick={() => void send(true)}
             className="inline-flex h-8 items-center gap-1.5 rounded-lg px-3 text-[13px] text-fg-2 hover:bg-elevated hover:text-fg disabled:opacity-45"
           >
-            <SkipForward size={14} /> Skip, let {agent} decide
+            <SkipForward size={14} /> {t("Skip, let {agent} decide", { agent })}
           </button>
-          <span className="ml-auto text-[11.5px] text-fg-3">{agent} waits until you answer.</span>
+          <span className="ms-auto text-[11.5px] text-fg-3">{t("{agent} waits until you answer.", { agent })}</span>
         </div>
       </form>
     </section>

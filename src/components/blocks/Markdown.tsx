@@ -3,6 +3,7 @@ import { isValidElement, memo, type ReactElement, type ReactNode } from "react";
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import type { Lang } from "../../lib/highlight";
+import { t } from "../../lib/i18n";
 import { CodeBlock } from "./code";
 
 const LANG_ALIASES: Record<string, Lang> = {
@@ -48,7 +49,7 @@ const components: Components = {
   img({ alt }) {
     return (
       <span className="inline-flex items-center gap-1.5 rounded-md border border-line px-2 py-0.5 text-xs text-fg-2">
-        <ImageOff size={12} /> {alt || "Image not loaded"}
+        <ImageOff size={12} /> {alt || t("Image not loaded")}
       </span>
     );
   },
@@ -57,7 +58,7 @@ const components: Components = {
     return (
       <span
         role="img"
-        aria-label={checked ? "Done" : "Not done"}
+        aria-label={checked ? t("Done") : t("Not done")}
         className={
           checked
             ? "mt-[3px] inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-[5px] bg-violet text-white"

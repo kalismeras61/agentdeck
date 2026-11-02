@@ -6,6 +6,7 @@ import { ago } from "../lib/format";
 import { layoutGraph, type GraphRow } from "../lib/gitGraph";
 import { errorText, gitApi, liveApi, type GitChangedFile, type GitCommit, type GitFilePair, type GitFileStatus, type GitOverview } from "../lib/live";
 import { useStore } from "../state/store";
+import { t, tn } from "../lib/i18n";
 import { MonacoDiff } from "./review/MonacoDiff";
 import { ViewHeader } from "./ViewHeader";
 
@@ -184,7 +185,7 @@ export function GitView() {
     return (
       <div className="flex h-full flex-col">
         <ViewHeader title="Git" />
-        <p className="m-auto max-w-[44ch] text-center text-[13px] leading-[1.6] text-fg-3">The Git view reads repositories on your Mac, so it works in the desktop app.</p>
+        <p className="m-auto max-w-[44ch] text-center text-[13px] leading-[1.6] text-fg-3">{t("The Git view reads repositories on your Mac, so it works in the desktop app.")}</p>
       </div>
     );
   }
@@ -195,9 +196,9 @@ export function GitView() {
         type="button"
         aria-expanded={open[key]}
         onClick={() => setOpen((o) => ({ ...o, [key]: !o[key] }))}
-        className="flex w-full items-center gap-1.5 px-3 py-1 text-left text-[12px] font-semibold text-fg"
+        className="flex w-full items-center gap-1.5 px-3 py-1 text-start text-[12px] font-semibold text-fg"
       >
-        <ChevronRight size={12} className={cx("text-fg-3 transition-transform", open[key] && "rotate-90")} />
+        <ChevronRight size={12} className={cx("rtl:-scale-x-100 text-fg-3 transition-transform", open[key] && "rotate-90 rtl:-rotate-90")} />
         {title}
         <span className="font-normal tabular-nums text-fg-3">{count}</span>
       </button>
@@ -209,7 +210,7 @@ export function GitView() {
     <div className="flex h-full flex-col">
       <ViewHeader title="Git">
         <label className="flex items-center gap-2 text-[12.5px] text-fg-3">
-          Project
+          {t("Project")}
           <select
             value={projectId ?? ""}
             onChange={(e) => openGit(e.target.value || null)}
@@ -224,7 +225,7 @@ export function GitView() {
         </label>
         {overview && overview.worktrees.length > 1 && (
           <label className="flex items-center gap-2 text-[12.5px] text-fg-3">
-            Folder
+            {t("Folder")}
             <select
               value={dir ?? ""}
               onChange={(e) => openGit(projectId, e.target.value || null)}
@@ -232,13 +233,13 @@ export function GitView() {
             >
               {overview.worktrees.map((w) => (
                 <option key={w.path} value={w.main ? "" : w.path}>
-                  {w.main ? "Project folder" : (w.branch ?? home(w.path))}
+                  {w.main ? t("Project folder") : (w.branch ?? home(w.path))}
                 </option>
               ))}
             </select>
           </label>
         )}
-        <button type="button" onClick={load} aria-label="Refresh" title="Refresh" className="no-drag rounded-md p-1.5 text-fg-3 hover:bg-elevated hover:text-fg">
+        <button type="button" onClick={load} aria-label={t("Refresh")} title={t("Refresh")} className="no-drag rounded-md p-1.5 text-fg-3 hover:bg-elevated hover:text-fg">
           <RefreshCw size={14} className={cx(loading && "animate-spin motion-reduce:animate-none")} />
         </button>
       </ViewHeader>
@@ -246,32 +247,32 @@ export function GitView() {
       {error && !overview ? (
         <div className="m-auto max-w-[52ch] px-8 text-center">
           <FolderGit2 size={22} className="mx-auto text-fg-3" />
-          <p className="mt-3 text-[14px] text-fg">{project ? `${project.name} isn't a git repository` : "No project yet"}</p>
-          <p className="mt-1.5 text-[13px] leading-[1.6] text-fg-3">{project ? `${error}. Run git init in ${home(project.path)} to see its history here.` : "Add a project folder to see its history."}</p>
+          <p className="mt-3 text-[14px] text-fg">{project ? t("{name} isn't a git repository", { name: project.name }) : t("No project yet")}</p>
+          <p className="mt-1.5 text-[13px] leading-[1.6] text-fg-3">{project ? t("{error}. Run {command} in {path} to see its history here.", { error, command: "git init", path: home(project.path) }) : t("Add a project folder to see its history.")}</p>
         </div>
       ) : (
         <div className="flex min-h-0 flex-1">
           {/* Branches, worktrees, tags */}
-          <aside aria-label="Branches and worktrees" className="scroll-quiet w-[220px] shrink-0 overflow-y-auto border-r border-line-soft pb-4">
+          <aside aria-label={t("Branches and worktrees")} className="scroll-quiet w-[220px] shrink-0 overflow-y-auto border-e border-line-soft pb-4">
             {overview &&
               section(
                 "branches",
-                "Branches",
+                t("Branches"),
                 overview.branches.length,
                 overview.branches.map((b) => (
                   <button
                     key={b.name}
                     type="button"
                     onClick={() => jumpTo(b.hash)}
-                    title={b.upstream ? `Tracks ${b.upstream}` : undefined}
-                    className={cx("flex w-full items-center gap-1.5 rounded-md px-2 py-1 text-left hover:bg-surface", picked === b.hash && "bg-elevated")}
+                    title={b.upstream ? t("Tracks {branch}", { branch: b.upstream }) : undefined}
+                    className={cx("flex w-full items-center gap-1.5 rounded-md px-2 py-1 text-start hover:bg-surface", picked === b.hash && "bg-elevated")}
                   >
                     {b.current ? <Check size={12} className="shrink-0 text-violet-text" /> : <GitBranch size={12} className="shrink-0 text-fg-3" />}
                     <span className={cx("truncate font-mono text-[12px]", b.current ? "text-fg" : "text-fg-2")}>{b.name}</span>
-                    <span className="ml-auto flex shrink-0 gap-1 text-[10.5px] tabular-nums text-fg-3">
-                      {b.ahead > 0 && <span title={`${b.ahead} to push`}>↑{b.ahead}</span>}
-                      {b.behind > 0 && <span title={`${b.behind} to pull`}>↓{b.behind}</span>}
-                      {b.worktree && !b.current && <FolderGit2 size={11} aria-label="Checked out in a worktree" />}
+                    <span className="ms-auto flex shrink-0 gap-1 text-[10.5px] tabular-nums text-fg-3">
+                      {b.ahead > 0 && <span title={tn(b.ahead, "{n} commit to push", "{n} commits to push")}>↑{b.ahead}</span>}
+                      {b.behind > 0 && <span title={tn(b.behind, "{n} commit to pull", "{n} commits to pull")}>↓{b.behind}</span>}
+                      {b.worktree && !b.current && <FolderGit2 size={11} aria-label={t("Checked out in a worktree")} />}
                     </span>
                   </button>
                 )),
@@ -279,24 +280,24 @@ export function GitView() {
             {overview &&
               section(
                 "worktrees",
-                "Worktrees",
+                t("Worktrees"),
                 overview.worktrees.length,
                 overview.worktrees.map((w) => {
                   const s = sessionAt(w.path);
                   const here = (dir ?? project?.path) === w.path || (!dir && w.main);
                   return (
                     <div key={w.path} className={cx("rounded-md px-2 py-1", here && "bg-elevated")}>
-                      <button type="button" onClick={() => openGit(projectId, w.main ? null : w.path)} className="block w-full text-left">
+                      <button type="button" onClick={() => openGit(projectId, w.main ? null : w.path)} className="block w-full text-start">
                         <span className="flex items-center gap-1.5 text-[12px] text-fg">
                           <FolderGit2 size={12} className="shrink-0 text-fg-3" />
-                          <span className="truncate">{w.main ? "Project folder" : (w.branch ?? "detached")}</span>
+                          <span className="truncate">{w.main ? t("Project folder") : (w.branch ?? t("detached"))}</span>
                         </span>
-                        <span className="block truncate pl-[18px] font-mono text-[10.5px] text-fg-3" title={w.path}>
+                        <span className="block truncate ps-[18px] font-mono text-[10.5px] text-fg-3" title={w.path}>
                           {home(w.path)}
                         </span>
                       </button>
                       {s && (
-                        <button type="button" onClick={() => select(s.id)} className="ml-[18px] mt-0.5 truncate text-left text-[11.5px] text-violet-text hover:underline">
+                        <button type="button" onClick={() => select(s.id)} className="ms-[18px] mt-0.5 truncate text-start text-[11.5px] text-violet-text hover:underline">
                           {s.title}
                         </button>
                       )}
@@ -308,12 +309,12 @@ export function GitView() {
               overview.tags.length > 0 &&
               section(
                 "tags",
-                "Tags",
+                t("Tags"),
                 overview.tags.length,
-                overview.tags.slice(0, 100).map((t) => (
-                  <div key={t} className="flex items-center gap-1.5 px-2 py-0.5 font-mono text-[11.5px] text-fg-2">
+                overview.tags.slice(0, 100).map((tag) => (
+                  <div key={tag} className="flex items-center gap-1.5 px-2 py-0.5 font-mono text-[11.5px] text-fg-2">
                     <Tag size={11} className="shrink-0 text-fg-3" />
-                    <span className="truncate">{t}</span>
+                    <span className="truncate">{tag}</span>
                   </div>
                 )),
               )}
@@ -321,10 +322,10 @@ export function GitView() {
               overview.remotes.length > 0 &&
               section(
                 "remotes",
-                "Remote branches",
+                t("Remote branches"),
                 overview.remotes.length,
                 overview.remotes.map((b) => (
-                  <button key={b.name} type="button" onClick={() => jumpTo(b.hash)} className="flex w-full items-center gap-1.5 rounded-md px-2 py-0.5 text-left hover:bg-surface">
+                  <button key={b.name} type="button" onClick={() => jumpTo(b.hash)} className="flex w-full items-center gap-1.5 rounded-md px-2 py-0.5 text-start hover:bg-surface">
                     <GitBranch size={11} className="shrink-0 text-fg-3" />
                     <span className="truncate font-mono text-[11.5px] text-fg-3">{b.name}</span>
                   </button>
@@ -333,22 +334,23 @@ export function GitView() {
           </aside>
 
           {/* History */}
-          <div ref={list} role="list" aria-label="Commits" className="scroll-quiet min-w-0 flex-1 overflow-y-auto">
+          <div ref={list} role="list" aria-label={t("Commits")} className="scroll-quiet min-w-0 flex-1 overflow-y-auto">
             {status.length > 0 && (
               <button
                 type="button"
                 role="listitem"
                 onClick={() => setPicked(UNCOMMITTED)}
-                className={cx("flex w-full items-center gap-2 border-b border-line-soft px-3 text-left", picked === UNCOMMITTED ? "bg-elevated" : "hover:bg-surface")}
+                className={cx("flex w-full items-center gap-2 border-b border-line-soft px-3 text-start", picked === UNCOMMITTED ? "bg-elevated" : "hover:bg-surface")}
                 style={{ height: ROW }}
               >
                 <span className="flex shrink-0 justify-center" style={{ width: width * LANE + 8 }}>
                   <span className="h-2.5 w-2.5 rounded-full border-2 border-dashed border-fg-3" />
                 </span>
-                <span className="truncate text-[13px] text-fg">Uncommitted changes</span>
+                <span className="truncate text-[13px] text-fg">{t("Uncommitted changes")}</span>
                 <span className="text-[12px] text-fg-3">
-                  {status.length} {status.length === 1 ? "file" : "files"}
-                  {dir ? ` in ${home(dir)}` : ""}
+                  {dir
+                    ? tn(status.length, "{n} file in {path}", "{n} files in {path}", { path: home(dir) })
+                    : tn(status.length, "{n} file", "{n} files")}
                 </span>
               </button>
             )}
@@ -362,7 +364,7 @@ export function GitView() {
                   role="listitem"
                   onClick={() => setPicked(c.hash)}
                   aria-current={picked === c.hash ? "true" : undefined}
-                  className={cx("flex w-full items-center gap-2 px-3 text-left", picked === c.hash ? "bg-elevated" : "hover:bg-surface")}
+                  className={cx("flex w-full items-center gap-2 px-3 text-start", picked === c.hash ? "bg-elevated" : "hover:bg-surface")}
                   style={{ height: ROW }}
                 >
                   <GraphCell row={row} width={width} />
@@ -373,29 +375,29 @@ export function GitView() {
                     <span className={cx("truncate text-[13px]", c.parents.length > 1 ? "text-fg-2" : "text-fg")}>{c.subject}</span>
                   </span>
                   <span className="hidden w-[110px] shrink-0 truncate text-[12px] text-fg-3 2xl:block">{c.author}</span>
-                  <span className="w-[64px] shrink-0 text-right text-[12px] tabular-nums text-fg-3">{ago(c.time)}</span>
-                  <span className="w-[58px] shrink-0 text-right font-mono text-[11px] text-fg-3">{c.hash.slice(0, 7)}</span>
+                  <span className="w-[64px] shrink-0 text-end text-[12px] tabular-nums text-fg-3">{ago(c.time)}</span>
+                  <span className="w-[58px] shrink-0 text-end font-mono text-[11px] text-fg-3">{c.hash.slice(0, 7)}</span>
                 </button>
               );
             })}
-            {commits.length === 0 && !loading && overview && <p className="p-8 text-center text-[13px] text-fg-3">No commits yet.</p>}
+            {commits.length === 0 && !loading && overview && <p className="p-8 text-center text-[13px] text-fg-3">{t("No commits yet.")}</p>}
             {more && commits.length > 0 && (
               <button type="button" onClick={loadMore} className="m-3 h-8 rounded-lg border border-line px-3 text-[12.5px] text-fg-2 hover:bg-elevated hover:text-fg">
-                Show older commits
+                {t("Show older commits")}
               </button>
             )}
           </div>
 
           {/* What changed */}
-          <section aria-label="Commit details" className="flex w-[38%] min-w-[340px] max-w-[720px] shrink-0 flex-col border-l border-line-soft">
+          <section aria-label={t("Commit details")} className="flex w-[38%] min-w-[340px] max-w-[720px] shrink-0 flex-col border-s border-line-soft">
             {!picked ? (
-              <p className="m-auto px-8 text-center text-[13px] text-fg-3">Pick a commit to see what it changed.</p>
+              <p className="m-auto px-8 text-center text-[13px] text-fg-3">{t("Pick a commit to see what it changed.")}</p>
             ) : (
               <>
                 <div className="border-b border-line-soft px-4 py-3">
                   {picked === UNCOMMITTED ? (
                     <>
-                      <p className="text-[14px] font-semibold">Uncommitted changes</p>
+                      <p className="text-[14px] font-semibold">{t("Uncommitted changes")}</p>
                       <p className="mt-0.5 font-mono text-[11.5px] text-fg-3">{folder ? home(folder) : ""}</p>
                     </>
                   ) : commit ? (
@@ -412,23 +414,23 @@ export function GitView() {
                               setTimeout(() => setCopied(false), 1200);
                             });
                           }}
-                          title="Copy the full hash"
+                          title={t("Copy the full hash")}
                           className="inline-flex items-center gap-1 font-mono text-[11.5px] hover:text-fg"
                         >
                           <GitCommitHorizontal size={12} />
                           {commit.hash.slice(0, 10)}
                           {copied ? <Check size={11} /> : <Copy size={11} />}
                         </button>
-                        {commit.parents.length > 1 && <span>Merge of {commit.parents.length} parents</span>}
+                        {commit.parents.length > 1 && <span>{t("Merge of {n} parents", { n: commit.parents.length })}</span>}
                       </p>
                     </>
                   ) : null}
                 </div>
                 <ul className="scroll-quiet max-h-[34%] shrink-0 overflow-y-auto border-b border-line-soft py-1">
                   {files === null ? (
-                    <li className="px-4 py-2 text-[12.5px] text-fg-3">Reading the changes…</li>
+                    <li className="px-4 py-2 text-[12.5px] text-fg-3">{t("Reading the changes…")}</li>
                   ) : files.length === 0 ? (
-                    <li className="px-4 py-2 text-[12.5px] text-fg-3">No file changes.</li>
+                    <li className="px-4 py-2 text-[12.5px] text-fg-3">{t("No file changes.")}</li>
                   ) : (
                     files.map((f) => {
                       const [l, cls] = letter(f.change);
@@ -437,11 +439,11 @@ export function GitView() {
                           <button
                             type="button"
                             onClick={() => setFile(f)}
-                            className={cx("flex w-full items-center gap-2 px-4 py-1 text-left", file?.path === f.path ? "bg-elevated" : "hover:bg-surface")}
+                            className={cx("flex w-full items-center gap-2 px-4 py-1 text-start", file?.path === f.path ? "bg-elevated" : "hover:bg-surface")}
                           >
                             <span className={cx("w-3 shrink-0 text-center font-mono text-[11.5px]", cls)}>{l}</span>
                             <span className="truncate font-mono text-[12px] text-fg-2">{f.path}</span>
-                            {f.from && <span className="truncate font-mono text-[11px] text-fg-3">from {f.from}</span>}
+                            {f.from && <span className="truncate font-mono text-[11px] text-fg-3">{t("from {path}", { path: f.from })}</span>}
                           </button>
                         </li>
                       );
@@ -450,11 +452,11 @@ export function GitView() {
                 </ul>
                 <div className="relative min-h-0 flex-1">
                   {!file ? (
-                    <p className="p-6 text-center text-[12.5px] text-fg-3">{files?.length ? "Pick a file to see the diff." : ""}</p>
+                    <p className="p-6 text-center text-[12.5px] text-fg-3">{files?.length ? t("Pick a file to see the diff.") : ""}</p>
                   ) : !pair ? (
-                    <p className="p-6 text-center text-[12.5px] text-fg-3">Opening {file.path}…</p>
+                    <p className="p-6 text-center text-[12.5px] text-fg-3">{t("Opening {path}…", { path: file.path })}</p>
                   ) : pair.binary ? (
-                    <p className="p-6 text-center text-[12.5px] text-fg-3">{file.path} is a binary or very large file.</p>
+                    <p className="p-6 text-center text-[12.5px] text-fg-3">{t("{path} is a binary or very large file.", { path: file.path })}</p>
                   ) : (
                     <MonacoDiff original={pair.old} modified={pair.new} language={langOf(file.path)} sideBySide={false} fileOnly={false} dark={dark} label={file.path} />
                   )}

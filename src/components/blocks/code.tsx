@@ -3,6 +3,7 @@ import { Fragment, useMemo, useState, type ReactNode } from "react";
 import { useTokens } from "../../hooks/useTokens";
 import { parseUnifiedDiff, type DiffLine } from "../../lib/events";
 import type { Lang } from "../../lib/highlight";
+import { t, tn } from "../../lib/i18n";
 import { cx, IconButton } from "../ui";
 import type { ThemedToken } from "shiki/core";
 
@@ -11,20 +12,20 @@ function Tokens({ line, fallback }: { line: ThemedToken[] | undefined; fallback:
   if (line.length === 0) return <> </>;
   return (
     <>
-      {line.map((t, i) => (
-        <span key={i} style={{ color: t.color, fontStyle: t.fontStyle === 1 ? "italic" : undefined }}>
-          {t.content}
+      {line.map((tok, i) => (
+        <span key={i} style={{ color: tok.color, fontStyle: tok.fontStyle === 1 ? "italic" : undefined }}>
+          {tok.content}
         </span>
       ))}
     </>
   );
 }
 
-export function CopyButton({ text, label = "Copy" }: { text: string; label?: string }) {
+export function CopyButton({ text, label }: { text: string; label?: string }) {
   const [done, setDone] = useState(false);
   return (
     <IconButton
-      label={done ? "Copied" : label}
+      label={done ? t("Copied") : (label ?? t("Copy"))}
       size="sm"
       onClick={() => {
         void navigator.clipboard
@@ -46,9 +47,9 @@ export function CodeBlock({ code, lang, title, maxHeight = 360 }: { code: string
   const lines = useMemo(() => code.replace(/\n$/, "").split("\n"), [code]);
   return (
     <div className="overflow-hidden rounded-xl border border-line bg-surface">
-      <div className="flex h-9 items-center justify-between border-b border-line-soft pl-3 pr-1.5 text-xs text-fg-2">
+      <div className="flex h-9 items-center justify-between border-b border-line-soft ps-3 pe-1.5 text-xs text-fg-2">
         <span className="truncate font-mono">{title ?? lang}</span>
-        <CopyButton text={code} label="Copy code" />
+        <CopyButton text={code} label={t("Copy code")} />
       </div>
       <pre className="scroll-quiet overflow-auto py-2.5 font-mono text-[12.5px] leading-[1.6]" style={{ maxHeight }}>
         <code>
@@ -92,7 +93,7 @@ export function DiffView({ diff, lang, limit, className }: { diff: string; lang:
         return <DiffRow key={i} line={l} tokens={tok} />;
       })}
       {limit && all.length > limit && (
-        <div className="px-3 py-1.5 text-fg-3">{all.length - limit} more lines</div>
+        <div className="px-3 py-1.5 text-fg-3">{tn(all.length - limit, "{n} more line", "{n} more lines")}</div>
       )}
     </div>
   );
@@ -110,16 +111,16 @@ function DiffRow({ line, tokens }: { line: DiffLine; tokens: ThemedToken[] | und
         line.kind === "del" && "bg-del",
       )}
     >
-      <span className="select-none pr-2 text-right text-fg-3/70">{line.oldNo ?? ""}</span>
-      <span className="select-none pr-2 text-right text-fg-3/70">{line.newNo ?? ""}</span>
+      <span className="select-none pe-2 text-end text-fg-3/70">{line.oldNo ?? ""}</span>
+      <span className="select-none pe-2 text-end text-fg-3/70">{line.newNo ?? ""}</span>
       <span
         aria-hidden
         className={cx("select-none text-center", line.kind === "add" ? "text-success" : line.kind === "del" ? "text-error" : "text-transparent")}
       >
         {line.kind === "add" ? "+" : line.kind === "del" ? "−" : " "}
       </span>
-      <span className="whitespace-pre pr-4">
-        <span className="sr-only">{line.kind === "add" ? "Added: " : line.kind === "del" ? "Removed: " : ""}</span>
+      <span className="whitespace-pre pe-4">
+        <span className="sr-only">{line.kind === "add" ? t("Added: ") : line.kind === "del" ? t("Removed: ") : ""}</span>
         <Tokens line={tokens} fallback={line.text} />
       </span>
     </div>
@@ -216,7 +217,7 @@ function JsonNode({ name, value, depth, defaultOpen = false }: { name: string | 
   const label = name !== null && <span className="text-fg-2">{name}: </span>;
   if (!isObj || depth >= MAX_DEPTH) {
     return (
-      <div role="treeitem" className="pl-5">
+      <div role="treeitem" className="ps-5">
         {label}
         {isObj ? <span className="text-fg-3">…</span> : <JsonPrimitive value={value} />}
       </div>
@@ -230,26 +231,26 @@ function JsonNode({ name, value, depth, defaultOpen = false }: { name: string | 
       <button
         type="button"
         onClick={() => setOpen(!open)}
-        className="group -ml-0.5 inline-flex items-center rounded px-0.5 text-left hover:bg-elevated"
+        className="group -ms-0.5 inline-flex items-center rounded px-0.5 text-start hover:bg-elevated"
       >
-        <ChevronRight size={13} className={cx("mr-1 text-fg-3 transition-transform", open && "rotate-90")} />
+        <ChevronRight size={13} className={cx("rtl:-scale-x-100 me-1 text-fg-3 transition-transform", open && "rotate-90 rtl:-rotate-90")} />
         {label}
         <span className="text-fg-3">
           {o}
-          {!open && ` ${entries.length} ${entries.length === 1 ? "item" : "items"} ${c}`}
+          {!open && ` ${tn(entries.length, "{n} item", "{n} items")} ${c}`}
         </span>
       </button>
       {open && (
-        <div role="group" className="ml-[7px] border-l border-line-soft pl-2">
+        <div role="group" className="ms-[7px] border-s border-line-soft ps-2">
           {shown.map(([k, v]) => (
             <Fragment key={k}>
               <JsonNode name={k} value={v} depth={depth + 1} />
             </Fragment>
           ))}
-          {entries.length > MAX_KEYS && <div className="pl-5 text-fg-3">{entries.length - MAX_KEYS} more</div>}
+          {entries.length > MAX_KEYS && <div className="ps-5 text-fg-3">{t("{n} more", { n: entries.length - MAX_KEYS })}</div>}
         </div>
       )}
-      {open && <div className="pl-5 text-fg-3">{c}</div>}
+      {open && <div className="ps-5 text-fg-3">{c}</div>}
     </div>
   );
 }

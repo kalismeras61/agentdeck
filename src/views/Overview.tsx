@@ -96,7 +96,7 @@ export function Overview() {
                               <AgentMark provider={s.provider} size={22} />
                             </span>
                             <div className="min-w-0">
-                              <button type="button" onClick={() => select(s.id)} className="max-w-full truncate rounded text-left text-[14px] font-medium text-fg hover:underline">
+                              <button type="button" onClick={() => select(s.id)} className="max-w-full truncate rounded text-start text-[14px] font-medium text-fg hover:underline">
                                 {s.title === "New session" ? t("New session") : s.title}
                               </button>
                               <p className="truncate text-[12.5px] text-fg-2" title={lastTask(s)}>

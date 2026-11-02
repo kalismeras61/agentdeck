@@ -392,7 +392,7 @@ function LiveTerminal({ session }: { session: Session }) {
         {error && (
           <div role="alert" className="flex items-center gap-2 border-b border-error/30 bg-error/[0.06] px-4 py-2 text-[12.5px] text-fg">
             {error}
-            <button type="button" onClick={reopen} className="ml-auto rounded-md px-2 py-0.5 text-fg-2 hover:bg-elevated hover:text-fg">
+            <button type="button" onClick={reopen} className="ms-auto rounded-md px-2 py-0.5 text-fg-2 hover:bg-elevated hover:text-fg">
               {t("Try again")}
             </button>
           </div>
@@ -402,7 +402,7 @@ function LiveTerminal({ session }: { session: Session }) {
         </div>
       </div>
       {panel && (
-        <aside aria-label={t("Commands the agent ran")} className="flex w-[230px] shrink-0 flex-col border-l border-line-soft">
+        <aside aria-label={t("Commands the agent ran")} className="flex w-[230px] shrink-0 flex-col border-s border-line-soft">
           <div className="border-b border-line-soft px-3.5 py-2 text-[12.5px] text-fg">{t("{agent} ran", { agent: agentLabel(session) })}</div>
           <div className="scroll-quiet min-h-0 flex-1 overflow-y-auto p-2">
             {commands.length === 0 ? (
@@ -415,7 +415,7 @@ function LiveTerminal({ session }: { session: Session }) {
                       <button
                         type="button"
                         onClick={() => insert(c)}
-                        className={cx("group flex w-full items-start gap-2 rounded-lg px-2 py-1.5 text-left hover:bg-surface")}
+                        className={cx("group flex w-full items-start gap-2 rounded-lg px-2 py-1.5 text-start hover:bg-surface")}
                       >
                         <code className="min-w-0 flex-1 break-all font-mono text-[11.5px] leading-[1.5] text-fg-2 group-hover:text-fg">{c}</code>
                         <CornerDownLeft size={12} className="mt-0.5 shrink-0 text-fg-3 opacity-0 group-hover:opacity-100" />

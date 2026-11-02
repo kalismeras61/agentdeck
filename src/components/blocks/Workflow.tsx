@@ -19,12 +19,21 @@ import type { EventOf } from "../../lib/events";
 import type { FlowRow, Workflow } from "../../lib/live";
 import { agentKeyOf, BUILT_IN, CLI_AGENTS, lineup, STAGES, type Slots, type StageId } from "../../lib/workflows";
 import { useStore } from "../../state/store";
+import { t, tn } from "../../lib/i18n";
 import { AgentMark, cx } from "../ui";
 import { Markdown } from "./Markdown";
 
 type FlowEvent = EventOf<"flow">;
 
 const STAGE_ICON = { plan: ClipboardList, build: Hammer, review: SearchCheck } as const;
+
+/** "Who plans" etc. as whole sentences per stage (the verb alone doesn't translate). */
+const whoDoes = (id: StageId) => (id === "plan" ? t("Who plans") : id === "build" ? t("Who builds") : t("Who reviews"));
+const agentDoes = (id: StageId, name: string) =>
+  id === "plan" ? t("{name} plans", { name }) : id === "build" ? t("{name} builds", { name }) : t("{name} reviews", { name });
+const thisDoes = (id: StageId) => (id === "plan" ? t("This session plans.") : id === "build" ? t("This session builds.") : t("This session reviews."));
+/** Built-in templates have English names; saved ones are the user's own. */
+const templateName = (w: Workflow) => (w.id.startsWith("builtin:") ? t(w.name) : w.name);
 
 const field =
   "h-9 w-full rounded-lg border border-line bg-surface px-2.5 text-[13px] text-fg outline-none focus-visible:border-[color-mix(in_srgb,var(--violet)_60%,var(--border))] focus-visible:shadow-[0_0_0_3px_var(--violet-soft)]";
@@ -47,9 +56,9 @@ function AgentSelect({
   const agyEnabled = useStore((s) => s.agyEnabled);
   return (
     <select aria-label={label} value={value} onChange={(e) => onChange(e.target.value)} className={field}>
-      {stage !== "build" && <option value="">Skip this stage</option>}
-      {session && <option value="this">This session ({agentLabel(session)})</option>}
-      <optgroup label="Agents on this Mac">
+      {stage !== "build" && <option value="">{t("Skip this stage")}</option>}
+      {session && <option value="this">{t("This session ({agent})", { agent: agentLabel(session) })}</option>}
+      <optgroup label={t("Agents on this Mac")}>
         {withoutHidden(CLI_AGENTS, agyEnabled).map((p) => (
           <option key={p} value={p}>
             {providerLabel[p]}
@@ -57,7 +66,7 @@ function AgentSelect({
         ))}
       </optgroup>
       {profiles.length > 0 && (
-        <optgroup label="Your models">
+        <optgroup label={t("Your models")}>
           {profiles.map((m) => (
             <option key={m.id} value={`profile:${m.id}`}>
               {m.name}
@@ -82,7 +91,7 @@ export function StageEditor({ value, onChange, session }: { value: Slots; onChan
           const Icon = STAGE_ICON[st.id];
           return (
             <li key={st.id} className="relative grid grid-cols-[28px_minmax(0,1fr)_minmax(0,220px)] items-center gap-x-3">
-              {i < STAGES.length - 1 && <span aria-hidden className="absolute left-[13.5px] top-[30px] h-[calc(100%-14px)] w-px bg-line" />}
+              {i < STAGES.length - 1 && <span aria-hidden className="absolute start-[13.5px] top-[30px] h-[calc(100%-14px)] w-px bg-line" />}
               <span
                 aria-hidden
                 className={cx(
@@ -93,10 +102,10 @@ export function StageEditor({ value, onChange, session }: { value: Slots; onChan
                 <Icon size={14} />
               </span>
               <div className={cx("min-w-0", skipped && "opacity-60")}>
-                <div className="text-[13px] font-medium text-fg">{st.label}</div>
-                <div className="text-[11.5px] leading-[1.45] text-fg-3">{st.hint}</div>
+                <div className="text-[13px] font-medium text-fg">{t(st.label)}</div>
+                <div className="text-[11.5px] leading-[1.45] text-fg-3">{t(st.hint)}</div>
               </div>
-              <AgentSelect label={`Who ${st.verb}`} stage={st.id} session={session} value={v} onChange={(nv) => onChange({ ...value, [slotKey[st.id]]: nv })} />
+              <AgentSelect label={whoDoes(st.id)} stage={st.id} session={session} value={v} onChange={(nv) => onChange({ ...value, [slotKey[st.id]]: nv })} />
             </li>
           );
         })}
@@ -110,10 +119,10 @@ export function StageEditor({ value, onChange, session }: { value: Slots; onChan
             onChange={(e) => onChange({ ...value, gatePlan: e.target.checked })}
             className="accent-[var(--violet)]"
           />
-          Show me the plan before building
+          {t("Show me the plan before building")}
         </label>
         <label className={cx("inline-flex items-center gap-2", !value.reviewAgent && "opacity-50")}>
-          Send back for fixes at most
+          {t("Send back for fixes at most")}
           <select
             disabled={!value.reviewAgent}
             value={value.maxReviews}
@@ -122,16 +131,16 @@ export function StageEditor({ value, onChange, session }: { value: Slots; onChan
           >
             {[1, 2, 3, 4, 5].map((n) => (
               <option key={n} value={n}>
-                {n} {n === 1 ? "time" : "times"}
+                {tn(n, "{n} time", "{n} times")}
               </option>
             ))}
           </select>
         </label>
       </div>
       <p className="text-[12px] leading-[1.55] text-fg-3">
-        Runs on its own: each agent hands over as soon as it's done, review notes go straight back to the builder, and the agents' requests are approved
-        for them. Risky ones (deleting files, pushing or rewriting git history, publishing, deploying, credentials, anything outside the project) still
-        wait for you.
+        {t(
+          "Runs on its own: each agent hands over as soon as it's done, review notes go straight back to the builder, and the agents' requests are approved for them. Risky ones (deleting files, pushing or rewriting git history, publishing, deploying, credentials, anything outside the project) still wait for you.",
+        )}
       </p>
     </div>
   );
@@ -166,12 +175,12 @@ export function WorkflowForm({ session, onDone, footerStart }: { session: Sessio
   const [busy, setBusy] = useState(false);
   const [saving, setSaving] = useState<string | null>(null);
   const [savedNote, setSavedNote] = useState<string | null>(null);
-  const template = templates.find((t) => t.id === picked);
+  const template = templates.find((w) => w.id === picked);
   const name = template?.name ?? "Custom workflow";
 
-  const pick = (t: Workflow) => {
-    setPicked(t.id);
-    setSlots(withThis(t, session));
+  const pick = (w: Workflow) => {
+    setPicked(w.id);
+    setSlots(withThis(w, session));
     setSavedNote(null);
   };
   const edit = (v: Slots) => {
@@ -209,7 +218,7 @@ export function WorkflowForm({ session, onDone, footerStart }: { session: Sessio
     if (err) setError(err);
     else {
       setSaving(null);
-      setSavedNote(`Saved “${saving}”. Find it in Settings → Workflows.`);
+      setSavedNote(t("Saved “{name}”. Find it in Settings → Workflows.", { name: saving }));
     }
   };
 
@@ -221,39 +230,39 @@ export function WorkflowForm({ session, onDone, footerStart }: { session: Sessio
         void submit();
       }}
     >
-      <div role="radiogroup" aria-label="Workflow" className="flex flex-wrap gap-1.5">
-        {templates.map((t) => (
+      <div role="radiogroup" aria-label={t("Workflow")} className="flex flex-wrap gap-1.5">
+        {templates.map((w) => (
           <button
-            key={t.id}
+            key={w.id}
             type="button"
             role="radio"
-            aria-checked={picked === t.id}
-            onClick={() => pick(t)}
-            title={lineup(t, profiles)}
+            aria-checked={picked === w.id}
+            onClick={() => pick(w)}
+            title={lineup(w, profiles)}
             className={cx(
               "h-7 rounded-full border px-3 text-[12.5px] transition-colors",
-              picked === t.id
+              picked === w.id
                 ? "border-[color-mix(in_srgb,var(--violet)_55%,var(--border))] bg-violet-soft text-fg"
                 : "border-line text-fg-2 hover:bg-elevated hover:text-fg",
             )}
           >
-            {t.name}
+            {templateName(w)}
           </button>
         ))}
         {picked === "custom" && (
-          <span className="inline-flex h-7 items-center rounded-full border border-dashed border-line px-3 text-[12.5px] text-fg-2">Custom</span>
+          <span className="inline-flex h-7 items-center rounded-full border border-dashed border-line px-3 text-[12.5px] text-fg-2">{t("Custom")}</span>
         )}
       </div>
 
       <StageEditor value={slots} onChange={edit} session={session} />
 
       <label className="block text-[12px] text-fg-2">
-        Task
+        {t("Task")}
         <textarea
           value={task}
           onChange={(ev) => setTask(ev.target.value)}
           rows={3}
-          placeholder="Fix the discount being applied after tax in invoice.py, with a test."
+          placeholder={t("Fix the discount being applied after tax in {file}, with a test.", { file: "invoice.py" })}
           className={cx(field, "mt-1 h-auto resize-none py-2 leading-[1.55]")}
         />
       </label>
@@ -268,11 +277,9 @@ export function WorkflowForm({ session, onDone, footerStart }: { session: Sessio
         />
         <span>
           {session.worktree ? (
-            <>All stages work in this session's worktree ({session.branch}).</>
+            <>{t("All stages work in this session's worktree ({branch}).", { branch: session.branch ?? "" })}</>
           ) : (
-            <>
-              Work in a new git worktree: the agents change a copy on its own branch, and you merge it into the project when you're happy.
-            </>
+            <>{t("Work in a new git worktree: the agents change a copy on its own branch, and you merge it into the project when you're happy.")}</>
           )}
         </span>
       </label>
@@ -292,16 +299,16 @@ export function WorkflowForm({ session, onDone, footerStart }: { session: Sessio
         {saving === null ? (
           <button
             type="button"
-            onClick={() => setSaving(picked === "custom" ? "" : `${name} (copy)`)}
+            onClick={() => setSaving(picked === "custom" ? "" : t("{name} (copy)", { name: template ? templateName(template) : name }))}
             className="h-8 rounded-lg px-2 text-[13px] text-fg-2 hover:bg-elevated hover:text-fg"
           >
-            Save as workflow…
+            {t("Save as workflow…")}
           </button>
         ) : (
           <span className="inline-flex items-center gap-1.5">
             <input
               autoFocus
-              aria-label="Workflow name"
+              aria-label={t("Workflow name")}
               value={saving}
               maxLength={80}
               onChange={(e) => setSaving(e.target.value)}
@@ -315,7 +322,7 @@ export function WorkflowForm({ session, onDone, footerStart }: { session: Sessio
                   setSaving(null);
                 }
               }}
-              placeholder="Name, e.g. DeepSeek builds"
+              placeholder={t("Name, e.g. {example}", { example: "DeepSeek builds" })}
               className={cx(field, "h-8 w-[200px]")}
             />
             <button
@@ -324,18 +331,18 @@ export function WorkflowForm({ session, onDone, footerStart }: { session: Sessio
               onClick={() => void save()}
               className="h-8 rounded-lg border border-line px-2.5 text-[13px] hover:bg-elevated disabled:opacity-50"
             >
-              Save
+              {t("Save")}
             </button>
           </span>
         )}
-        <span className="ml-auto flex gap-2">
+        <span className="ms-auto flex gap-2">
           {footerStart}
           <button
             type="submit"
             disabled={busy || !task.trim()}
             className="h-8 rounded-lg bg-violet-strong px-3.5 text-[13px] font-medium text-white hover:brightness-110 disabled:opacity-50"
           >
-            {busy ? "Starting…" : "Start workflow"}
+            {busy ? t("Starting…") : t("Start workflow")}
           </button>
         </span>
       </div>
@@ -370,16 +377,20 @@ export function FlowBar({ session, flow }: { session: Session; flow: FlowRow }) 
   const curIdx = order.indexOf(current);
   const byId = (id: string) => sessions.find((s) => s.id === id);
   const curSession = byId(stages[curIdx]?.sessionId ?? "");
-  const curName = curSession ? agentLabel(curSession) : "The agent";
+  const curName = curSession ? agentLabel(curSession) : t("The agent");
   const builder = byId(flow.buildSession);
 
   let status: string;
-  if (!active) status = `${flow.status === "done" ? "Finished" : "Stopped"}: ${flow.reason ?? ""}`;
-  else if (flow.stage === "approve") status = "The plan is ready for you";
-  else if (curSession?.status === "waiting") status = `${curName} is waiting for you`;
-  else if (flow.stage === "plan") status = `${curName} is planning`;
-  else if (flow.stage === "review") status = `${curName} is reviewing`;
-  else status = flow.reviews > 0 ? `${curName} is fixing the review notes (round ${flow.reviews} of ${flow.maxReviews})` : `${curName} is building`;
+  if (!active) status = flow.status === "done" ? t("Finished: {reason}", { reason: flow.reason ?? "" }) : t("Stopped: {reason}", { reason: flow.reason ?? "" });
+  else if (flow.stage === "approve") status = t("The plan is ready for you");
+  else if (curSession?.status === "waiting") status = t("{agent} is waiting for you", { agent: curName });
+  else if (flow.stage === "plan") status = t("{agent} is planning", { agent: curName });
+  else if (flow.stage === "review") status = t("{agent} is reviewing", { agent: curName });
+  else
+    status =
+      flow.reviews > 0
+        ? t("{agent} is fixing the review notes (round {round} of {max})", { agent: curName, round: flow.reviews, max: flow.maxReviews })
+        : t("{agent} is building", { agent: curName });
 
   const act = async (fn: () => Promise<string | null>) => {
     setBusy(true);
@@ -394,7 +405,7 @@ export function FlowBar({ session, flow }: { session: Session; flow: FlowRow }) 
     <div className="border-b border-line-soft bg-surface/60">
       <div className="mx-auto flex max-w-[860px] flex-wrap items-center gap-x-3 gap-y-2 px-8 py-2 text-[12.5px]">
         <WorkflowIcon size={14} className={active ? "text-violet-text" : "text-fg-3"} aria-hidden />
-        <ol aria-label={`${flow.name} stages`} className="flex flex-wrap items-center gap-1">
+        <ol aria-label={t("{name} stages", { name: flow.name })} className="flex flex-wrap items-center gap-1">
           {stages.map((st, i) => {
             const s = byId(st.sessionId);
             const done = flow.status === "done" || i < curIdx;
@@ -402,12 +413,12 @@ export function FlowBar({ session, flow }: { session: Session; flow: FlowRow }) 
             const meta = STAGES.find((x) => x.id === st.id)!;
             return (
               <li key={st.id} className="flex items-center gap-1">
-                {i > 0 && <ArrowRight size={12} className="text-fg-3" aria-hidden />}
+                {i > 0 && <ArrowRight size={12} className="rtl:-scale-x-100 text-fg-3" aria-hidden />}
                 <button
                   type="button"
                   onClick={() => select(st.sessionId)}
                   aria-current={st.sessionId === session.id ? "page" : undefined}
-                  title={s ? `Open ${s.title}` : undefined}
+                  title={s ? t("Open {name}", { name: s.title }) : undefined}
                   className={cx(
                     "inline-flex h-7 items-center gap-1.5 rounded-lg border px-2 transition-colors",
                     st.sessionId === session.id
@@ -416,15 +427,15 @@ export function FlowBar({ session, flow }: { session: Session; flow: FlowRow }) 
                   )}
                 >
                   {done ? (
-                    <Check size={12} className="text-success" aria-label="done" />
+                    <Check size={12} className="text-success" aria-label={t("done")} />
                   ) : now ? (
-                    <span className="h-2 w-2 animate-pulse rounded-full bg-violet motion-reduce:animate-none" aria-label="working" />
+                    <span className="h-2 w-2 animate-pulse rounded-full bg-violet motion-reduce:animate-none" aria-label={t("working")} />
                   ) : (
                     <span className="h-2 w-2 rounded-full border border-fg-3" aria-hidden />
                   )}
-                  <span className="text-fg">{meta.label}</span>
+                  <span className="text-fg">{t(meta.label)}</span>
                   {s && <AgentMark provider={s.provider} size={15} />}
-                  <span className="max-w-[120px] truncate text-fg-2">{s ? agentLabel(s) : "deleted"}</span>
+                  <span className="max-w-[120px] truncate text-fg-2">{s ? agentLabel(s) : t("deleted")}</span>
                 </button>
               </li>
             );
@@ -439,7 +450,7 @@ export function FlowBar({ session, flow }: { session: Session; flow: FlowRow }) 
             onClick={() => stop(flow.id)}
             className="inline-flex h-7 items-center gap-1.5 rounded-lg border border-line px-2.5 font-medium text-fg hover:bg-elevated"
           >
-            <Square size={10} fill="currentColor" /> Stop
+            <Square size={10} fill="currentColor" /> {t("Stop")}
           </button>
         )}
       </div>
@@ -448,25 +459,25 @@ export function FlowBar({ session, flow }: { session: Session; flow: FlowRow }) 
           <div className="rounded-xl border border-[color-mix(in_srgb,var(--violet)_40%,var(--border))] bg-violet-soft/40 px-3 py-2.5 text-[13px]">
             <div className="flex flex-wrap items-center gap-2">
               <span className="text-fg">
-                Approve the plan and {builder ? agentLabel(builder) : "the builder"} starts building.
+                {t("Approve the plan and {agent} starts building.", { agent: builder ? agentLabel(builder) : t("the builder") })}
                 {flow.planSession && flow.planSession !== session.id && (
                   <button
                     type="button"
                     onClick={() => select(flow.planSession!)}
-                    className="ml-1.5 inline-flex items-center gap-0.5 text-violet-text hover:underline"
+                    className="ms-1.5 inline-flex items-center gap-0.5 text-violet-text hover:underline"
                   >
-                    Read the plan <ArrowUpRight size={12} />
+                    {t("Read the plan")} <ArrowUpRight size={12} />
                   </button>
                 )}
               </span>
-              <span className="ml-auto flex gap-2">
+              <span className="ms-auto flex gap-2">
                 <button
                   type="button"
                   disabled={busy}
                   onClick={() => setNotes((v) => (v === null ? "" : null))}
                   className="h-8 rounded-lg border border-line px-3 text-[13px] text-fg hover:bg-elevated disabled:opacity-50"
                 >
-                  Ask for changes
+                  {t("Ask for changes")}
                 </button>
                 <button
                   type="button"
@@ -474,7 +485,7 @@ export function FlowBar({ session, flow }: { session: Session; flow: FlowRow }) 
                   onClick={() => void act(() => approve(flow.id))}
                   className="h-8 rounded-lg bg-violet-strong px-3 text-[13px] font-medium text-white hover:brightness-110 disabled:opacity-50"
                 >
-                  Approve and build
+                  {t("Approve and build")}
                 </button>
               </span>
             </div>
@@ -488,10 +499,10 @@ export function FlowBar({ session, flow }: { session: Session; flow: FlowRow }) 
               >
                 <input
                   autoFocus
-                  aria-label="What should change in the plan"
+                  aria-label={t("What should change in the plan")}
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
-                  placeholder="What should change in the plan?"
+                  placeholder={t("What should change in the plan?")}
                   className={cx(field, "h-8")}
                 />
                 <button
@@ -499,7 +510,7 @@ export function FlowBar({ session, flow }: { session: Session; flow: FlowRow }) 
                   disabled={busy || !notes.trim()}
                   className="h-8 shrink-0 rounded-lg border border-line px-3 text-[13px] hover:bg-elevated disabled:opacity-50"
                 >
-                  Send to planner
+                  {t("Send to planner")}
                 </button>
               </form>
             )}
@@ -524,20 +535,20 @@ export function FlowBlock({ e, session }: { e: FlowEvent; session: Session }) {
   if (p.kind === "started") {
     const mine = STAGES.find((x) => x.id === p.stage)!;
     return (
-      <section aria-label="Workflow started" className="rounded-xl border border-line-soft bg-surface/60 px-3.5 py-2.5 text-[13px]">
+      <section aria-label={t("Workflow started")} className="rounded-xl border border-line-soft bg-surface/60 px-3.5 py-2.5 text-[13px]">
         <div className="flex flex-wrap items-center gap-2">
           <WorkflowIcon size={15} className="text-violet-text" />
           <span className="text-fg">{p.name}</span>
           <span className="text-fg-3">
-            {p.stages.map((s) => `${s.name} ${STAGES.find((x) => x.id === s.stage)!.verb}`).join(", ")}. This session {mine.verb}.
+            {p.stages.map((s) => agentDoes(s.stage, s.name)).join(", ")}. {thisDoes(mine.id)}
           </span>
           <button
             type="button"
             onClick={() => setOpen((v) => !v)}
             aria-expanded={open}
-            className="ml-auto rounded-md px-1.5 py-0.5 text-fg-2 hover:bg-elevated hover:text-fg"
+            className="ms-auto rounded-md px-1.5 py-0.5 text-fg-2 hover:bg-elevated hover:text-fg"
           >
-            {open ? "Hide task" : "Show task"}
+            {open ? t("Hide task") : t("Show task")}
           </button>
         </div>
         {open && (
@@ -554,7 +565,7 @@ export function FlowBlock({ e, session }: { e: FlowEvent; session: Session }) {
     return (
       <div className="flex items-center gap-2 px-1 text-[12.5px]">
         {done ? <CheckCircle2 size={14} className="text-success" /> : <CircleSlash size={14} className="text-fg-3" />}
-        <span className="text-fg">{done ? "Workflow finished" : "Workflow stopped"}</span>
+        <span className="text-fg">{done ? t("Workflow finished") : t("Workflow stopped")}</span>
         <span className="text-fg-3">{p.reason}</span>
       </div>
     );
@@ -573,16 +584,16 @@ export function FlowBlock({ e, session }: { e: FlowEvent; session: Session }) {
           </span>
         )}
         <span className="font-medium text-fg">{p.label}</span>
-        <ArrowRight size={13} className="text-fg-3" />
+        <ArrowRight size={13} className="rtl:-scale-x-100 text-fg-3" />
         <AgentMark provider={session.provider} size={18} />
         <span className="text-fg-2">{agentLabel(session)}</span>
         {fromAgent && (
           <button
             type="button"
             onClick={() => select(p.fromSessionId!)}
-            className="ml-auto inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-fg-2 hover:bg-elevated hover:text-fg"
+            className="ms-auto inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-fg-2 hover:bg-elevated hover:text-fg"
           >
-            Open <ArrowUpRight size={13} />
+            {t("Open")} <ArrowUpRight size={13} />
           </button>
         )}
       </header>

@@ -234,7 +234,7 @@ export function Composer({ session }: { session: Session }) {
                   <li
                     key={f}
                     title={f}
-                    className="inline-flex max-w-[260px] items-center gap-1.5 rounded-lg border border-line-soft bg-elevated py-1 pl-2 pr-1 text-[12px] text-fg-2"
+                    className="inline-flex max-w-[260px] items-center gap-1.5 rounded-lg border border-line-soft bg-elevated py-1 ps-2 pe-1 text-[12px] text-fg-2"
                   >
                     <Icon size={13} className="shrink-0 text-fg-3" />
                     <span className="truncate">{name}</span>
@@ -409,7 +409,7 @@ export function Composer({ session }: { session: Session }) {
                 {t("To {agent}", { agent: providerLabel[target.provider] })}
               </span>
             )}
-            <span className="ml-auto mr-2 hidden items-center gap-1.5 text-[11px] text-fg-3 md:flex">
+            <span className="ms-auto me-2 hidden items-center gap-1.5 text-[11px] text-fg-3 md:flex">
               <Kbd>↵</Kbd> {t("send")} <Kbd>⇧↵</Kbd> {t("new line")}
             </span>
             {running ? (
@@ -464,7 +464,7 @@ function AgentPicker({ session }: { session: Session }) {
           {withoutHidden(["claude-code", "codex", "gemini-cli", "grok-build", "kimi-code", "antigravity"] as const, agyEnabled).map((p) => (
             <Dropdown.Item key={p} onSelect={() => setAgent(session.id, p)} className={item}>
               <AgentMark provider={p} size={16} /> {providerLabel[p]}
-              {session.provider === p && !session.profileId && <Check size={14} className="ml-auto text-violet-text" />}
+              {session.provider === p && !session.profileId && <Check size={14} className="ms-auto text-violet-text" />}
             </Dropdown.Item>
           ))}
           {profiles.length > 0 && (
@@ -475,7 +475,7 @@ function AgentPicker({ session }: { session: Session }) {
                 <Dropdown.Item key={m.id} onSelect={() => setAgent(session.id, m.kind === "anthropic" ? "claude-code" : "api", m.id)} className={item}>
                   <AgentMark provider={m.kind === "anthropic" ? "claude-code" : "api"} size={16} />
                   <span className="truncate">{m.name}</span>
-                  {session.profileId === m.id && <Check size={14} className="ml-auto text-violet-text" />}
+                  {session.profileId === m.id && <Check size={14} className="ms-auto text-violet-text" />}
                 </Dropdown.Item>
               ))}
             </>

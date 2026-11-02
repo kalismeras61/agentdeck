@@ -41,7 +41,7 @@ function AgentCard({ a, onRan }: { a: AgentSetupState; onRan: (msg: string) => v
             {a.version ? ` · ${a.version.replace(/\s*\(.*\)$/, "")}` : ""}
           </p>
         </div>
-        <span className="ml-auto shrink-0">
+        <span className="ms-auto shrink-0">
           <StatusPill a={a} />
         </span>
       </div>
@@ -163,7 +163,7 @@ export function Welcome() {
             <span className="text-[12.5px] text-fg-3">
               {status ? (ready.length ? t("Installed: {agents}.", { agents: fmt.list(ready.map((a) => a.name)) }) : t("No agent installed yet.")) : ""}
             </span>
-            <div className="ml-auto flex items-center gap-2">
+            <div className="ms-auto flex items-center gap-2">
               <button type="button" onClick={() => void finish(false)} className="h-9 rounded-lg px-3.5 text-[13px] text-fg-2 hover:bg-elevated hover:text-fg">
                 {ready.length ? t("Skip") : t("Later")}
               </button>

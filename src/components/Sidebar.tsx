@@ -115,14 +115,14 @@ export function Sidebar() {
           <span className="h-3 w-3 rounded-full bg-[#febc2e]" />
           <span className="h-3 w-3 rounded-full bg-[#28c840]" />
         </span>
-        <IconButton label={t("Hide sidebar")} shortcut={`${MOD}B`} onClick={toggleSidebar} className="ml-auto" size="sm">
+        <IconButton label={t("Hide sidebar")} shortcut={`${MOD}B`} onClick={toggleSidebar} className="ms-auto" size="sm">
           <PanelLeftClose size={16} />
         </IconButton>
       </div>
 
       <div className="space-y-2 px-3 pb-3">
         <Dropdown.Root>
-          <Dropdown.Trigger className="flex w-full items-center gap-2.5 rounded-lg px-1.5 py-1.5 text-left hover:bg-surface data-[state=open]:bg-surface">
+          <Dropdown.Trigger className="flex w-full items-center gap-2.5 rounded-lg px-1.5 py-1.5 text-start hover:bg-surface data-[state=open]:bg-surface">
             <Logo />
             <span className="min-w-0 flex-1">
               <span className="block text-[13.5px] font-semibold leading-tight">AgentDeck</span>
@@ -137,8 +137,8 @@ export function Sidebar() {
                 <Dropdown.Item key={w.id} disabled={w.id === "local" && !liveApi.available} onSelect={() => setWorkspace(w.id)} className={itemCls}>
                   {w.id === "local" ? <Monitor size={14} className="text-fg-3" /> : <FolderGit2 size={14} className="text-fg-3" />}
                   {t(w.name)}
-                  {w.id === "local" && !liveApi.available && <span className="ml-auto text-[11px] text-fg-3">{t("Desktop app")}</span>}
-                  {w.id === ws.id && <Check size={14} className="ml-auto text-violet-text" />}
+                  {w.id === "local" && !liveApi.available && <span className="ms-auto text-[11px] text-fg-3">{t("Desktop app")}</span>}
+                  {w.id === ws.id && <Check size={14} className="ms-auto text-violet-text" />}
                 </Dropdown.Item>
               ))}
             </Dropdown.Content>
@@ -154,7 +154,7 @@ export function Sidebar() {
           >
             <Plus size={16} strokeWidth={2.2} />
             {t("New session")}
-            <span className="ml-auto text-[11px] font-normal text-white/70">{MOD}N</span>
+            <span className="ms-auto text-[11px] font-normal text-white/70">{MOD}N</span>
           </button>
           <Dropdown.Root>
             <Tip label={t("Choose agent")}>
@@ -204,7 +204,7 @@ export function Sidebar() {
                   return (
                     <Dropdown.Item key={p} disabled={liveOnly} onSelect={() => newSession(undefined, p)} className={itemCls}>
                       <AgentMark provider={p} size={18} /> {t("{agent} session", { agent: providerLabel[p] })}
-                      {liveOnly && <span className="ml-auto text-[11px] text-fg-3">{t("This Mac only")}</span>}
+                      {liveOnly && <span className="ms-auto text-[11px] text-fg-3">{t("This Mac only")}</span>}
                     </Dropdown.Item>
                   );
                 })}
@@ -220,7 +220,7 @@ export function Sidebar() {
                       >
                         <AgentMark provider={m.kind === "anthropic" ? "claude-code" : "api"} size={18} />
                         <span className="truncate">{m.name}</span>
-                        <span className="ml-auto shrink-0 text-[11px] text-fg-3">{m.kind === "anthropic" ? t("in {agent}", { agent: "Claude Code" }) : t("agent")}</span>
+                        <span className="ms-auto shrink-0 text-[11px] text-fg-3">{m.kind === "anthropic" ? t("in {agent}", { agent: "Claude Code" }) : t("agent")}</span>
                       </Dropdown.Item>
                     ))}
                     <Dropdown.Item onSelect={() => setView("settings")} className={itemCls}>
@@ -234,7 +234,7 @@ export function Sidebar() {
         </div>
 
         <div className="relative">
-          <Search size={14} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-fg-3" />
+          <Search size={14} className="pointer-events-none absolute start-2.5 top-1/2 -translate-y-1/2 text-fg-3" />
           <input
             ref={searchRef}
             value={search}
@@ -247,19 +247,19 @@ export function Sidebar() {
             }}
             placeholder={t("Search sessions")}
             aria-label={t("Search sessions")}
-            className="h-8 w-full rounded-lg border border-line-soft bg-bg/40 pl-8 pr-14 text-[13px] text-fg outline-none placeholder:text-fg-3 focus:border-[color-mix(in_srgb,var(--violet)_60%,var(--border))] focus:shadow-[0_0_0_3px_var(--violet-soft)]"
+            className="h-8 w-full rounded-lg border border-line-soft bg-bg/40 ps-8 pe-14 text-[13px] text-fg outline-none placeholder:text-fg-3 focus:border-[color-mix(in_srgb,var(--violet)_60%,var(--border))] focus:shadow-[0_0_0_3px_var(--violet-soft)]"
           />
           {search ? (
             <button
               type="button"
               aria-label={t("Clear search")}
               onClick={() => setSearch("")}
-              className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded p-1 text-fg-3 hover:text-fg"
+              className="absolute end-1.5 top-1/2 -translate-y-1/2 rounded p-1 text-fg-3 hover:text-fg"
             >
               <X size={13} />
             </button>
           ) : (
-            <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2">
+            <span className="pointer-events-none absolute end-2 top-1/2 -translate-y-1/2">
               <Kbd>{MOD}K</Kbd>
             </span>
           )}
@@ -318,12 +318,12 @@ export function Sidebar() {
                     aria-expanded={!isCollapsed}
                     onClick={() => setCollapsed((c) => ({ ...c, [key]: !c[key] }))}
                     title={project?.path}
-                    className="flex min-w-0 flex-1 items-center gap-1.5 rounded-md px-2 pb-1 pt-2 text-left text-xs text-fg-3 hover:text-fg-2"
+                    className="flex min-w-0 flex-1 items-center gap-1.5 rounded-md px-2 pb-1 pt-2 text-start text-xs text-fg-3 hover:text-fg-2"
                   >
-                    <ChevronRight size={12} className={cx("shrink-0 transition-transform", !isCollapsed && "rotate-90")} />
+                    <ChevronRight size={12} className={cx("rtl:-scale-x-100 shrink-0 transition-transform", !isCollapsed && "rotate-90 rtl:-rotate-90")} />
                     {isChats && <MessageCircle size={12} className="shrink-0" />}
                     <span className="truncate font-medium">{isChats ? t("Chats") : project!.name}</span>
-                    <span className="ml-auto tabular-nums opacity-0 transition-opacity group-hover:opacity-100">{list.length || ""}</span>
+                    <span className="ms-auto tabular-nums opacity-0 transition-opacity group-hover:opacity-100">{list.length || ""}</span>
                   </button>
                   {isLocal && !isChats && (
                     <Tip label={t("Instructions, skills and commands for {name}", { name: project!.name })}>
@@ -343,7 +343,7 @@ export function Sidebar() {
                         type="button"
                         onClick={start}
                         aria-label={isChats ? t("New chat") : t("New session in {name}", { name: project!.name })}
-                        className="mr-1 mt-1 rounded p-0.5 text-fg-3 opacity-0 hover:bg-surface hover:text-fg focus-visible:opacity-100 group-hover:opacity-100"
+                        className="me-1 mt-1 rounded p-0.5 text-fg-3 opacity-0 hover:bg-surface hover:text-fg focus-visible:opacity-100 group-hover:opacity-100"
                       >
                         <Plus size={13} />
                       </button>
@@ -355,7 +355,7 @@ export function Sidebar() {
                     <button
                       type="button"
                       onClick={start}
-                      className="ml-5 mt-0.5 rounded-md px-2 py-1 text-left text-xs text-fg-3 hover:bg-surface hover:text-fg"
+                      className="ms-5 mt-0.5 rounded-md px-2 py-1 text-start text-xs text-fg-3 hover:bg-surface hover:text-fg"
                     >
                       {isChats ? t("Ask something, no project needed") : t("Start the first session")}
                     </button>
@@ -375,14 +375,14 @@ export function Sidebar() {
             <button
               type="button"
               onClick={() => setNewProjectOpen(true)}
-              className="flex items-center gap-1.5 rounded-md px-2 py-1.5 text-left text-xs text-fg-3 hover:bg-surface hover:text-fg-2"
+              className="flex items-center gap-1.5 rounded-md px-2 py-1.5 text-start text-xs text-fg-3 hover:bg-surface hover:text-fg-2"
             >
               <Plus size={13} /> {t("New project")}
             </button>
             <button
               type="button"
               onClick={() => void addProjectFolder()}
-              className="flex items-center gap-1.5 rounded-md px-2 py-1.5 text-left text-xs text-fg-3 hover:bg-surface hover:text-fg-2"
+              className="flex items-center gap-1.5 rounded-md px-2 py-1.5 text-start text-xs text-fg-3 hover:bg-surface hover:text-fg-2"
             >
               <FolderPlus size={13} /> {t("Add folder")}
             </button>
@@ -390,7 +390,7 @@ export function Sidebar() {
               type="button"
               onClick={() => setImportOpen(true)}
               title={t("Bring in sessions from Claude Code, Codex and Gemini CLI")}
-              className="flex items-center gap-1.5 rounded-md px-2 py-1.5 text-left text-xs text-fg-3 hover:bg-surface hover:text-fg-2"
+              className="flex items-center gap-1.5 rounded-md px-2 py-1.5 text-start text-xs text-fg-3 hover:bg-surface hover:text-fg-2"
             >
               <Download size={13} /> {t("Import")}
             </button>
@@ -412,7 +412,7 @@ export function Sidebar() {
         >
           <Settings size={15} />
           {t("Settings")}
-          <span className="ml-auto text-[11px] text-fg-3">{MOD},</span>
+          <span className="ms-auto text-[11px] text-fg-3">{MOD},</span>
         </button>
       </div>
       <NewProjectDialog />
@@ -453,13 +453,13 @@ function NavItem({
             active ? "bg-elevated text-fg" : "text-fg-2 hover:bg-surface hover:text-fg",
           )}
         >
-          {active && <span aria-hidden className="absolute bottom-1.5 left-0 top-1.5 w-[2px] rounded-full bg-violet" />}
+          {active && <span aria-hidden className="absolute bottom-1.5 start-0 top-1.5 w-[2px] rounded-full bg-violet" />}
           <Icon size={15} className={cx(attention ? "text-warning" : "text-fg-3")} />
           {label}
           {count !== undefined && count > 0 && (
             <span
               className={cx(
-                "ml-auto min-w-5 rounded-full px-1.5 text-center text-[11px] tabular-nums",
+                "ms-auto min-w-5 rounded-full px-1.5 text-center text-[11px] tabular-nums",
                 attention ? "bg-warning/15 font-medium text-warning" : "text-fg-3",
               )}
             >
@@ -499,11 +499,11 @@ function SessionRow({ s, selected, onSelect }: { s: Session; selected: boolean; 
         aria-current={selected ? "page" : undefined}
         aria-label={`${s.title}, ${providerLabel[s.provider]}, ${statusLabel(s.status)}`}
         className={cx(
-          "relative flex w-full items-start gap-2.5 rounded-lg px-2 py-2 text-left transition-colors duration-150",
+          "relative flex w-full items-start gap-2.5 rounded-lg px-2 py-2 text-start transition-colors duration-150",
           selected ? "bg-elevated" : "hover:bg-surface",
         )}
       >
-        {selected && <span aria-hidden className="absolute bottom-2 left-0 top-2 w-[2px] rounded-full bg-violet" />}
+        {selected && <span aria-hidden className="absolute bottom-2 start-0 top-2 w-[2px] rounded-full bg-violet" />}
         <span className="pt-px">
           <AgentMark provider={s.provider} size={18} />
         </span>
@@ -511,7 +511,7 @@ function SessionRow({ s, selected, onSelect }: { s: Session; selected: boolean; 
           <span className="flex items-center gap-2">
             <span className={cx("truncate text-[13px]", selected ? "font-medium text-fg" : "text-fg/90")}>{s.title}</span>
             {s.worktree && <GitBranch size={11} aria-label={t("In worktree {branch}", { branch: s.branch ?? "" })} className="shrink-0 text-violet-text" />}
-            <span className="ml-auto shrink-0 text-[11px] tabular-nums text-fg-3">{ago(s.updatedAt)}</span>
+            <span className="ms-auto shrink-0 text-[11px] tabular-nums text-fg-3">{ago(s.updatedAt)}</span>
           </span>
           <span className="mt-0.5 flex items-center gap-1.5">
             <StatusDot status={s.status} className="h-1.5 w-1.5" />
