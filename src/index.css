@@ -336,3 +336,23 @@ button {
 [data-runtime="tauri"] [data-web-only] {
   display: none;
 }
+
+/* Right-to-left (Arabic). Layout uses logical utilities and mirrors on its own; these keep
+   code, commands, paths, diffs and terminals left-to-right, and let agent prose and what you
+   typed take each paragraph's own direction (an English reply stays left-aligned). */
+[dir="rtl"] :is(pre, code, kbd, samp, .font-mono, .xterm, .monaco-editor, .cm-editor, svg text) {
+  direction: ltr;
+  unicode-bidi: isolate;
+}
+[dir="rtl"] pre,
+[dir="rtl"] .font-mono:is(div, p, pre) {
+  text-align: left;
+}
+:is(.md, .user-text) :is(p, li, h1, h2, h3, h4, h5, h6, blockquote, td, th) {
+  unicode-bidi: plaintext;
+  text-align: start;
+}
+input,
+textarea {
+  unicode-bidi: plaintext;
+}
