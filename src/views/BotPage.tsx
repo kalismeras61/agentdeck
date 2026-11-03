@@ -467,38 +467,45 @@ function RecentTask({ task }: { task: BotTask }) {
   );
 }
 
-/** The bot's memory file, editable. */
+/** The bot's memory file, editable. Shown again from the file when the bot is renamed or moved. */
 function MemoryTab({ bot }: { bot: Bot }) {
+  return <MemoryEditor key={`${bot.id}:${bot.name}:${bot.projectId}`} bot={bot} />;
+}
+
+function demoMemory(bot: Bot): BotMemory {
+  return { path: `.agentdeck/bots/${firstLine(bot.name).toLowerCase().replace(/\s+/g, "-")}.md`, text: demoBotMemory[bot.id] ?? "" };
+}
+
+function MemoryEditor({ bot }: { bot: Bot }) {
   const dark = useResolvedTheme() === "dark";
-  const demo = bot.id.startsWith("b-demo-");
-  const [file, setFile] = useState<BotMemory | null>(null);
-  const [text, setText] = useState("");
+  const demo = bot.id.startsWith("b-demo-") || !liveApi.available;
+  const [file, setFile] = useState<BotMemory | null>(() => (demo ? demoMemory(bot) : null));
+  const [text, setText] = useState(() => (demo ? demoMemory(bot).text : ""));
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const dirty = file !== null && text !== file.text;
 
-  const load = () => {
-    setError(null);
-    if (demo || !liveApi.available) {
-      const f = { path: `.agentdeck/bots/${firstLine(bot.name).toLowerCase().replace(/\s+/g, "-")}.md`, text: demoBotMemory[bot.id] ?? "" };
-      setFile(f);
-      setText(f.text);
-      return;
-    }
-    liveApi
-      .readBotMemory(bot.id)
-      .then((f) => {
+  const fetchFile = () =>
+    liveApi.readBotMemory(bot.id).then(
+      (f) => {
         setFile(f);
         setText(f.text);
-      })
-      .catch((e: unknown) => setError(errorText(e)));
+        setError(null);
+      },
+      (e: unknown) => setError(errorText(e)),
+    );
+  useEffect(() => {
+    if (!demo) void fetchFile();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  const load = () => {
+    if (!demo) void fetchFile();
+    else if (file) setText(file.text);
   };
-  useEffect(load, [bot.id, bot.name, bot.projectId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const save = async () => {
     if (!file || !dirty) return;
-    if (demo || !liveApi.available) {
+    if (demo) {
       setFile({ ...file, text });
       setSaved(true);
       return;

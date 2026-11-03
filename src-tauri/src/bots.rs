@@ -395,6 +395,25 @@ impl Bots {
         Ok(())
     }
 
+    /// The bot's session was deleted: a task in it fails, and the next task starts a new one.
+    pub fn session_deleted(&self, sid: &str) {
+        let Ok(Some(bot)) = self.db.bot_for_session(sid) else {
+            return;
+        };
+        if let Some(tid) = &bot.running_task_id {
+            if let Ok(Some(t)) =
+                self.db
+                    .finish_bot_task(tid, "failed", None, Some("Its session was deleted"))
+            {
+                self.publish_task(&t);
+            }
+        }
+        let _ = self.db.set_bot_session(&bot.id, None);
+        self.needs().remove(&bot.id);
+        self.pump(&bot.id, true);
+        self.publish(&bot.id);
+    }
+
     pub fn tasks(&self, bot_id: &str, limit: i64) -> Result<Vec<BotTask>, String> {
         self.db.bot_tasks(bot_id, limit).map_err(|e| e.to_string())
     }
@@ -663,6 +682,26 @@ impl Bots {
     /// Requests from a bot's session while a task runs: ordinary approvals are allowed, risky
     /// ones and questions wait for the user (the bot then needs you).
     pub fn on_request(&self, ev: &StoredEvent) {
+        // The agent process ended in the middle of a task: no turn end will come for it.
+        if ev.kind == "process_exit" && ev.source == "agentdeck" {
+            let Ok(Some(bot)) = self.db.bot_for_session(&ev.session_id) else {
+                return;
+            };
+            if let Some(tid) = &bot.running_task_id {
+                if let Ok(Some(t)) = self.db.finish_bot_task(
+                    tid,
+                    "failed",
+                    None,
+                    Some("The agent stopped before the task was done"),
+                ) {
+                    self.publish_task(&t);
+                }
+                self.needs().remove(&bot.id);
+                self.pump(&bot.id, true);
+                self.publish(&bot.id);
+            }
+            return;
+        }
         if ev.kind == "permission_decision" || ev.kind == "question_answered" {
             if let Ok(Some(bot)) = self.db.bot_for_session(&ev.session_id) {
                 self.set_needs(&bot.id, false);
@@ -710,6 +749,7 @@ pub fn wants(ev: &StoredEvent) -> bool {
             | "user_input"
             | "permission_decision"
             | "question_answered"
+            | "process_exit"
     )
 }
 
@@ -1034,6 +1074,10 @@ mod tests {
             "not while a task runs"
         );
         t.bots.agents.shutdown_all();
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
+        while t.bots.agents.is_running(&sid) && std::time::Instant::now() < deadline {
+            std::thread::sleep(std::time::Duration::from_millis(20));
+        }
         // AgentDeck closed while the task ran: it goes back to the queue and starts again.
         t.db.recover_after_restart().unwrap();
         assert_eq!(status(&t, &t1.id), "queued");
@@ -1059,6 +1103,38 @@ mod tests {
             prompts(&t, &sid2)[0].starts_with("You're Reviewer"),
             "a new session gets the brief"
         );
+    }
+
+    #[test]
+    fn a_task_whose_agent_stops_or_session_goes_fails_and_the_queue_moves_on() {
+        let t = setup();
+        let b = t.bots.save("", &fields("Reviewer", &t.project)).unwrap();
+        let t1 = t.bots.add_task(&b.id, "One", "you").unwrap();
+        let t2 = t.bots.add_task(&b.id, "Two", "you").unwrap();
+        let t3 = t.bots.add_task(&b.id, "Three", "you").unwrap();
+        let sid = t.bots.get(&b.id).unwrap().session_id.unwrap();
+        let exit = StoredEvent {
+            session_id: sid.clone(),
+            seq: 1,
+            ts: 1,
+            source: "agentdeck".into(),
+            kind: "process_exit".into(),
+            payload: json!({ "code": 1 }),
+        };
+        assert!(wants(&exit));
+        t.bots.on_request(&exit);
+        let d1 = t.db.bot_task(&t1.id).unwrap().unwrap();
+        assert_eq!(d1.status, "failed");
+        assert_eq!(status(&t, &t2.id), "running");
+        t.db.delete_session(&sid).unwrap();
+        t.bots.session_deleted(&sid);
+        assert_eq!(
+            t.db.bot_task(&t2.id).unwrap().unwrap().error.as_deref(),
+            Some("Its session was deleted")
+        );
+        assert_eq!(status(&t, &t3.id), "running");
+        let fresh = t.bots.get(&b.id).unwrap().session_id.unwrap();
+        assert_ne!(fresh, sid, "the next task made a new session");
     }
 
     #[test]

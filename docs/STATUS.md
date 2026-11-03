@@ -245,6 +245,12 @@ Confirmed on a Mac with a real signed-in Claude Code.
 - Signed and notarized build (needs an Apple Developer ID)
 - Grok Build tested against the real CLI
 
+## Bots
+
+- Bots (docs/BOTS.md, milestone 1): persistent agents with a job, instructions, agent/model/effort and a folder; a task queue run one at a time (pause, resume, cancel, retry); a memory file per bot in `.agentdeck/bots/` (excluded from git locally); unattended approvals with the workflow's risky/outside holdback (`unattended.rs`); sidebar section and bot page.
+- Verified: Rust unit tests for queue order, turn end → result, restart recovery, cancel, pause/resume, memory and git exclude, approvals; an integration test with the real `claude` CLI against the mock API runs two queued tasks in order.
+- Not yet: schedules, bot-to-bot delegation, phone page and Telegram (milestones 2–3); bots' sessions still appear in All sessions, Permissions and Overview.
+
 ## Languages
 
 - Interface in 11 languages: en, tr, de, ru, es, fr, pt, zh, ja, ko, ar. English text is the key (`t()`, `tn()` in `src/lib/i18n.ts`); catalogs load on demand.

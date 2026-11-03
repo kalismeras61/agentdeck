@@ -51,7 +51,7 @@ export function UserBubble({ e }: { e: EventOf<"user_message"> }) {
       <div className="user-text max-w-[78%] rounded-2xl rounded-ee-md border border-line bg-elevated px-4 py-2.5 text-[14px] leading-[1.6] text-fg shadow-card">
         {e.payload.label && (
           <p className="mb-0.5 flex items-center gap-1 text-[11.5px] font-medium text-fg-3">
-            <ListTodo size={12} aria-hidden /> {e.payload.label}
+            <ListTodo size={12} aria-hidden /> {t(e.payload.label)}
           </p>
         )}
         {e.payload.text.split(/^```[^\n]*\n?/m).map((part, i) =>

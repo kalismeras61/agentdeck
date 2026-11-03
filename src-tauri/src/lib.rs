@@ -1499,7 +1499,6 @@ async fn revise_flow_plan(
         .map_err(err)?
 }
 
-/// Opens a shell in a project folder AgentDeck already knows; nothing else is reachable.
 /* ------------------------------------------------------------ bots */
 
 /// A bot as the editor sends it; an empty or missing id makes a new one.
@@ -1635,6 +1634,7 @@ fn write_bot_memory(
     state.bots.write_memory(&id, &text)
 }
 
+/// Opens a shell in a project folder AgentDeck already knows; nothing else is reachable.
 #[tauri::command]
 fn term_open(
     state: State<'_, AppState>,
@@ -2020,7 +2020,11 @@ fn stop_session(state: State<'_, AppState>, session_id: String) -> CmdResult<()>
 #[tauri::command]
 fn delete_session(state: State<'_, AppState>, session_id: String) -> CmdResult<()> {
     state.stop_any(&session_id);
-    state.db.delete_session(&session_id).map_err(err)
+    state.db.delete_session(&session_id).map_err(err)?;
+    // A bot's session: its task in progress fails and its next task starts a new session.
+    let bots = state.bots.clone();
+    std::thread::spawn(move || bots.session_deleted(&session_id));
+    Ok(())
 }
 
 #[tauri::command]
