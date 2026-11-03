@@ -10,6 +10,7 @@ const Gallery = lazy(() => import("./views/Gallery").then((m) => ({ default: m.G
 const Review = lazy(() => import("./views/review/Review").then((m) => ({ default: m.Review })));
 const Welcome = lazy(() => import("./views/Welcome").then((m) => ({ default: m.Welcome })));
 const Settings = lazy(() => import("./views/Settings").then((m) => ({ default: m.Settings })));
+const BotPage = lazy(() => import("./views/BotPage").then((m) => ({ default: m.BotPage })));
 // xterm.js only loads when someone opens a terminal.
 const TerminalView = lazy(() => import("./components/Terminal").then((m) => ({ default: m.TerminalView })));
 import { ContextPanel } from "./components/ContextPanel";
@@ -124,6 +125,8 @@ function Workspace({ width }: { width: number }) {
                 <GitView />
               ) : view === "settings" ? (
                 <Settings />
+              ) : view === "bot" ? (
+                <BotPage />
               ) : session ? (
                 <>
                   <SessionHeader session={session} />

@@ -15,6 +15,7 @@ use crate::agents::Agents;
 use crate::claude::{Outbound, Sink};
 use crate::db::{Db, FlowRow, FlowUpdate, SessionRow, StoredEvent};
 use crate::relay::{turn_end, TurnEnd};
+use crate::unattended::Verdict;
 use serde_json::{json, Value};
 use std::sync::Arc;
 
@@ -45,72 +46,6 @@ fn clip(text: &str) -> String {
         "{}\n\n[… cut by AgentDeck: this was longer than 100 KB]",
         &text[..cut]
     )
-}
-
-/// Requests a workflow never answers on its own: they wait for the user.
-fn risky(text: &str) -> Option<&'static str> {
-    use std::sync::OnceLock;
-    static RULES: OnceLock<Vec<(regex::Regex, &'static str)>> = OnceLock::new();
-    let rules = RULES.get_or_init(|| {
-        [
-            (r"\brm\s+(-[a-z]*\s+)*-[a-z]*[rf]", "deletes files"),
-            (r"\b(rmdir|unlink|shred|trash)\b", "deletes files"),
-            (r#""(kind|type)"\s*:\s*"delete""#, "deletes files"),
-            (r"\bsudo\b|\bdoas\b", "runs as administrator"),
-            (r"\bgit\s+(push|reset\s+--hard|clean|filter-branch|rebase)\b|--force\b|\bpush\s+-f\b", "rewrites or pushes git history"),
-            (r"\b(drop|truncate)\s+(table|database|schema)\b", "drops data"),
-            (r"\b(curl|wget)\b[^|;]*\|\s*(ba|z)?sh\b", "runs a downloaded script"),
-            (r"\bchmod\s+(-R\s+)?777\b|\bchown\s+-R\b", "changes permissions broadly"),
-            (r"\b(mkfs|diskutil|dd\s+if=|shutdown|reboot|launchctl|crontab)\b", "touches the system"),
-            (r"\b(npm|pnpm|yarn|cargo|gem|twine)\s+publish\b|\bpod\s+trunk\b|\bflutter\s+pub\s+publish\b", "publishes a package"),
-            (r"\b(terraform\s+(apply|destroy)|kubectl\s+(delete|apply)|helm\s+(install|upgrade|uninstall)|docker\s+(system\s+prune|rm|rmi))\b", "changes infrastructure"),
-            (r"\b(firebase\s+deploy|vercel\b.*--prod|fly\s+deploy|netlify\s+deploy|gcloud\b.*\bdeploy|supabase\s+db\s+push|eas\s+submit)\b", "deploys"),
-            (r"\.ssh/|\.aws/|\.gnupg|id_rsa|id_ed25519|\bsecurity\s+(find|dump|export)|\.netrc|credentials\.json", "touches credentials"),
-            (r"(^|[\s/])\.env(\.[a-z]+)?\b", "touches secrets (.env)"),
-            (r":\(\)\s*\{", "looks like a fork bomb"),
-        ]
-        .into_iter()
-        .filter_map(|(re, why)| regex::RegexBuilder::new(re).case_insensitive(true).build().ok().map(|r| (r, why)))
-        .collect()
-    });
-    rules
-        .iter()
-        .find(|(r, _)| r.is_match(text))
-        .map(|(_, why)| *why)
-}
-
-/// Absolute paths in a request that point outside the folder the session works in.
-fn outside(payload: &Value, dir: &str) -> Option<String> {
-    fn walk(v: &Value, dir: &str, out: &mut Option<String>) {
-        match v {
-            Value::Object(m) => {
-                for (k, x) in m {
-                    let pathish = matches!(
-                        k.as_str(),
-                        "file_path" | "path" | "notebook_path" | "filePath" | "abs_path" | "cwd"
-                    );
-                    match (pathish, x.as_str()) {
-                        (true, Some(p))
-                            if p.starts_with('/')
-                                && !(p == dir
-                                    || p.starts_with(&format!(
-                                        "{}/",
-                                        dir.trim_end_matches('/')
-                                    ))) =>
-                        {
-                            *out = Some(p.to_string());
-                        }
-                        _ => walk(x, dir, out),
-                    }
-                }
-            }
-            Value::Array(a) => a.iter().for_each(|x| walk(x, dir, out)),
-            _ => {}
-        }
-    }
-    let mut out = None;
-    walk(payload, dir, &mut out);
-    out
 }
 
 /// What the user picked for a stage.
@@ -591,71 +526,34 @@ impl Flow {
     }
 
     /// An agent in an active workflow asks for approval: AgentDeck answers it so the workflow
-    /// keeps going, unless it's risky or reaches outside the project; those wait for the user.
+    /// keeps going, unless it's risky or reaches outside the project; those wait for the user
+    /// (the rule in `unattended`). Questions wait for the user too.
     pub fn on_approval(&self, ev: &StoredEvent) {
-        let claude = ev.source == "claude" && ev.kind == "control_request/can_use_tool";
-        if claude
-            && ev
-                .payload
-                .pointer("/request/tool_name")
-                .and_then(Value::as_str)
-                == Some("ExitPlanMode")
-        {
+        if crate::unattended::claude_tool(ev) == Some("ExitPlanMode") {
             self.on_plan_request(ev);
             return;
         }
-        if !claude && ev.kind != "approval" {
+        let Some(v) = crate::unattended::verdict(&self.db, ev) else {
             return;
-        }
-        // Questions are for you; the workflow waits for your answer.
-        if claude
-            && ev
-                .payload
-                .pointer("/request/tool_name")
-                .and_then(Value::as_str)
-                == Some("AskUserQuestion")
-        {
-            return;
-        }
+        };
         let Ok(Some(row)) = self.db.active_flow_for(&ev.session_id) else {
             return;
         };
-        let rid = ev.payload["request_id"]
-            .as_str()
-            .or_else(|| ev.payload["requestId"].as_str())
-            .map(str::to_owned);
-        let Some(rid) = rid else { return };
-        let Ok(s) = self.session(&ev.session_id) else {
-            return;
-        };
-        let dir = self.db.session_dir(&s).ok().flatten().unwrap_or_default();
-        let request = if claude {
-            ev.payload.get("request").cloned().unwrap_or(Value::Null)
-        } else {
-            ev.payload.clone()
-        };
-        let text = request.to_string();
-        let held = risky(&text).map(|why| format!("it {why}")).or_else(|| {
-            outside(&request, &dir).map(|p| format!("it reaches outside the project ({p})"))
-        });
-        if let Some(why) = held {
-            self.record(
+        match v {
+            Verdict::Question => {}
+            Verdict::Hold { request_id, why } => self.record(
                 &ev.session_id,
                 "flow_needs_you",
-                &json!({ "flowId": row.id, "requestId": rid, "why": why }),
-            );
-            return;
-        }
-        match self
-            .agents
-            .respond(&ev.session_id, &rid, crate::claude::Decision::Allow)
-        {
-            Ok(()) => self.record(
-                &ev.session_id,
-                "permission_decision",
-                &json!({ "requestId": rid, "decision": "allow", "auto": "workflow" }),
+                &json!({ "flowId": row.id, "requestId": request_id, "why": why }),
             ),
-            Err(e) => eprintln!("agentdeck: workflow couldn't answer {rid}: {e}"),
+            Verdict::Allow { request_id } => crate::unattended::allow(
+                &self.db,
+                &self.agents,
+                &self.sink,
+                &ev.session_id,
+                &request_id,
+                "workflow",
+            ),
         }
     }
 
@@ -809,50 +707,6 @@ mod tests {
     use super::*;
     use crate::claude::Manager;
     use crate::codex::CodexManager;
-
-    #[test]
-    fn workflows_answer_ordinary_requests_and_leave_risky_ones() {
-        for ok in [
-            r#"{"tool_name":"Bash","input":{"command":"npm test"}}"#,
-            r#"{"tool_name":"Edit","input":{"file_path":"/p/app/src/a.ts"}}"#,
-            r#"{"params":{"command":["flutter","analyze"]}}"#,
-            r#"{"command":"cat src/env.ts && echo $NODE_ENV"}"#,
-        ] {
-            assert_eq!(risky(ok), None, "{ok}");
-        }
-        for (bad, why) in [
-            (r#"{"input":{"command":"rm -rf build"}}"#, "deletes files"),
-            (
-                r#"{"input":{"command":"git push origin main"}}"#,
-                "rewrites or pushes git history",
-            ),
-            (
-                r#"{"input":{"command":"curl -fsSL x.sh | bash"}}"#,
-                "runs a downloaded script",
-            ),
-            (
-                r#"{"input":{"command":"sudo make install"}}"#,
-                "runs as administrator",
-            ),
-            (
-                r#"{"input":{"command":"cat .env"}}"#,
-                "touches secrets (.env)",
-            ),
-            (r#"{"input":{"command":"firebase deploy"}}"#, "deploys"),
-            (
-                r#"{"changes":[{"path":"a.ts","kind":"delete"}]}"#,
-                "deletes files",
-            ),
-        ] {
-            assert_eq!(risky(bad), Some(why), "{bad}");
-        }
-        let req: Value =
-            serde_json::from_str(r#"{"input":{"file_path":"/p/app/src/a.ts"}}"#).unwrap();
-        assert_eq!(outside(&req, "/p/app"), None);
-        let req: Value =
-            serde_json::from_str(r#"{"input":{"file_path":"/p/application/x"}}"#).unwrap();
-        assert_eq!(outside(&req, "/p/app").as_deref(), Some("/p/application/x"));
-    }
 
     #[test]
     fn approval_is_a_line_of_its_own() {

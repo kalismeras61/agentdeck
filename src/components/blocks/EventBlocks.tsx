@@ -11,6 +11,7 @@ import {
   FileSearch,
   FlaskConical,
   Info,
+  ListTodo,
   Minus,
   PanelRight,
   Pencil,
@@ -48,6 +49,11 @@ export function UserBubble({ e }: { e: EventOf<"user_message"> }) {
   return (
     <div className="flex justify-end">
       <div className="user-text max-w-[78%] rounded-2xl rounded-ee-md border border-line bg-elevated px-4 py-2.5 text-[14px] leading-[1.6] text-fg shadow-card">
+        {e.payload.label && (
+          <p className="mb-0.5 flex items-center gap-1 text-[11.5px] font-medium text-fg-3">
+            <ListTodo size={12} aria-hidden /> {e.payload.label}
+          </p>
+        )}
         {e.payload.text.split(/^```[^\n]*\n?/m).map((part, i) =>
           i % 2 === 1 ? (
             <pre key={i} className="scroll-quiet my-2 max-h-72 overflow-auto rounded-lg border border-line-soft bg-bg px-3 py-2 font-mono text-[12px] leading-[1.55] text-fg-2">

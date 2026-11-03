@@ -182,6 +182,70 @@ export interface StartFlow {
   worktree?: boolean;
 }
 
+/** Accent names a bot's mark can have. */
+export type BotColor = "violet" | "blue" | "green" | "amber" | "rose" | "teal";
+
+/** A bot: an agent that stays, with a job, a folder, a memory file and a queue of tasks. */
+export interface Bot {
+  id: string;
+  name: string;
+  role: string;
+  instructions: string;
+  provider: LiveProvider;
+  model: string;
+  effort: string | null;
+  profileId: string | null;
+  projectId: string;
+  /** Its session (made on the first task); null after "Start fresh". */
+  sessionId: string | null;
+  color: BotColor;
+  paused: boolean;
+  createdAt: number;
+  updatedAt: number;
+  /** Tasks waiting to start. */
+  queued: number;
+  runningTaskId: string | null;
+  runningText: string | null;
+  /** A request or a question is waiting for you. */
+  needsYou: boolean;
+}
+
+export type BotTaskStatus = "queued" | "running" | "done" | "failed" | "cancelled";
+
+export interface BotTask {
+  id: string;
+  botId: string;
+  text: string;
+  /** "you" (later "schedule", "bot:<id>", "web", "telegram"). */
+  source: string;
+  status: BotTaskStatus;
+  result: string | null;
+  error: string | null;
+  createdAt: number;
+  startedAt: number | null;
+  finishedAt: number | null;
+  parentId: string | null;
+}
+
+/** What the bot editor saves; no id makes a new bot. */
+export interface BotInput {
+  id?: string;
+  name: string;
+  role: string;
+  instructions: string;
+  provider: LiveProvider;
+  model: string;
+  effort: string | null;
+  profileId: string | null;
+  projectId: string;
+  color: BotColor;
+}
+
+export interface BotMemory {
+  path: string;
+  text: string;
+}
+
 /** A session an agent saved on its own, found by scanning its history folder. */
 export interface ImportFound {
   provider: "claude-code" | "codex" | "gemini-cli";
@@ -302,6 +366,19 @@ export const liveApi = {
   stopFlow: (flowId: string) => call<FlowRow>("stop_flow", { flowId }),
   approveFlowPlan: (flowId: string) => call<FlowRow>("approve_flow_plan", { flowId }),
   reviseFlowPlan: (flowId: string, notes: string) => call<FlowRow>("revise_flow_plan", { flowId, notes }),
+  listBots: () => call<Bot[]>("list_bots"),
+  saveBot: (bot: BotInput) => call<Bot>("save_bot", { bot }),
+  deleteBot: (id: string) => call<void>("delete_bot", { id }),
+  /** Queued and running tasks, then up to `limit` finished ones (newest first). */
+  botTasks: (botId: string, limit = 50) => call<BotTask[]>("bot_tasks", { botId, limit }),
+  addBotTask: (botId: string, text: string) => call<BotTask>("add_bot_task", { botId, text }),
+  cancelBotTask: (id: string) => call<BotTask>("cancel_bot_task", { id }),
+  retryBotTask: (id: string) => call<BotTask>("retry_bot_task", { id }),
+  setBotPaused: (id: string, paused: boolean) => call<Bot>("set_bot_paused", { id, paused }),
+  /** The bot's next task starts a new session. */
+  restartBotSession: (id: string) => call<Bot>("restart_bot_session", { id }),
+  readBotMemory: (id: string) => call<BotMemory>("read_bot_memory", { id }),
+  writeBotMemory: (id: string, text: string) => call<BotMemory>("write_bot_memory", { id, text }),
   listRelays: () => call<RelayRow[]>("list_relays"),
   setMode: (sessionId: string, mode: SessionMode) => call<LiveSessionRow>("set_session_mode", { sessionId, mode }),
   handOff: (fromSessionId: string, provider: LiveProvider, plan: string, planRequestId?: string, profileId?: string) =>
@@ -372,6 +449,8 @@ export async function subscribeLive(handlers: {
   onDelta: (d: LiveDelta) => void;
   onRelay: (r: RelayRow) => void;
   onFlow: (f: FlowRow) => void;
+  onBot: (b: Bot) => void;
+  onBotTask: (t: BotTask) => void;
 }): Promise<() => void> {
   const { listen } = await import("@tauri-apps/api/event");
   const offs = await Promise.all([
@@ -380,6 +459,8 @@ export async function subscribeLive(handlers: {
     listen<LiveDelta>("agentdeck://delta", (e) => handlers.onDelta(e.payload)),
     listen<RelayRow>("agentdeck://relay", (e) => handlers.onRelay(e.payload)),
     listen<FlowRow>("agentdeck://flow", (e) => handlers.onFlow(e.payload)),
+    listen<Bot>("agentdeck://bot", (e) => handlers.onBot(e.payload)),
+    listen<BotTask>("agentdeck://bot-task", (e) => handlers.onBotTask(e.payload)),
   ]);
   return () => offs.forEach((off) => off());
 }

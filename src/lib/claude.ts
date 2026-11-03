@@ -286,6 +286,7 @@ export function normalizeClaude(events: StoredEvent[], ctx: NormalizeContext): u
             else pl.state = d === "deny" ? "denied" : d === "allow_session" ? "allowed_session" : "allowed";
             if (p.auto === "plan_mode") pl.autoReason = t("Refused by plan mode");
             else if (p.auto === "workflow") pl.autoReason = t("Allowed by the workflow");
+            else if (p.auto === "bot") pl.autoReason = t("Allowed for the bot");
             pl.decidedAt = e.ts;
           }
           break;

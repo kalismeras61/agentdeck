@@ -65,6 +65,8 @@ pub enum Outbound {
     Delta(Delta),
     Relay(crate::db::RelayRow),
     Flow(crate::db::FlowRow),
+    Bot(crate::db::Bot),
+    BotTask(crate::db::BotTask),
 }
 
 pub type Sink = Arc<dyn Fn(Outbound) + Send + Sync>;

@@ -59,7 +59,7 @@ export const AgentEvent = z.discriminatedUnion("type", [
   z.object({
     ...base,
     type: z.literal("user_message"),
-    payload: z.object({ text: safeText(100_000), attachments: z.array(safeText(1024)).max(20).optional() }),
+    payload: z.object({ text: safeText(100_000), attachments: z.array(safeText(1024)).max(20).optional(), label: safeText(80).optional() }),
   }),
   z.object({ ...base, type: z.literal("assistant_text"), payload: z.object({ markdown: safeText(200_000) }) }),
   z.object({

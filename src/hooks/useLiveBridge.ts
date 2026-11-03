@@ -35,6 +35,8 @@ export function useLiveBridge() {
           onDelta: (d) => useStore.getState().applyDelta(d.sessionId, d.text, d.reset),
           onRelay: (r) => useStore.getState().upsertRelay(r),
           onFlow: (f) => useStore.getState().upsertFlow(f),
+          onBot: (b) => useStore.getState().upsertBot(b),
+          onBotTask: (t) => useStore.getState().upsertBotTask(t),
         });
         const [projects, rows] = await Promise.all([liveApi.listProjects(), liveApi.listSessions()]);
         // Only recent and busy sessions load their history now; the rest load when opened.
@@ -60,6 +62,7 @@ export function useLiveBridge() {
           .then((fs) => fs.forEach((f) => useStore.getState().upsertFlow(f)))
           .catch(() => undefined);
         void useStore.getState().loadWorkflows();
+        void useStore.getState().loadBots();
         ready = true;
         early.forEach((e) => useStore.getState().appendLiveEvent(e));
       } catch (e) {

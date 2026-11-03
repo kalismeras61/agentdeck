@@ -9,6 +9,7 @@ mod agents;
 mod agy;
 mod api;
 mod attach;
+mod bots;
 mod claude;
 mod codex;
 mod commands;
@@ -24,13 +25,17 @@ mod relay;
 mod secrets;
 mod setup;
 mod shellenv;
+mod unattended;
 mod updates;
 
 use acp::AcpManager;
 use agents::{Agents, LIVE_PROVIDERS};
+use bots::Bots;
 use claude::{Decision, Manager, Outbound};
 use codex::CodexManager;
-use db::{Db, FlowRow, Project, RelayRow, SessionRow, StoredEvent, Workflow};
+use db::{
+    Bot, BotFields, BotTask, Db, FlowRow, Project, RelayRow, SessionRow, StoredEvent, Workflow,
+};
 use flow::Flow;
 use relay::Relay;
 use serde::Serialize;
@@ -45,6 +50,7 @@ struct AppState {
     sink: claude::Sink,
     relay: Arc<Relay>,
     flow: Arc<Flow>,
+    bots: Arc<Bots>,
     terms: Arc<pty::Terminals>,
 }
 
@@ -1494,6 +1500,141 @@ async fn revise_flow_plan(
 }
 
 /// Opens a shell in a project folder AgentDeck already knows; nothing else is reachable.
+/* ------------------------------------------------------------ bots */
+
+/// A bot as the editor sends it; an empty or missing id makes a new one.
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct BotInput {
+    #[serde(default)]
+    id: Option<String>,
+    name: String,
+    #[serde(default)]
+    role: String,
+    #[serde(default)]
+    instructions: String,
+    provider: String,
+    model: String,
+    #[serde(default)]
+    effort: Option<String>,
+    #[serde(default)]
+    profile_id: Option<String>,
+    project_id: String,
+    color: String,
+}
+
+#[tauri::command]
+fn list_bots(state: State<'_, AppState>) -> CmdResult<Vec<Bot>> {
+    state.bots.list()
+}
+
+/// Makes or changes a bot: checks its name, agent, model, effort and folder.
+#[tauri::command]
+async fn save_bot(state: State<'_, AppState>, bot: BotInput) -> CmdResult<Bot> {
+    if !LIVE_PROVIDERS.contains(&bot.provider.as_str()) {
+        return Err(format!("Unknown agent: {}", bot.provider));
+    }
+    let profile_id = bot.profile_id.filter(|p| !p.is_empty());
+    let model = check_agent(&state.db, &bot.provider, &bot.model, profile_id.as_deref())?;
+    let effort = match profile_id {
+        Some(_) => None,
+        None => check_effort(&bot.provider, bot.effort.as_deref())?,
+    };
+    let bots = state.bots.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        bots.save(
+            bot.id.as_deref().unwrap_or(""),
+            &BotFields {
+                name: &bot.name,
+                role: &bot.role,
+                instructions: &bot.instructions,
+                provider: &bot.provider,
+                model: &model,
+                effort: effort.as_deref(),
+                profile_id: profile_id.as_deref(),
+                project_id: &bot.project_id,
+                color: &bot.color,
+            },
+        )
+    })
+    .await
+    .map_err(err)?
+}
+
+#[tauri::command]
+async fn delete_bot(state: State<'_, AppState>, id: String) -> CmdResult<()> {
+    let bots = state.bots.clone();
+    tauri::async_runtime::spawn_blocking(move || bots.delete(&id))
+        .await
+        .map_err(err)?
+}
+
+#[tauri::command]
+fn bot_tasks(
+    state: State<'_, AppState>,
+    bot_id: String,
+    limit: Option<i64>,
+) -> CmdResult<Vec<BotTask>> {
+    state.bots.tasks(&bot_id, limit.unwrap_or(50))
+}
+
+/// Queues a task from you; it starts at once when the bot is free.
+#[tauri::command]
+async fn add_bot_task(
+    state: State<'_, AppState>,
+    bot_id: String,
+    text: String,
+) -> CmdResult<BotTask> {
+    let bots = state.bots.clone();
+    tauri::async_runtime::spawn_blocking(move || bots.add_task(&bot_id, &text, "you"))
+        .await
+        .map_err(err)?
+}
+
+#[tauri::command]
+async fn cancel_bot_task(state: State<'_, AppState>, id: String) -> CmdResult<BotTask> {
+    let bots = state.bots.clone();
+    tauri::async_runtime::spawn_blocking(move || bots.cancel(&id))
+        .await
+        .map_err(err)?
+}
+
+#[tauri::command]
+async fn retry_bot_task(state: State<'_, AppState>, id: String) -> CmdResult<BotTask> {
+    let bots = state.bots.clone();
+    tauri::async_runtime::spawn_blocking(move || bots.retry(&id))
+        .await
+        .map_err(err)?
+}
+
+#[tauri::command]
+async fn set_bot_paused(state: State<'_, AppState>, id: String, paused: bool) -> CmdResult<Bot> {
+    let bots = state.bots.clone();
+    tauri::async_runtime::spawn_blocking(move || bots.set_paused(&id, paused))
+        .await
+        .map_err(err)?
+}
+
+/// The bot's next task starts a new session.
+#[tauri::command]
+fn restart_bot_session(state: State<'_, AppState>, id: String) -> CmdResult<Bot> {
+    state.bots.restart_session(&id)
+}
+
+#[tauri::command]
+fn read_bot_memory(state: State<'_, AppState>, id: String) -> CmdResult<bots::Memory> {
+    state.bots.read_memory(&id)
+}
+
+#[tauri::command]
+fn write_bot_memory(
+    state: State<'_, AppState>,
+    id: String,
+    text: String,
+) -> CmdResult<bots::Memory> {
+    state.bots.write_memory(&id, &text)
+}
+
 #[tauri::command]
 fn term_open(
     state: State<'_, AppState>,
@@ -1903,25 +2044,33 @@ pub fn run() {
             let db = Arc::new(Db::open(&dir.join("agentdeck.db"))?);
             db.recover_after_restart()?;
             let handle = app.handle().clone();
-            // The relay listens to every stored event; it's set once the managers exist.
-            let relay_cell: Arc<OnceLock<(Arc<Relay>, Arc<Flow>)>> = Arc::new(OnceLock::new());
+            // Relays, workflows and bots listen to every stored event; set once the managers exist.
+            type Listeners = (Arc<Relay>, Arc<Flow>, Arc<Bots>);
+            let relay_cell: Arc<OnceLock<Listeners>> = Arc::new(OnceLock::new());
             let cell = relay_cell.clone();
             let sink: claude::Sink = Arc::new(move |o| {
                 let _ = match o {
                     Outbound::Event(e) => {
-                        if let Some((r, f)) = cell.get() {
+                        if let Some((r, f, b)) = cell.get() {
                             if relay::turn_end(&e).is_some() {
-                                let (r, f, e) = (r.clone(), f.clone(), e.clone());
+                                let (r, f, b, e) = (r.clone(), f.clone(), b.clone(), e.clone());
                                 // Off the agent's reader thread: forwarding may start a process.
                                 std::thread::spawn(move || {
                                     r.on_event(&e);
                                     f.on_event(&e);
+                                    b.on_event(&e);
                                 });
                             } else if e.kind == "control_request/can_use_tool"
                                 || e.kind == "approval"
                             {
-                                let (f, e) = (f.clone(), e.clone());
-                                std::thread::spawn(move || f.on_approval(&e));
+                                let (f, b, e) = (f.clone(), b.clone(), e.clone());
+                                std::thread::spawn(move || {
+                                    f.on_approval(&e);
+                                    b.on_request(&e);
+                                });
+                            } else if bots::wants(&e) {
+                                let (b, e) = (b.clone(), e.clone());
+                                std::thread::spawn(move || b.on_request(&e));
                             }
                         }
                         handle.emit("agentdeck://event", e)
@@ -1930,6 +2079,8 @@ pub fn run() {
                     Outbound::Delta(d) => handle.emit("agentdeck://delta", d),
                     Outbound::Relay(r) => handle.emit("agentdeck://relay", r),
                     Outbound::Flow(f) => handle.emit("agentdeck://flow", f),
+                    Outbound::Bot(b) => handle.emit("agentdeck://bot", b),
+                    Outbound::BotTask(t) => handle.emit("agentdeck://bot-task", t),
                 };
             });
             let agents = Arc::new(Agents {
@@ -1950,7 +2101,13 @@ pub fn run() {
                 });
             }
             let flow = Arc::new(Flow::new(db.clone(), sink.clone(), agents.clone()));
-            let _ = relay_cell.set((relay.clone(), flow.clone()));
+            let bots = Arc::new(Bots::new(db.clone(), sink.clone(), agents.clone()));
+            let _ = relay_cell.set((relay.clone(), flow.clone(), bots.clone()));
+            // Tasks that were queued (or running when AgentDeck closed) carry on.
+            {
+                let bots = bots.clone();
+                std::thread::spawn(move || bots.resume_all());
+            }
             let th = app.handle().clone();
             let terms = Arc::new(pty::Terminals::new(Arc::new(move |e| {
                 let _ = match e {
@@ -1964,6 +2121,7 @@ pub fn run() {
                 sink,
                 relay,
                 flow,
+                bots,
                 terms,
             });
             Ok(())
@@ -2029,6 +2187,17 @@ pub fn run() {
             stop_flow,
             approve_flow_plan,
             revise_flow_plan,
+            list_bots,
+            save_bot,
+            delete_bot,
+            bot_tasks,
+            add_bot_task,
+            cancel_bot_task,
+            retry_bot_task,
+            set_bot_paused,
+            restart_bot_session,
+            read_bot_memory,
+            write_bot_memory,
             list_profiles,
             save_profile,
             delete_profile,
@@ -2087,6 +2256,7 @@ mod handoff_tests {
             db: db.clone(),
             relay: Arc::new(Relay::new(db.clone(), sink.clone(), agents.clone())),
             flow: Arc::new(Flow::new(db.clone(), sink.clone(), agents.clone())),
+            bots: Arc::new(Bots::new(db.clone(), sink.clone(), agents.clone())),
             agents,
             sink,
             terms: Arc::new(pty::Terminals::new(Arc::new(|_| {}))),

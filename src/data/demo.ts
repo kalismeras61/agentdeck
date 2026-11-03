@@ -3,6 +3,7 @@
  * Events are written in the normalized format and go through the same validation as live output.
  */
 import type { ProviderId } from "../lib/events";
+import type { Bot, BotTask } from "../lib/live";
 import { loginPreviewSrc } from "./loginPreview";
 
 export type SessionStatus = "running" | "waiting" | "idle" | "error" | "done";
@@ -536,6 +537,117 @@ const s5Events = [
   }),
 ];
 
+/* ---------------------------------------------------------------- bots */
+
+const SB = "s-bot-reviewer";
+const sbEvents = [
+  ev(SB, "claude-code", at(42), "user_message", { text: "Review the rate limit change in auth/login.ts", label: "Task" }),
+  ev(SB, "claude-code", at(38), "assistant_text", {
+    markdown:
+      "Reviewed the rate limit on `/auth/login`.\n\n- The limiter keys on IP only, so one office behind NAT shares a budget. Suggest IP + account.\n- `429` responses don't set `Retry-After`.\n\nLeft: no test for the reset window. Added both notes to my memory file.",
+  }),
+  ev(SB, "claude-code", at(3), "user_message", { text: "Check the new /auth/refresh route for missing tests", label: "Task" }),
+  ev(SB, "claude-code", at(2), "assistant_text", { markdown: "Reading `routes/auth/refresh.ts` and its tests." }),
+];
+
+export const demoBotSession: Session = {
+  id: SB,
+  projectId: "p-api",
+  title: "API Reviewer",
+  provider: "claude-code",
+  model: "Sonnet 5.5",
+  status: "running",
+  snippet: "Reading routes/auth/refresh.ts",
+  startedAt: at(42),
+  updatedAt: at(2),
+  raw: sbEvents,
+  demo: true,
+};
+
+export const demoBots: Bot[] = [
+  {
+    id: "b-demo-reviewer",
+    name: "API Reviewer",
+    role: "Reviews changes in harbor_api before they merge",
+    instructions: "Point out bugs and missing tests. Don't change code yourself.",
+    provider: "claude-code",
+    model: "sonnet",
+    effort: null,
+    profileId: null,
+    projectId: "p-api",
+    sessionId: SB,
+    color: "blue",
+    paused: false,
+    createdAt: at(600),
+    updatedAt: at(2),
+    queued: 2,
+    runningTaskId: "t-demo-3",
+    runningText: "Check the new /auth/refresh route for missing tests",
+    needsYou: false,
+  },
+  {
+    id: "b-demo-docs",
+    name: "Docs Writer",
+    role: "Keeps harbor_docs in step with the API",
+    instructions: "",
+    provider: "codex",
+    model: "default",
+    effort: null,
+    profileId: null,
+    projectId: "p-docs",
+    sessionId: null,
+    color: "green",
+    paused: true,
+    createdAt: at(900),
+    updatedAt: at(120),
+    queued: 1,
+    runningTaskId: null,
+    runningText: null,
+    needsYou: false,
+  },
+];
+
+const task = (id: string, botId: string, text: string, status: BotTask["status"], created: number, extra: Partial<BotTask> = {}): BotTask => ({
+  id,
+  botId,
+  text,
+  source: "you",
+  status,
+  result: null,
+  error: null,
+  createdAt: created,
+  startedAt: null,
+  finishedAt: null,
+  parentId: null,
+  ...extra,
+});
+
+export const demoBotTasks: Record<string, BotTask[]> = {
+  "b-demo-reviewer": [
+    task("t-demo-3", "b-demo-reviewer", "Check the new /auth/refresh route for missing tests", "running", at(5), { startedAt: at(3) }),
+    task("t-demo-4", "b-demo-reviewer", "Review the CORS settings in server.ts", "queued", at(4)),
+    task("t-demo-5", "b-demo-reviewer", "Look for N+1 queries in the orders endpoints", "queued", at(1)),
+    task("t-demo-1", "b-demo-reviewer", "Review the rate limit change in auth/login.ts", "done", at(44), {
+      startedAt: at(42),
+      finishedAt: at(38),
+      result:
+        "Reviewed the rate limit on `/auth/login`.\n\n- The limiter keys on IP only, so one office behind NAT shares a budget. Suggest IP + account.\n- `429` responses don't set `Retry-After`.\n\nLeft: no test for the reset window.",
+    }),
+    task("t-demo-2", "b-demo-reviewer", "Review the migration that adds sessions.expires_at", "failed", at(80), {
+      startedAt: at(79),
+      finishedAt: at(77),
+      error: "the turn ended with an error",
+    }),
+  ],
+  "b-demo-docs": [task("t-demo-6", "b-demo-docs", "Document the /auth/refresh route", "queued", at(120))],
+};
+
+export const demoBotMemory: Record<string, string> = {
+  "b-demo-reviewer":
+    "# API Reviewer memory\n\n- Tests: `npm test`; integration tests need `docker compose up db`.\n- Rate limits live in `src/limits.ts`; the team wants IP + account keys.\n- The user prefers short reviews: bugs first, style last.\n",
+  "b-demo-docs": "# Docs Writer memory\n\nWhat Docs Writer keeps for later tasks.\n",
+};
+
 export const demoSessions: Session[] = [
   {
     id: S1,
@@ -602,6 +714,7 @@ export const demoSessions: Session[] = [
     raw: s5Events,
     demo: true,
   },
+  demoBotSession,
 ];
 
 export const providerModels: Record<ProviderId, string[]> = {

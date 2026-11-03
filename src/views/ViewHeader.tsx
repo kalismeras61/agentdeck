@@ -6,7 +6,8 @@ import { useStore } from "../state/store";
 import { t } from "../lib/i18n";
 
 /** Title bar row for full-screen views; doubles as the window drag region. */
-export function ViewHeader({ title, children }: { title: string; children?: ReactNode }) {
+/** `lead`: a mark before the title; `sub`: a short line after it. */
+export function ViewHeader({ title, children, lead, sub }: { title: string; children?: ReactNode; lead?: ReactNode; sub?: string }) {
   const demo = useStore((s) => s.workspaceId === "demo");
   const sidebarOpen = useStore((s) => s.sidebarOpen);
   const toggleSidebar = useStore((s) => s.toggleSidebar);
@@ -24,7 +25,15 @@ export function ViewHeader({ title, children }: { title: string; children?: Reac
           </IconButton>
         </div>
       )}
-      <h1 className="truncate ps-1 text-[13px] font-medium text-fg">{title}</h1>
+      {lead}
+      <h1 dir="auto" className="truncate ps-1 text-[13px] font-medium text-fg">
+        {title}
+      </h1>
+      {sub && (
+        <span dir="auto" title={sub} className="min-w-0 truncate text-[12.5px] text-fg-3">
+          {sub}
+        </span>
+      )}
       <div className="ms-auto flex shrink-0 items-center gap-1.5">
         {children}
         {demo && <DemoBadge />}

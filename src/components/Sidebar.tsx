@@ -1,6 +1,7 @@
 import { withoutHidden } from "../lib/setup";
 import * as Dropdown from "@radix-ui/react-dropdown-menu";
 import {
+  Bot as BotIcon,
   BookOpenText,
   Check,
   ChevronDown,
@@ -40,6 +41,10 @@ import { NewProjectDialog } from "./NewProjectDialog";
 import { ImportDialog } from "./ImportDialog";
 import { RenameField } from "./RenameField";
 import { UpdateNotice } from "./UpdateNotice";
+import { BotEditor } from "./bots/BotEditor";
+import { BotMark } from "./bots/BotMark";
+import { botState, botStatusLine } from "../lib/bots";
+import type { Bot } from "../lib/live";
 
 function Logo() {
   return (
@@ -82,6 +87,21 @@ export function Sidebar() {
   const searchTick = useStore((s) => s.searchFocusTick);
   const searchRef = useRef<HTMLInputElement>(null);
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+  const allBots = useStore((s) => s.bots);
+  const selectedBotId = useStore((s) => s.selectedBotId);
+  const openBot = useStore((s) => s.openBot);
+  const openBotEditor = useStore((s) => s.openBotEditor);
+  // Bots of this workspace (their folder is one of its projects), oldest first.
+  const bots = useMemo(() => {
+    const ids = new Set(projects.map((p) => p.id));
+    return Object.values(allBots)
+      .filter((b) => ids.has(b.projectId))
+      .sort((a, b) => a.createdAt - b.createdAt);
+  }, [allBots, projects]);
+  const shownBots = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return q ? bots.filter((b) => b.name.toLowerCase().includes(q) || b.role.toLowerCase().includes(q)) : bots;
+  }, [bots, search]);
   const ws = workspaces.find((w) => w.id === workspaceId) ?? workspaces[0]!;
   const isLocal = ws.id === "local";
   const hasProjects = projects.length > 0;
@@ -94,6 +114,8 @@ export function Sidebar() {
     }
   }, [searchTick]);
 
+  // A bot's own session shows on its page, not under its project.
+  const botSessions = useMemo(() => new Set(Object.values(allBots).flatMap((b) => (b.sessionId ? [b.sessionId] : []))), [allBots]);
   const groups = useMemo(() => {
     const q = search.trim().toLowerCase();
     // Chats (sessions without a project) first, then project folders.
@@ -102,14 +124,17 @@ export function Sidebar() {
       .map((p) => ({
         project: p as (typeof projects)[number] | null,
         sessions: sessions.filter(
-          (s) => s.projectId === p.id && (!q || s.title.toLowerCase().includes(q) || s.snippet.toLowerCase().includes(q) || p.name.toLowerCase().includes(q)),
+          (s) =>
+            s.projectId === p.id &&
+            !botSessions.has(s.id) &&
+            (!q || s.title.toLowerCase().includes(q) || s.snippet.toLowerCase().includes(q) || p.name.toLowerCase().includes(q)),
         ),
       }))
       .filter((g) => g.sessions.length > 0 || (isLocal && !q));
     // Before the first chat there's no Chats folder yet; still show where chats go.
     if (isLocal && !q && !projects.some((p) => p.kind === "chats")) out.unshift({ project: null, sessions: [] });
     return out;
-  }, [sessions, projects, search, isLocal]);
+  }, [sessions, projects, search, isLocal, botSessions]);
 
   return (
     <nav aria-label={t("Sessions")} className="flex h-full flex-col bg-sidebar">
@@ -302,7 +327,7 @@ export function Sidebar() {
           <div className="px-3 py-8 text-center">
             <p className="text-[13px] text-fg-2">{t("No sample projects here.")}</p>
           </div>
-        ) : groups.length === 0 ? (
+        ) : groups.length === 0 && shownBots.length === 0 ? (
           <div className="px-3 py-8 text-center">
             <p className="text-[13px] text-fg-2">{t("No sessions match “{search}”.", { search })}</p>
             <button type="button" onClick={() => setSearch("")} className="mt-2 rounded text-xs text-violet-text hover:underline">
@@ -310,7 +335,19 @@ export function Sidebar() {
             </button>
           </div>
         ) : (
-          groups.map(({ project, sessions: list }) => {
+          <>
+          {(!search || shownBots.length > 0) && (
+            <BotsSection
+              bots={shownBots}
+              collapsed={Boolean(collapsed["bots"]) && !search}
+              onToggle={() => setCollapsed((c) => ({ ...c, bots: !c["bots"] }))}
+              selectedId={view === "bot" ? selectedBotId : null}
+              onOpen={openBot}
+              onNew={() => openBotEditor(null)}
+              canCreate={hasProjects}
+            />
+          )}
+          {groups.map(({ project, sessions: list }) => {
             const key = project?.id ?? "chats";
             const isChats = !project || project.kind === "chats";
             const isCollapsed = collapsed[key] && !search;
@@ -339,6 +376,18 @@ export function Sidebar() {
                         className="mt-1 rounded p-0.5 text-fg-3 opacity-0 hover:bg-surface hover:text-fg focus-visible:opacity-100 group-hover:opacity-100"
                       >
                         <BookOpenText size={13} />
+                      </button>
+                    </Tip>
+                  )}
+                  {isLocal && !isChats && (
+                    <Tip label={t("New bot in {name}", { name: project!.name })}>
+                      <button
+                        type="button"
+                        onClick={() => openBotEditor(null, project!.id)}
+                        aria-label={t("New bot in {name}", { name: project!.name })}
+                        className="mt-1 rounded p-0.5 text-fg-3 opacity-0 hover:bg-surface hover:text-fg focus-visible:opacity-100 group-hover:opacity-100"
+                      >
+                        <BotIcon size={13} />
                       </button>
                     </Tip>
                   )}
@@ -373,7 +422,8 @@ export function Sidebar() {
                   ))}
               </section>
             );
-          })
+          })}
+          </>
         )}
         {isLocal && liveState === "ready" && (
           <div className="mt-1 flex flex-wrap gap-x-1">
@@ -421,6 +471,7 @@ export function Sidebar() {
         </button>
       </div>
       <NewProjectDialog />
+      <BotEditor />
       {isLocal && <ImportDialog />}
     </nav>
   );
@@ -523,6 +574,115 @@ function SessionRow({ s, selected, onSelect }: { s: Session; selected: boolean; 
             <StatusDot status={s.status} className="h-1.5 w-1.5" />
             <span dir="auto" className={cx("truncate text-xs", s.status === "error" ? "text-error/90" : s.status === "waiting" ? "text-warning/90" : "text-fg-3")}>
               {s.snippet}
+            </span>
+          </span>
+        </span>
+      </button>
+    </li>
+  );
+}
+
+/** The Bots section: each bot with its mark, name and what it's doing; "New bot". */
+function BotsSection({
+  bots,
+  collapsed,
+  onToggle,
+  selectedId,
+  onOpen,
+  onNew,
+  canCreate,
+}: {
+  bots: Bot[];
+  collapsed: boolean;
+  onToggle: () => void;
+  selectedId: string | null;
+  onOpen: (id: string) => void;
+  onNew: () => void;
+  canCreate: boolean;
+}) {
+  const waiting = bots.filter((b) => b.needsYou).length;
+  return (
+    <section aria-label={t("Bots")} className="mb-2">
+      <div className="group flex items-center">
+        <button
+          type="button"
+          aria-expanded={!collapsed}
+          onClick={onToggle}
+          className="flex min-w-0 flex-1 items-center gap-1.5 rounded-md px-2 pb-1 pt-2 text-start text-xs text-fg-3 hover:text-fg-2"
+        >
+          <ChevronRight size={12} className={cx("rtl:-scale-x-100 shrink-0 transition-transform", !collapsed && "rotate-90 rtl:-rotate-90")} />
+          <BotIcon size={12} className="shrink-0" />
+          <span className="truncate font-medium">{t("Bots")}</span>
+          {waiting > 0 && collapsed && <span className="ms-1 h-1.5 w-1.5 shrink-0 rounded-full bg-warning" aria-label={t("Needs you")} />}
+          <span className="ms-auto tabular-nums opacity-0 transition-opacity group-hover:opacity-100">{bots.length || ""}</span>
+        </button>
+        {canCreate && (
+          <Tip label={t("New bot")}>
+            <button
+              type="button"
+              onClick={onNew}
+              aria-label={t("New bot")}
+              className="me-1 mt-1 rounded p-0.5 text-fg-3 opacity-0 hover:bg-surface hover:text-fg focus-visible:opacity-100 group-hover:opacity-100"
+            >
+              <Plus size={13} />
+            </button>
+          </Tip>
+        )}
+      </div>
+      {!collapsed &&
+        (bots.length === 0 ? (
+          <div className="ms-5 me-1 mt-0.5 px-2 py-1">
+            <p className="text-xs leading-[1.5] text-fg-3">{t("A bot is an agent that stays: it works through tasks you give it, one at a time.")}</p>
+            {canCreate && (
+              <button type="button" onClick={onNew} className="mt-1 flex items-center gap-1.5 rounded-md text-xs text-violet-text hover:underline">
+                <Plus size={12} /> {t("New bot")}
+              </button>
+            )}
+          </div>
+        ) : (
+          <ul className="space-y-px">
+            {bots.map((b) => (
+              <BotRow key={b.id} bot={b} selected={b.id === selectedId} onSelect={() => onOpen(b.id)} />
+            ))}
+          </ul>
+        ))}
+    </section>
+  );
+}
+
+function BotRow({ bot, selected, onSelect }: { bot: Bot; selected: boolean; onSelect: () => void }) {
+  const state = botState(bot);
+  const line = botStatusLine(bot);
+  return (
+    <li>
+      <button
+        type="button"
+        onClick={onSelect}
+        aria-current={selected ? "page" : undefined}
+        aria-label={`${bot.name}, ${line}`}
+        className={cx(
+          "relative flex w-full items-start gap-2.5 rounded-lg px-2 py-2 text-start transition-colors duration-150",
+          selected ? "bg-elevated" : "hover:bg-surface",
+        )}
+      >
+        {selected && <span aria-hidden className="absolute bottom-2 start-0 top-2 w-[2px] rounded-full bg-violet" />}
+        <span className="pt-px">
+          <BotMark name={bot.name} color={bot.color} size={18} />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span dir="auto" className={cx("block truncate text-[13px]", selected ? "font-medium text-fg" : "text-fg/90")}>
+            {bot.name}
+          </span>
+          <span className="mt-0.5 flex items-center gap-1.5">
+            <span
+              aria-hidden
+              className={cx(
+                "inline-block h-1.5 w-1.5 shrink-0 rounded-full",
+                state === "needs" ? "bg-warning breathe" : state === "working" ? "bg-violet breathe" : state === "queued" ? "bg-fg-3" : "bg-fg-3/50",
+              )}
+            />
+            <span dir="auto" className={cx("truncate text-xs", state === "needs" ? "text-warning/90" : "text-fg-3")}>
+              {line}
             </span>
           </span>
         </span>

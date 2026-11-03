@@ -178,6 +178,21 @@ export function normalizeFor(provider: ProviderId, events: StoredEvent[], ctx: N
         type: "notice",
         payload: { tone: "info", text: t("{agent} finished without a reply, so the workflow is waiting. Its next reply moves the workflow on; write to it here if it needs a nudge.", { agent: str(p.who) ?? t("The agent") }) },
       });
+    } else if (e.kind === "bot_task") {
+      // The task as you wrote it stands in for the generated message (brief, header).
+      const prompt = str(p.prompt);
+      if (prompt) skipPrompts.add(prompt);
+      own.push({
+        ...base(e, `bt-${e.seq}`),
+        type: "user_message",
+        payload: { text: str(p.text) ?? "", label: p.source === "you" || !p.source ? t("Task") : t("Task from {source}", { source: str(p.source) ?? "" }) },
+      });
+    } else if (e.kind === "bot_needs_you") {
+      own.push({
+        ...base(e, `bn-${e.seq}`),
+        type: "notice",
+        payload: { tone: "info", text: t("The bot answers its ordinary requests on its own, but left this one for you: {why}.", { why: str(p.why) ?? t("it looked risky") }) },
+      });
     } else if (e.kind === "flow_plan_taken") {
       const rid = str(p.requestId);
       if (rid) taken.add(rid);

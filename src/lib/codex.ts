@@ -138,6 +138,7 @@ export function normalizeCodex(events: StoredEvent[], ctx: NormalizeContext): un
             obj(perm.payload).state = d === "deny" ? "denied" : d === "allow_session" ? "allowed_session" : "allowed";
             if (p.auto === "plan_mode") obj(perm.payload).autoReason = t("Refused by plan mode");
             else if (p.auto === "workflow") obj(perm.payload).autoReason = t("Allowed by the workflow");
+            else if (p.auto === "bot") obj(perm.payload).autoReason = t("Allowed for the bot");
             obj(perm.payload).decidedAt = e.ts;
           }
           break;
