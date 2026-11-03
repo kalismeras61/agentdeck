@@ -62,16 +62,18 @@ Commands and edits that need your OK appear as cards that say what will run, whe
 
 ### Bots that keep working
 
-A bot is an agent that stays. Give it a name, a job, instructions, an agent and model (Claude Code, Codex, Gemini CLI, Grok Build, Kimi Code, Antigravity or your own models) and a folder, then hand it tasks. It works through them in the background while you do something else.
+A bot is an agent that stays. Give it a name, a job, instructions and an agent and model (Claude Code, Codex, Gemini CLI, Grok Build, Kimi Code, Antigravity or your own models), then hand it tasks. It works through them in the background while you do something else.
 
+- **A place of its own.** Every bot has its own folder (`~/AgentDeck/Bots/<name>`) and works there unless a task names a project. Point any task at any project; the bot keeps a separate conversation for each place, so it remembers what it did where.
 - **A task queue.** Add tasks while the bot is busy; it runs them one at a time. Pause, resume, cancel or retry, and each finished task keeps the bot's report as its result.
-- **Memory.** Every bot keeps a short memory file (left out of git). It reads it at the start of each task and writes down what's worth remembering: conventions, decisions, where things are, what you prefer. You can read and edit it on the bot's page.
-- **Unattended, not unchecked.** While a bot works on a task, ordinary requests are approved for it. Anything risky (deleting, pushing, deploying, credentials, anything outside its folder) and every question waits for you, and the bot shows "Needs you" in the sidebar.
-- **Its own page.** The bot's conversation with diffs and approvals as in any session, a box to give it a task or send a plain message, and its queue and memory side by side.
+- **Memory.** Every bot keeps a short memory file in its folder. It reads it at the start of each task and writes down what's worth remembering: conventions, decisions, where things are, what you prefer. You can read and edit it on the bot's page.
+- **Schedules.** "Weekdays at 9:00: review yesterday's merged pull requests", "every 6 hours: look for flaky tests". Each run lands in the queue like any task.
+- **A manager bot.** Bots can hand parts of a task to other bots and wait for their results, through AgentDeck's own tools (`list_bots`, `delegate_task`, `wait_for_tasks`). A lead bot can split the work between a reviewer, a tester and a writer and put their reports together.
+- **Unattended, not unchecked.** While a bot works on a task, ordinary requests are approved for it inside its folder and the task's project. Anything risky (deleting, pushing, deploying, credentials, anything elsewhere) and every question waits for you, and the bot shows "Needs you" in the sidebar.
 
-Coming next: a workspace of its own for every bot (with each task able to name a project), schedules ("weekdays at 9:00"), a manager bot that hands work to other bots and collects their results, and reaching your bots from your phone or Telegram.
+Coming next: reaching your bots from your phone and from Telegram.
 
-![A bot working through its queue, with its memory one tab away](docs/screenshots/readme/bots.png)
+![A bot working through its queue, with its schedules and memory one tab away](docs/screenshots/readme/bots.png)
 
 ### Isolate work in git worktrees
 
