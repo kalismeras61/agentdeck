@@ -561,10 +561,18 @@ impl CodexManager {
             } else if method == "item/tool/requestUserInput" {
                 let rid = proc.request_key(&id);
                 if let Ok(mut a) = proc.approvals.lock() {
-                    a.insert(rid.clone(), json!({ "id": id, "method": method, "params": params }));
+                    a.insert(
+                        rid.clone(),
+                        json!({ "id": id, "method": method, "params": params }),
+                    );
                 }
                 self.set_status(sid, "waiting", Some("Has a question for you"));
-                self.record(sid, "codex", "user_input", &json!({ "requestId": rid, "params": params }));
+                self.record(
+                    sid,
+                    "codex",
+                    "user_input",
+                    &json!({ "requestId": rid, "params": params }),
+                );
             } else {
                 // Elicitations, dynamic tools: AgentDeck doesn't host these yet.
                 let _ = proc.write(&json!({ "id": id, "error": { "code": -32601, "message": format!("AgentDeck doesn't support {method}") } }));
@@ -684,9 +692,7 @@ impl CodexManager {
             .map_err(|e| e.to_string())?
             .ok_or("Project not found")?;
         if !Path::new(&dir).is_dir() {
-            return Err(format!(
-                "The folder {dir} doesn't exist anymore"
-            ));
+            return Err(format!("The folder {dir} doesn't exist anymore"));
         }
         let proc = match self.proc(sid) {
             Some(p) => p,
@@ -765,18 +771,29 @@ impl CodexManager {
         if req.get("method").and_then(Value::as_str) != Some("item/tool/requestUserInput") {
             return Err("That request isn't a question".into());
         }
-        let questions = req.pointer("/params/questions").and_then(Value::as_array).cloned().unwrap_or_default();
+        let questions = req
+            .pointer("/params/questions")
+            .and_then(Value::as_array)
+            .cloned()
+            .unwrap_or_default();
         let mut out = serde_json::Map::new();
         let mut shown = serde_json::Map::new();
         for q in &questions {
             let qid = q["id"].as_str().unwrap_or("").to_string();
-            let chosen = answers.and_then(|a| a.get(&qid)).cloned().unwrap_or_default();
+            let chosen = answers
+                .and_then(|a| a.get(&qid))
+                .cloned()
+                .unwrap_or_default();
             out.insert(qid.clone(), json!({ "answers": chosen }));
             if q["isSecret"].as_bool() != Some(true) {
                 shown.insert(qid, json!(chosen));
             }
         }
-        if answers.is_some() && out.values().all(|v| v["answers"].as_array().map_or(true, |a| a.is_empty())) {
+        if answers.is_some()
+            && out
+                .values()
+                .all(|v| v["answers"].as_array().map_or(true, |a| a.is_empty()))
+        {
             return Err("Pick or write an answer first".into());
         }
         proc.write(&json!({ "id": req["id"], "result": { "answers": out } }))?;
@@ -1046,11 +1063,17 @@ mod integration {
         h.mgr.send_message(&h.sid, "hello again").unwrap();
         let deadline = std::time::Instant::now() + std::time::Duration::from_secs(30);
         loop {
-            let log = std::fs::read_to_string("/tmp/mock_openai_requests.jsonl").unwrap_or_default();
-            if log.contains("\"model\": \"mock-model-b\"") || log.contains("\"model\":\"mock-model-b\"") {
+            let log =
+                std::fs::read_to_string("/tmp/mock_openai_requests.jsonl").unwrap_or_default();
+            if log.contains("\"model\": \"mock-model-b\"")
+                || log.contains("\"model\":\"mock-model-b\"")
+            {
                 break;
             }
-            assert!(std::time::Instant::now() < deadline, "the next turn used the new model: {log}");
+            assert!(
+                std::time::Instant::now() < deadline,
+                "the next turn used the new model: {log}"
+            );
             std::thread::sleep(std::time::Duration::from_millis(200));
         }
     }
@@ -1063,7 +1086,11 @@ mod integration {
             .filter_map(|l| serde_json::from_str::<Value>(l).ok())
             .filter_map(|l| l.get("body").cloned())
             .find(|b| b.get("input").is_some())
-            .and_then(|b| b.pointer("/reasoning/effort").and_then(Value::as_str).map(str::to_owned))
+            .and_then(|b| {
+                b.pointer("/reasoning/effort")
+                    .and_then(Value::as_str)
+                    .map(str::to_owned)
+            })
     }
 
     #[test]
@@ -1191,8 +1218,19 @@ mod unit_tests {
     #[test]
     fn turns_carry_the_picked_model_and_effort() {
         let p = turn_params("t", "hi", &[], "default", "/p", "default", None);
-        assert!(p.get("model").is_none() && p.get("effort").is_none(), "defaults are left to Codex");
-        let p = turn_params("t", "hi", &[], "default", "/p", "gpt-6.1-sol", Some("xhigh"));
+        assert!(
+            p.get("model").is_none() && p.get("effort").is_none(),
+            "defaults are left to Codex"
+        );
+        let p = turn_params(
+            "t",
+            "hi",
+            &[],
+            "default",
+            "/p",
+            "gpt-6.1-sol",
+            Some("xhigh"),
+        );
         assert_eq!(p["model"], "gpt-6.1-sol");
         assert_eq!(p["effort"], "xhigh");
         assert_eq!(p["sandboxPolicy"]["type"], "workspaceWrite");

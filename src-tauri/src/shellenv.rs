@@ -136,10 +136,21 @@ mod tests {
     fn reads_the_shell_environment_after_the_marker() {
         let out = b"Welcome to zsh!\n__AGENTDECK_ENV_BEGIN__PATH=/opt/homebrew/bin:/usr/bin\0GEMINI_API_KEY=abc=def\0PWD=/Users/x\0SHLVL=2\0MULTI=line one\nline two\0bad key=1\0";
         let env = parse(out);
-        assert_eq!(env.get("PATH").map(String::as_str), Some("/opt/homebrew/bin:/usr/bin"));
-        assert_eq!(env.get("GEMINI_API_KEY").map(String::as_str), Some("abc=def"));
-        assert_eq!(env.get("MULTI").map(String::as_str), Some("line one\nline two"));
-        assert!(!env.contains_key("PWD") && !env.contains_key("SHLVL") && !env.contains_key("bad key"));
+        assert_eq!(
+            env.get("PATH").map(String::as_str),
+            Some("/opt/homebrew/bin:/usr/bin")
+        );
+        assert_eq!(
+            env.get("GEMINI_API_KEY").map(String::as_str),
+            Some("abc=def")
+        );
+        assert_eq!(
+            env.get("MULTI").map(String::as_str),
+            Some("line one\nline two")
+        );
+        assert!(
+            !env.contains_key("PWD") && !env.contains_key("SHLVL") && !env.contains_key("bad key")
+        );
         assert!(parse(b"no marker here").is_empty());
     }
 
@@ -153,7 +164,9 @@ mod tests {
         std::fs::write(home.join(".bash_profile"), ". ~/.bashrc\n").unwrap();
         let env = read_from("/bin/bash", Some(&home));
         assert_eq!(env.get("FROM_RC").map(String::as_str), Some("set in rc"));
-        assert!(env.get("PATH").is_some_and(|p| p.starts_with("/opt/fromrc/bin")));
+        assert!(env
+            .get("PATH")
+            .is_some_and(|p| p.starts_with("/opt/fromrc/bin")));
         assert!(!env.contains_key("PWD"));
         let _ = std::fs::remove_dir_all(&home);
     }

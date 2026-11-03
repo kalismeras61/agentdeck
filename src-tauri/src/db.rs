@@ -477,7 +477,8 @@ impl Db {
         } else {
             "UPDATE sessions SET project_id = ?2, provider_session_id = NULL, status = 'idle', updated_at = ?3 WHERE id = ?1"
         };
-        self.conn().execute(sql, params![id, project_id, now_ms()])?;
+        self.conn()
+            .execute(sql, params![id, project_id, now_ms()])?;
         self.session(id)
     }
 
@@ -610,7 +611,11 @@ impl Db {
     }
 
     /// Sets (or with None clears) a session's reasoning effort.
-    pub fn set_session_effort(&self, id: &str, effort: Option<&str>) -> rusqlite::Result<Option<SessionRow>> {
+    pub fn set_session_effort(
+        &self,
+        id: &str,
+        effort: Option<&str>,
+    ) -> rusqlite::Result<Option<SessionRow>> {
         self.conn().execute(
             "UPDATE sessions SET effort = ?2, updated_at = ?3 WHERE id = ?1",
             params![id, effort, now_ms()],
@@ -1007,7 +1012,10 @@ impl Db {
     /// Forgets the agent's own conversation id, so the next message starts a fresh one.
     /// Renames a session without moving it up the list.
     pub fn rename_session(&self, id: &str, title: &str) -> rusqlite::Result<Option<SessionRow>> {
-        self.conn().execute("UPDATE sessions SET title = ?2 WHERE id = ?1", params![id, title])?;
+        self.conn().execute(
+            "UPDATE sessions SET title = ?2 WHERE id = ?1",
+            params![id, title],
+        )?;
         self.session(id)
     }
 
@@ -1043,7 +1051,9 @@ impl Db {
 
     pub fn meta(&self, key: &str) -> rusqlite::Result<Option<String>> {
         self.conn()
-            .query_row("SELECT value FROM meta WHERE key = ?1", params![key], |r| r.get(0))
+            .query_row("SELECT value FROM meta WHERE key = ?1", params![key], |r| {
+                r.get(0)
+            })
             .optional()
     }
 
@@ -1133,12 +1143,22 @@ mod tests {
             db.set_session_mode("s1", "plan").unwrap().unwrap().mode,
             "plan"
         );
-        assert_eq!(s.effort, None, "older sessions use the agent's default effort");
         assert_eq!(
-            db.set_session_effort("s1", Some("high")).unwrap().unwrap().effort.as_deref(),
+            s.effort, None,
+            "older sessions use the agent's default effort"
+        );
+        assert_eq!(
+            db.set_session_effort("s1", Some("high"))
+                .unwrap()
+                .unwrap()
+                .effort
+                .as_deref(),
             Some("high")
         );
-        assert_eq!(db.set_session_effort("s1", None).unwrap().unwrap().effort, None);
+        assert_eq!(
+            db.set_session_effort("s1", None).unwrap().unwrap().effort,
+            None
+        );
     }
 
     #[test]

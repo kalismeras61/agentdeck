@@ -51,15 +51,28 @@ fn friendly(e: impl std::fmt::Display) -> String {
 pub async fn check<R: Runtime>(app: &AppHandle<R>) -> Result<UpdateInfo, String> {
     let current = app.package_info().version.to_string();
     if !enabled(app) {
-        return Ok(UpdateInfo { current, enabled: false, available: None, notes: None, date: None });
+        return Ok(UpdateInfo {
+            current,
+            enabled: false,
+            available: None,
+            notes: None,
+            date: None,
+        });
     }
-    let update = app.updater().map_err(friendly)?.check().await.map_err(friendly)?;
+    let update = app
+        .updater()
+        .map_err(friendly)?
+        .check()
+        .await
+        .map_err(friendly)?;
     Ok(UpdateInfo {
         current,
         enabled: true,
         available: update.as_ref().map(|u| u.version.clone()),
         notes: update.as_ref().and_then(|u| u.body.clone()),
-        date: update.as_ref().and_then(|u| u.date.map(|d| d.date().to_string())),
+        date: update
+            .as_ref()
+            .and_then(|u| u.date.map(|d| d.date().to_string())),
     })
 }
 
@@ -67,7 +80,9 @@ pub async fn check<R: Runtime>(app: &AppHandle<R>) -> Result<UpdateInfo, String>
 /// events, then restarts into it.
 pub async fn install<R: Runtime>(app: &AppHandle<R>) -> Result<(), String> {
     if !enabled(app) {
-        return Err("This build doesn't update itself. Download the newest version instead.".into());
+        return Err(
+            "This build doesn't update itself. Download the newest version instead.".into(),
+        );
     }
     let update = app
         .updater()
@@ -83,10 +98,24 @@ pub async fn install<R: Runtime>(app: &AppHandle<R>) -> Result<(), String> {
         .download_and_install(
             move |chunk, total| {
                 downloaded += chunk as u64;
-                let _ = a.emit("update-progress", Progress { downloaded, total, done: false });
+                let _ = a.emit(
+                    "update-progress",
+                    Progress {
+                        downloaded,
+                        total,
+                        done: false,
+                    },
+                );
             },
             move || {
-                let _ = b.emit("update-progress", Progress { downloaded: 0, total: None, done: true });
+                let _ = b.emit(
+                    "update-progress",
+                    Progress {
+                        downloaded: 0,
+                        total: None,
+                        done: true,
+                    },
+                );
             },
         )
         .await

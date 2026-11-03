@@ -94,37 +94,181 @@ const CODEX: &[&str] = &["codex"];
 const GEMINI: &[&str] = &["gemini-cli"];
 
 fn places(project: Option<&Path>, h: &Homes) -> Vec<Place> {
-    let p = |kind, scope, agents, dir: PathBuf, shape| Place { kind, scope, agents, dir, shape };
+    let p = |kind, scope, agents, dir: PathBuf, shape| Place {
+        kind,
+        scope,
+        agents,
+        dir,
+        shape,
+    };
     let mut out = Vec::new();
     if let Some(root) = project {
         let r = root.to_path_buf();
         out.extend([
-            p("instructions", "project", CLAUDE, r.clone(), Shape::File("CLAUDE.md")),
-            p("instructions", "project", CLAUDE, r.clone(), Shape::File("CLAUDE.local.md")),
-            p("instructions", "project", CLAUDE, r.join(".claude"), Shape::File("CLAUDE.md")),
-            p("instructions", "project", CODEX, r.clone(), Shape::File("AGENTS.md")),
-            p("instructions", "project", CODEX, r.clone(), Shape::File("AGENTS.override.md")),
-            p("instructions", "project", GEMINI, r.clone(), Shape::File("GEMINI.md")),
-            p("skill", "project", CLAUDE, r.join(".claude/skills"), Shape::SkillDirs),
-            p("skill", "project", CODEX, r.join(".agents/skills"), Shape::SkillDirs),
-            p("skill", "project", GEMINI, r.join(".gemini/skills"), Shape::SkillDirs),
-            p("command", "project", CLAUDE, r.join(".claude/commands"), Shape::Tree("md")),
-            p("command", "project", GEMINI, r.join(".gemini/commands"), Shape::Tree("toml")),
-            p("subagent", "project", CLAUDE, r.join(".claude/agents"), Shape::Flat("md")),
+            p(
+                "instructions",
+                "project",
+                CLAUDE,
+                r.clone(),
+                Shape::File("CLAUDE.md"),
+            ),
+            p(
+                "instructions",
+                "project",
+                CLAUDE,
+                r.clone(),
+                Shape::File("CLAUDE.local.md"),
+            ),
+            p(
+                "instructions",
+                "project",
+                CLAUDE,
+                r.join(".claude"),
+                Shape::File("CLAUDE.md"),
+            ),
+            p(
+                "instructions",
+                "project",
+                CODEX,
+                r.clone(),
+                Shape::File("AGENTS.md"),
+            ),
+            p(
+                "instructions",
+                "project",
+                CODEX,
+                r.clone(),
+                Shape::File("AGENTS.override.md"),
+            ),
+            p(
+                "instructions",
+                "project",
+                GEMINI,
+                r.clone(),
+                Shape::File("GEMINI.md"),
+            ),
+            p(
+                "skill",
+                "project",
+                CLAUDE,
+                r.join(".claude/skills"),
+                Shape::SkillDirs,
+            ),
+            p(
+                "skill",
+                "project",
+                CODEX,
+                r.join(".agents/skills"),
+                Shape::SkillDirs,
+            ),
+            p(
+                "skill",
+                "project",
+                GEMINI,
+                r.join(".gemini/skills"),
+                Shape::SkillDirs,
+            ),
+            p(
+                "command",
+                "project",
+                CLAUDE,
+                r.join(".claude/commands"),
+                Shape::Tree("md"),
+            ),
+            p(
+                "command",
+                "project",
+                GEMINI,
+                r.join(".gemini/commands"),
+                Shape::Tree("toml"),
+            ),
+            p(
+                "subagent",
+                "project",
+                CLAUDE,
+                r.join(".claude/agents"),
+                Shape::Flat("md"),
+            ),
         ]);
     }
     out.extend([
-        p("instructions", "global", CLAUDE, h.claude.clone(), Shape::File("CLAUDE.md")),
-        p("instructions", "global", CODEX, h.codex.clone(), Shape::File("AGENTS.md")),
-        p("instructions", "global", GEMINI, h.gemini.clone(), Shape::File("GEMINI.md")),
-        p("skill", "global", CLAUDE, h.claude.join("skills"), Shape::SkillDirs),
-        p("skill", "global", CODEX, h.home.join(".agents/skills"), Shape::SkillDirs),
-        p("skill", "global", CODEX, h.codex.join("skills"), Shape::SkillDirs),
-        p("skill", "global", GEMINI, h.gemini.join("skills"), Shape::SkillDirs),
-        p("command", "global", CLAUDE, h.claude.join("commands"), Shape::Tree("md")),
-        p("command", "global", CODEX, h.codex.join("prompts"), Shape::Flat("md")),
-        p("command", "global", GEMINI, h.gemini.join("commands"), Shape::Tree("toml")),
-        p("subagent", "global", CLAUDE, h.claude.join("agents"), Shape::Flat("md")),
+        p(
+            "instructions",
+            "global",
+            CLAUDE,
+            h.claude.clone(),
+            Shape::File("CLAUDE.md"),
+        ),
+        p(
+            "instructions",
+            "global",
+            CODEX,
+            h.codex.clone(),
+            Shape::File("AGENTS.md"),
+        ),
+        p(
+            "instructions",
+            "global",
+            GEMINI,
+            h.gemini.clone(),
+            Shape::File("GEMINI.md"),
+        ),
+        p(
+            "skill",
+            "global",
+            CLAUDE,
+            h.claude.join("skills"),
+            Shape::SkillDirs,
+        ),
+        p(
+            "skill",
+            "global",
+            CODEX,
+            h.home.join(".agents/skills"),
+            Shape::SkillDirs,
+        ),
+        p(
+            "skill",
+            "global",
+            CODEX,
+            h.codex.join("skills"),
+            Shape::SkillDirs,
+        ),
+        p(
+            "skill",
+            "global",
+            GEMINI,
+            h.gemini.join("skills"),
+            Shape::SkillDirs,
+        ),
+        p(
+            "command",
+            "global",
+            CLAUDE,
+            h.claude.join("commands"),
+            Shape::Tree("md"),
+        ),
+        p(
+            "command",
+            "global",
+            CODEX,
+            h.codex.join("prompts"),
+            Shape::Flat("md"),
+        ),
+        p(
+            "command",
+            "global",
+            GEMINI,
+            h.gemini.join("commands"),
+            Shape::Tree("toml"),
+        ),
+        p(
+            "subagent",
+            "global",
+            CLAUDE,
+            h.claude.join("agents"),
+            Shape::Flat("md"),
+        ),
     ]);
     out
 }
@@ -164,13 +308,23 @@ fn describe(text: &str) -> (Option<String>, Option<String>) {
     } else {
         for line in text.lines().take(40) {
             let l = line.trim_start();
-            if let Some(v) = l.strip_prefix("description").map(str::trim_start).and_then(|v| v.strip_prefix('=')) {
+            if let Some(v) = l
+                .strip_prefix("description")
+                .map(str::trim_start)
+                .and_then(|v| v.strip_prefix('='))
+            {
                 desc = unquote(v);
                 break;
             }
         }
     }
-    let clip = |s: String| if s.chars().count() > 300 { s.chars().take(300).collect::<String>() + "…" } else { s };
+    let clip = |s: String| {
+        if s.chars().count() > 300 {
+            s.chars().take(300).collect::<String>() + "…"
+        } else {
+            s
+        }
+    };
     (name, desc.map(clip))
 }
 
@@ -185,12 +339,18 @@ fn head(path: &Path) -> String {
 
 fn item(place: &Place, path: &Path, name: String) -> Item {
     let meta = std::fs::metadata(path).ok();
-    let linked = std::fs::symlink_metadata(path).map(|m| m.file_type().is_symlink()).unwrap_or(false)
+    let linked = std::fs::symlink_metadata(path)
+        .map(|m| m.file_type().is_symlink())
+        .unwrap_or(false)
         || path
             .parent()
             .and_then(|d| std::fs::symlink_metadata(d).ok())
             .is_some_and(|m| m.file_type().is_symlink());
-    let (fm_name, description) = if meta.is_some() { describe(&head(path)) } else { (None, None) };
+    let (fm_name, description) = if meta.is_some() {
+        describe(&head(path))
+    } else {
+        (None, None)
+    };
     let name = match (place.shape, fm_name) {
         (Shape::SkillDirs, Some(n)) => n,
         _ => name,
@@ -227,7 +387,9 @@ fn walk(dir: &Path, ext: &str, depth: usize, out: &mut Vec<PathBuf>) {
     if depth > 4 || out.len() >= MAX_ITEMS_PER_PLACE {
         return;
     }
-    let Ok(rd) = std::fs::read_dir(dir) else { return };
+    let Ok(rd) = std::fs::read_dir(dir) else {
+        return;
+    };
     let mut entries: Vec<_> = rd.flatten().collect();
     entries.sort_by_key(|e| e.file_name());
     for e in entries {
@@ -256,18 +418,33 @@ pub fn scan(project: Option<&Path>, homes: &Homes) -> Vec<Item> {
             Shape::File(rel) => {
                 let path = place.dir.join(rel);
                 // The nested `.claude/CLAUDE.md` is only shown when it's really there.
-                let optional = rel == "CLAUDE.local.md" || rel == "AGENTS.override.md" || place.dir.ends_with(".claude") && place.scope == "project";
+                let optional = rel == "CLAUDE.local.md"
+                    || rel == "AGENTS.override.md"
+                    || place.dir.ends_with(".claude") && place.scope == "project";
                 if path.is_file() || !optional {
-                    let shown = if place.dir.ends_with(".claude") && place.scope == "project" { ".claude/CLAUDE.md".to_string() } else { rel.to_string() };
+                    let shown = if place.dir.ends_with(".claude") && place.scope == "project" {
+                        ".claude/CLAUDE.md".to_string()
+                    } else {
+                        rel.to_string()
+                    };
                     out.push(item(&place, &path, shown));
                 }
             }
             Shape::SkillDirs => {
-                let Ok(rd) = std::fs::read_dir(&place.dir) else { continue };
-                let mut dirs: Vec<_> = rd.flatten().map(|e| e.path()).filter(|p| p.join("SKILL.md").is_file()).collect();
+                let Ok(rd) = std::fs::read_dir(&place.dir) else {
+                    continue;
+                };
+                let mut dirs: Vec<_> = rd
+                    .flatten()
+                    .map(|e| e.path())
+                    .filter(|p| p.join("SKILL.md").is_file())
+                    .collect();
                 dirs.sort();
                 for d in dirs.into_iter().take(MAX_ITEMS_PER_PLACE) {
-                    let name = d.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+                    let name = d
+                        .file_name()
+                        .map(|n| n.to_string_lossy().into_owned())
+                        .unwrap_or_default();
                     out.push(item(&place, &d.join("SKILL.md"), name));
                 }
             }
@@ -276,7 +453,11 @@ pub fn scan(project: Option<&Path>, homes: &Homes) -> Vec<Item> {
                 if matches!(place.shape, Shape::Tree(_)) {
                     walk(&place.dir, ext, 0, &mut files);
                 } else if let Ok(rd) = std::fs::read_dir(&place.dir) {
-                    files = rd.flatten().map(|e| e.path()).filter(|p| p.is_file() && p.extension().is_some_and(|x| x == ext)).collect();
+                    files = rd
+                        .flatten()
+                        .map(|e| e.path())
+                        .filter(|p| p.is_file() && p.extension().is_some_and(|x| x == ext))
+                        .collect();
                     files.sort();
                     files.truncate(MAX_ITEMS_PER_PLACE);
                 }
@@ -296,7 +477,13 @@ pub fn scan(project: Option<&Path>, homes: &Homes) -> Vec<Item> {
 }
 
 fn plain(p: &Path) -> bool {
-    p.is_absolute() && p.components().all(|c| matches!(c, Component::RootDir | Component::Normal(_) | Component::Prefix(_)))
+    p.is_absolute()
+        && p.components().all(|c| {
+            matches!(
+                c,
+                Component::RootDir | Component::Normal(_) | Component::Prefix(_)
+            )
+        })
 }
 
 /// The place a path belongs to, if it is one an agent reads. Used for every read and write.
@@ -306,40 +493,73 @@ fn place_of(path: &Path, projects: &[PathBuf], homes: &Homes) -> Option<Place> {
     }
     let mut all = places(None, homes);
     for p in projects {
-        all.extend(places(Some(p), homes).into_iter().filter(|x| x.scope == "project"));
+        all.extend(
+            places(Some(p), homes)
+                .into_iter()
+                .filter(|x| x.scope == "project"),
+        );
     }
     all.into_iter().find(|place| {
-        let Ok(rel) = path.strip_prefix(&place.dir) else { return false };
+        let Ok(rel) = path.strip_prefix(&place.dir) else {
+            return false;
+        };
         let parts: Vec<&std::ffi::OsStr> = rel.iter().collect();
         let hidden = parts.iter().any(|s| s.to_string_lossy().starts_with('.'));
         match place.shape {
             Shape::File(f) => rel == Path::new(f),
             Shape::SkillDirs => parts.len() == 2 && parts[1] == "SKILL.md" && !hidden,
-            Shape::Flat(ext) => parts.len() == 1 && rel.extension().is_some_and(|x| x == ext) && !hidden,
-            Shape::Tree(ext) => (1..=5).contains(&parts.len()) && rel.extension().is_some_and(|x| x == ext) && !hidden,
+            Shape::Flat(ext) => {
+                parts.len() == 1 && rel.extension().is_some_and(|x| x == ext) && !hidden
+            }
+            Shape::Tree(ext) => {
+                (1..=5).contains(&parts.len())
+                    && rel.extension().is_some_and(|x| x == ext)
+                    && !hidden
+            }
         }
     })
 }
 
 pub fn read(path: &str, projects: &[PathBuf], homes: &Homes) -> Result<FileText, String> {
     let p = PathBuf::from(path);
-    place_of(&p, projects, homes).ok_or("AgentDeck only opens agent instruction, skill and command files here")?;
+    place_of(&p, projects, homes)
+        .ok_or("AgentDeck only opens agent instruction, skill and command files here")?;
     match std::fs::metadata(&p) {
-        Ok(m) if m.len() > MAX_BYTES => Err("This file is over 1 MB; open it in your editor instead".into()),
+        Ok(m) if m.len() > MAX_BYTES => {
+            Err("This file is over 1 MB; open it in your editor instead".into())
+        }
         Ok(m) => {
             let bytes = std::fs::read(&p).map_err(|e| format!("Couldn't read it: {e}"))?;
-            let text = String::from_utf8(bytes).map_err(|_| "This file isn't plain text".to_string())?;
-            Ok(FileText { path: path.into(), text, modified: modified_ms(&m), exists: true })
+            let text =
+                String::from_utf8(bytes).map_err(|_| "This file isn't plain text".to_string())?;
+            Ok(FileText {
+                path: path.into(),
+                text,
+                modified: modified_ms(&m),
+                exists: true,
+            })
         }
-        Err(_) => Ok(FileText { path: path.into(), text: String::new(), modified: 0, exists: false }),
+        Err(_) => Ok(FileText {
+            path: path.into(),
+            text: String::new(),
+            modified: 0,
+            exists: false,
+        }),
     }
 }
 
 /// Saves a file. `expected_modified` is what the editor loaded (0 = it didn't exist); if the
 /// file changed on disk since, nothing is written.
-pub fn write(path: &str, text: &str, expected_modified: i64, projects: &[PathBuf], homes: &Homes) -> Result<FileText, String> {
+pub fn write(
+    path: &str,
+    text: &str,
+    expected_modified: i64,
+    projects: &[PathBuf],
+    homes: &Homes,
+) -> Result<FileText, String> {
     let p = PathBuf::from(path);
-    place_of(&p, projects, homes).ok_or("AgentDeck only saves agent instruction, skill and command files here")?;
+    place_of(&p, projects, homes)
+        .ok_or("AgentDeck only saves agent instruction, skill and command files here")?;
     if text.len() as u64 > MAX_BYTES {
         return Err("That's over 1 MB".into());
     }
@@ -354,7 +574,9 @@ pub fn write(path: &str, text: &str, expected_modified: i64, projects: &[PathBuf
     if let Some(parent) = p.parent() {
         std::fs::create_dir_all(parent).map_err(|e| format!("Couldn't make the folder: {e}"))?;
     }
-    let is_link = std::fs::symlink_metadata(&p).map(|m| m.file_type().is_symlink()).unwrap_or(false);
+    let is_link = std::fs::symlink_metadata(&p)
+        .map(|m| m.file_type().is_symlink())
+        .unwrap_or(false);
     if is_link {
         // A linked file is written where it lives, keeping the link.
         std::fs::write(&p, text).map_err(|e| format!("Couldn't save it: {e}"))?;
@@ -374,7 +596,13 @@ fn slug(name: &str) -> Result<String, String> {
         .trim()
         .to_lowercase()
         .chars()
-        .map(|c| if c.is_ascii_alphanumeric() || c == '-' || c == '_' { c } else { '-' })
+        .map(|c| {
+            if c.is_ascii_alphanumeric() || c == '-' || c == '_' {
+                c
+            } else {
+                '-'
+            }
+        })
         .collect();
     let s = s.trim_matches('-').to_string();
     if s.is_empty() || s.len() > 64 {
@@ -384,11 +612,23 @@ fn slug(name: &str) -> Result<String, String> {
 }
 
 /// The path and starting text for a new skill, command or subagent.
-pub fn new_item(kind: &str, scope: &str, agent: &str, name: &str, project: Option<&Path>, homes: &Homes) -> Result<(PathBuf, String), String> {
+pub fn new_item(
+    kind: &str,
+    scope: &str,
+    agent: &str,
+    name: &str,
+    project: Option<&Path>,
+    homes: &Homes,
+) -> Result<(PathBuf, String), String> {
     let n = slug(name)?;
     let place = places(project, homes)
         .into_iter()
-        .find(|p| p.kind == kind && p.scope == scope && p.agents.contains(&agent) && !matches!(p.shape, Shape::File(_)))
+        .find(|p| {
+            p.kind == kind
+                && p.scope == scope
+                && p.agents.contains(&agent)
+                && !matches!(p.shape, Shape::File(_))
+        })
         .ok_or("That agent doesn't read this kind of file from there")?;
     let (path, text) = match place.shape {
         Shape::SkillDirs => (
@@ -427,13 +667,30 @@ mod tests {
             std::fs::write(p, t).unwrap();
         };
         w(proj.join("CLAUDE.md"), "# Rules\n");
-        w(proj.join(".claude/skills/deploy/SKILL.md"), "---\nname: deploy-app\ndescription: Ships the app\n---\nbody");
-        w(proj.join(".claude/commands/git/review.md"), "---\ndescription: Review the diff\n---\n");
-        w(proj.join(".gemini/commands/git/sum.toml"), "description = \"Sum it up\"\nprompt = \"x\"\n");
+        w(
+            proj.join(".claude/skills/deploy/SKILL.md"),
+            "---\nname: deploy-app\ndescription: Ships the app\n---\nbody",
+        );
+        w(
+            proj.join(".claude/commands/git/review.md"),
+            "---\ndescription: Review the diff\n---\n",
+        );
+        w(
+            proj.join(".gemini/commands/git/sum.toml"),
+            "description = \"Sum it up\"\nprompt = \"x\"\n",
+        );
         w(home.join(".claude/CLAUDE.md"), "global rules");
         w(home.join(".codex/prompts/tidy.md"), "tidy");
-        w(home.join(".claude/agents/tester.md"), "---\nname: tester\ndescription: Runs tests\n---\n");
-        let homes = Homes { home: home.clone(), claude: home.join(".claude"), codex: home.join(".codex"), gemini: home.join(".gemini") };
+        w(
+            home.join(".claude/agents/tester.md"),
+            "---\nname: tester\ndescription: Runs tests\n---\n",
+        );
+        let homes = Homes {
+            home: home.clone(),
+            claude: home.join(".claude"),
+            codex: home.join(".codex"),
+            gemini: home.join(".gemini"),
+        };
         (dir, proj, homes)
     }
 
@@ -441,17 +698,34 @@ mod tests {
     fn finds_what_each_agent_reads() {
         let (_d, proj, homes) = setup();
         let items = scan(Some(&proj), &homes);
-        let find = |n: &str| items.iter().find(|i| i.name == n).unwrap_or_else(|| panic!("{n} in {items:#?}"));
+        let find = |n: &str| {
+            items
+                .iter()
+                .find(|i| i.name == n)
+                .unwrap_or_else(|| panic!("{n} in {items:#?}"))
+        };
         assert!(find("CLAUDE.md").exists);
-        assert!(!find("AGENTS.md").exists, "missing instruction files are offered");
+        assert!(
+            !find("AGENTS.md").exists,
+            "missing instruction files are offered"
+        );
         let skill = find("deploy-app");
-        assert_eq!((skill.kind.as_str(), skill.scope.as_str()), ("skill", "project"));
+        assert_eq!(
+            (skill.kind.as_str(), skill.scope.as_str()),
+            ("skill", "project")
+        );
         assert_eq!(skill.description.as_deref(), Some("Ships the app"));
-        assert_eq!(find("/review").description.as_deref(), Some("Review the diff"));
+        assert_eq!(
+            find("/review").description.as_deref(),
+            Some("Review the diff")
+        );
         assert_eq!(find("/git:sum").description.as_deref(), Some("Sum it up"));
         assert_eq!(find("/prompts:tidy").agents, ["codex"]);
         assert_eq!(find("tester").kind, "subagent");
-        assert!(items.iter().filter(|i| i.name == "CLAUDE.md").any(|i| i.scope == "global"));
+        assert!(items
+            .iter()
+            .filter(|i| i.name == "CLAUDE.md")
+            .any(|i| i.scope == "global"));
     }
 
     #[test]
@@ -461,9 +735,19 @@ mod tests {
         let claude_md = proj.join("CLAUDE.md").to_string_lossy().into_owned();
         let f = read(&claude_md, &projects, &homes).unwrap();
         assert_eq!(f.text, "# Rules\n");
-        let saved = write(&claude_md, "# Rules\nBe brief.\n", f.modified, &projects, &homes).unwrap();
+        let saved = write(
+            &claude_md,
+            "# Rules\nBe brief.\n",
+            f.modified,
+            &projects,
+            &homes,
+        )
+        .unwrap();
         assert!(saved.text.contains("Be brief"));
-        assert!(write(&claude_md, "again", f.modified - 1, &projects, &homes).is_err(), "stale edits are refused");
+        assert!(
+            write(&claude_md, "again", f.modified - 1, &projects, &homes).is_err(),
+            "stale edits are refused"
+        );
         for bad in [
             proj.join("src/main.rs"),
             proj.join("../CLAUDE.md"),
@@ -476,14 +760,25 @@ mod tests {
             assert!(write(&p, "x", 0, &projects, &homes).is_err(), "{p}");
         }
         // A project that isn't in AgentDeck can't be written through.
-        let other = proj.parent().unwrap().join("other/CLAUDE.md").to_string_lossy().into_owned();
+        let other = proj
+            .parent()
+            .unwrap()
+            .join("other/CLAUDE.md")
+            .to_string_lossy()
+            .into_owned();
         assert!(write(&other, "x", 0, &projects, &homes).is_err());
         // New items land where the agent looks for them.
-        let (p, text) = new_item("skill", "global", "claude-code", "PDF tools", None, &homes).unwrap();
+        let (p, text) =
+            new_item("skill", "global", "claude-code", "PDF tools", None, &homes).unwrap();
         assert_eq!(p, homes.claude.join("skills/pdf-tools/SKILL.md"));
         write(&p.to_string_lossy(), &text, 0, &projects, &homes).unwrap();
-        assert!(scan(None, &homes).iter().any(|i| i.name == "pdf-tools" && i.kind == "skill"));
-        assert!(new_item("skill", "global", "claude-code", "pdf tools", None, &homes).is_err(), "no overwrite");
+        assert!(scan(None, &homes)
+            .iter()
+            .any(|i| i.name == "pdf-tools" && i.kind == "skill"));
+        assert!(
+            new_item("skill", "global", "claude-code", "pdf tools", None, &homes).is_err(),
+            "no overwrite"
+        );
         assert!(new_item("instructions", "project", "codex", "x", Some(&proj), &homes).is_err());
     }
 }

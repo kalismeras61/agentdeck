@@ -71,7 +71,9 @@ fn strings(v: impl Iterator<Item = Option<String>>) -> Option<Vec<String>> {
 }
 
 fn clean(s: Option<&str>) -> Option<String> {
-    s.map(str::trim).filter(|s| !s.is_empty()).map(str::to_owned)
+    s.map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(str::to_owned)
 }
 
 /// Claude Code's `initialize` response → choices. Its list already starts with "default".
@@ -161,7 +163,9 @@ pub fn from_acp(result: &Value, agent: &str) -> Vec<ModelChoice> {
         .into_iter()
         .flatten()
     {
-        let Some(id) = clean(m["modelId"].as_str()) else { continue };
+        let Some(id) = clean(m["modelId"].as_str()) else {
+            continue;
+        };
         if id == "default" {
             continue;
         }
@@ -184,27 +188,48 @@ pub fn from_agy(v: &Value) -> Vec<ModelChoice> {
     let list = v
         .as_array()
         .cloned()
-        .or_else(|| v.as_object().and_then(|o| o.values().find_map(|x| x.as_array().cloned())))
+        .or_else(|| {
+            v.as_object()
+                .and_then(|o| o.values().find_map(|x| x.as_array().cloned()))
+        })
         .unwrap_or_default();
     let mut out = vec![default_choice("Antigravity")];
     for m in list {
         let (id, label, description) = match &m {
             Value::String(s) => (Some(s.clone()), None, None),
             Value::Object(o) => {
-                let s = |k: &str| o.get(k).and_then(Value::as_str).map(str::to_owned).filter(|x| !x.trim().is_empty());
+                let s = |k: &str| {
+                    o.get(k)
+                        .and_then(Value::as_str)
+                        .map(str::to_owned)
+                        .filter(|x| !x.trim().is_empty())
+                };
                 (
-                    s("slug").or_else(|| s("id")).or_else(|| s("model")).or_else(|| s("name")),
-                    s("label").or_else(|| s("display_name")).or_else(|| s("displayName")).or_else(|| s("name")),
+                    s("slug")
+                        .or_else(|| s("id"))
+                        .or_else(|| s("model"))
+                        .or_else(|| s("name")),
+                    s("label")
+                        .or_else(|| s("display_name"))
+                        .or_else(|| s("displayName"))
+                        .or_else(|| s("name")),
                     s("description"),
                 )
             }
             _ => (None, None, None),
         };
-        let Some(id) = id.filter(|i| i != "default") else { continue };
+        let Some(id) = id.filter(|i| i != "default") else {
+            continue;
+        };
         if out.iter().any(|x| x.id == id) {
             continue;
         }
-        out.push(ModelChoice { label: label.unwrap_or_else(|| id.clone()), description, id, ..Default::default() });
+        out.push(ModelChoice {
+            label: label.unwrap_or_else(|| id.clone()),
+            description,
+            id,
+            ..Default::default()
+        });
     }
     if out.len() == 1 {
         out.clear();
@@ -240,7 +265,10 @@ fn cached(provider: &str) -> Option<Vec<ModelChoice>> {
 /// The effort an agent uses for a model when none is picked, from this run's list.
 pub fn default_effort(provider: &str, model: &str) -> Option<String> {
     let id = if model.is_empty() { "default" } else { model };
-    cached(provider)?.into_iter().find(|m| m.id == id)?.default_effort
+    cached(provider)?
+        .into_iter()
+        .find(|m| m.id == id)?
+        .default_effort
 }
 
 fn saved(db: &Db, provider: &str) -> Option<Vec<ModelChoice>> {
@@ -252,7 +280,11 @@ fn saved(db: &Db, provider: &str) -> Option<Vec<ModelChoice>> {
 }
 
 fn builtin(provider: &str) -> Vec<ModelChoice> {
-    let c = |id: &str, label: &str| ModelChoice { id: id.into(), label: label.into(), ..Default::default() };
+    let c = |id: &str, label: &str| ModelChoice {
+        id: id.into(),
+        label: label.into(),
+        ..Default::default()
+    };
     match provider {
         "claude-code" => vec![
             default_choice("Claude Code"),
@@ -309,7 +341,12 @@ struct Probe {
 }
 
 impl Probe {
-    fn start(bin: PathBuf, args: &[&str], cwd: &std::path::Path, env: &[(&str, String)]) -> Result<Self, String> {
+    fn start(
+        bin: PathBuf,
+        args: &[&str],
+        cwd: &std::path::Path,
+        env: &[(&str, String)],
+    ) -> Result<Self, String> {
         let mut cmd = Command::new(&bin);
         cmd.args(args)
             .current_dir(cwd)
@@ -343,7 +380,12 @@ impl Probe {
                 }
             }
         });
-        Ok(Self { child, stdin, rx, deadline: Instant::now() + PROBE_TIMEOUT })
+        Ok(Self {
+            child,
+            stdin,
+            rx,
+            deadline: Instant::now() + PROBE_TIMEOUT,
+        })
     }
 
     fn send(&mut self, v: &Value) -> Result<(), String> {
@@ -352,7 +394,10 @@ impl Probe {
     }
 
     /// The first message `pick` returns something for.
-    fn wait<T>(&mut self, mut pick: impl FnMut(&Value) -> Option<Result<T, String>>) -> Result<T, String> {
+    fn wait<T>(
+        &mut self,
+        mut pick: impl FnMut(&Value) -> Option<Result<T, String>>,
+    ) -> Result<T, String> {
         loop {
             let left = self.deadline.saturating_duration_since(Instant::now());
             if left.is_zero() {
@@ -385,7 +430,10 @@ fn rpc_answer(v: &Value, id: u64) -> Option<Result<Value, String>> {
         return None;
     }
     Some(match v.get("error") {
-        Some(e) => Err(e["message"].as_str().unwrap_or("The agent returned an error").to_string()),
+        Some(e) => Err(e["message"]
+            .as_str()
+            .unwrap_or("The agent returned an error")
+            .to_string()),
         None => Ok(v.get("result").cloned().unwrap_or(Value::Null)),
     })
 }
@@ -396,17 +444,33 @@ pub fn claude_initialize(cwd: &std::path::Path) -> Result<Value, String> {
     let bin = crate::providers::find_binary("claude").ok_or("Claude Code isn't installed")?;
     let mut p = Probe::start(
         bin,
-        &["-p", "--input-format", "stream-json", "--output-format", "stream-json", "--verbose"],
+        &[
+            "-p",
+            "--input-format",
+            "stream-json",
+            "--output-format",
+            "stream-json",
+            "--verbose",
+        ],
         cwd,
         &[],
     )?;
     p.send(&json!({ "type": "control_request", "request_id": "agentdeck-models", "request": { "subtype": "initialize" } }))?;
     p.wait(|v| {
         (v.pointer("/response/request_id").and_then(Value::as_str) == Some("agentdeck-models"))
-            .then(|| match v.pointer("/response/subtype").and_then(Value::as_str) {
-                Some("success") => Ok(v.pointer("/response/response").cloned().unwrap_or(Value::Null)),
-                _ => Err(v.pointer("/response/error").and_then(Value::as_str).unwrap_or("Claude Code returned an error").to_string()),
-            })
+            .then(
+                || match v.pointer("/response/subtype").and_then(Value::as_str) {
+                    Some("success") => Ok(v
+                        .pointer("/response/response")
+                        .cloned()
+                        .unwrap_or(Value::Null)),
+                    _ => Err(v
+                        .pointer("/response/error")
+                        .and_then(Value::as_str)
+                        .unwrap_or("Claude Code returned an error")
+                        .to_string()),
+                },
+            )
     })
 }
 
@@ -426,7 +490,8 @@ fn probe(provider: &str) -> Result<Vec<ModelChoice>, String> {
             Ok(from_codex(&r))
         }
         "antigravity" => {
-            let bin = crate::providers::find_binary("agy").ok_or("Antigravity CLI (agy) isn't installed")?;
+            let bin = crate::providers::find_binary("agy")
+                .ok_or("Antigravity CLI (agy) isn't installed")?;
             let mut cmd = Command::new(&bin);
             cmd.args(["models", "--output-format", "json"])
                 .current_dir(&tmp)
@@ -435,7 +500,9 @@ fn probe(provider: &str) -> Result<Vec<ModelChoice>, String> {
                 .stderr(Stdio::null());
             crate::shellenv::apply(&mut cmd);
             cmd.env("PATH", crate::claude::augmented_path());
-            let child = cmd.spawn().map_err(|e| format!("Couldn't start agy: {e}"))?;
+            let child = cmd
+                .spawn()
+                .map_err(|e| format!("Couldn't start agy: {e}"))?;
             let (tx, rx) = channel();
             std::thread::spawn(move || {
                 let _ = tx.send(child.wait_with_output());
@@ -444,7 +511,8 @@ fn probe(provider: &str) -> Result<Vec<ModelChoice>, String> {
                 .recv_timeout(PROBE_TIMEOUT)
                 .map_err(|_| "agy took too long to list its models".to_string())?
                 .map_err(|e| e.to_string())?;
-            let v: Value = serde_json::from_slice(&out.stdout).map_err(|_| "agy didn't list its models as JSON".to_string())?;
+            let v: Value = serde_json::from_slice(&out.stdout)
+                .map_err(|_| "agy didn't list its models as JSON".to_string())?;
             Ok(from_agy(&v))
         }
         "gemini-cli" | "grok-build" | "kimi-code" => {
@@ -486,9 +554,15 @@ mod tests {
             { "value": "haiku", "displayName": "Haiku" },
             { "value": "", "displayName": "broken" }
         ] }));
-        assert_eq!(claude.iter().map(|m| m.id.as_str()).collect::<Vec<_>>(), ["default", "fable", "haiku"]);
+        assert_eq!(
+            claude.iter().map(|m| m.id.as_str()).collect::<Vec<_>>(),
+            ["default", "fable", "haiku"]
+        );
         assert_eq!(claude[0].efforts.as_ref().map(Vec::len), Some(5));
-        assert_eq!(claude[1].efforts, Some(vec!["low".into(), "medium".into(), "high".into()]));
+        assert_eq!(
+            claude[1].efforts,
+            Some(vec!["low".into(), "medium".into(), "high".into()])
+        );
         assert_eq!(claude[2].efforts, None, "no effort setting for this model");
 
         let codex = from_codex(&json!({ "data": [
@@ -498,28 +572,47 @@ mod tests {
             { "id": "mini", "model": "mini", "displayName": "Mini", "isDefault": false, "hidden": false, "supportedReasoningEfforts": [], "defaultReasoningEffort": "medium" },
             { "id": "secret", "model": "secret", "hidden": true }
         ] }));
-        assert_eq!(codex.iter().map(|m| m.id.as_str()).collect::<Vec<_>>(), ["default", "gpt-6.1-sol", "mini"]);
-        assert_eq!(codex[1].description.as_deref(), Some("Workhorse (Codex's default)"));
+        assert_eq!(
+            codex.iter().map(|m| m.id.as_str()).collect::<Vec<_>>(),
+            ["default", "gpt-6.1-sol", "mini"]
+        );
+        assert_eq!(
+            codex[1].description.as_deref(),
+            Some("Workhorse (Codex's default)")
+        );
         assert_eq!(codex[1].efforts, Some(vec!["low".into(), "high".into()]));
-        assert_eq!(codex[0].efforts, codex[1].efforts, "Default takes the default model's efforts");
+        assert_eq!(
+            codex[0].efforts, codex[1].efforts,
+            "Default takes the default model's efforts"
+        );
         assert_eq!(codex[0].default_effort.as_deref(), Some("high"));
         assert_eq!(codex[2].efforts, None);
         // Lists saved by an older version have no effort fields.
-        let old: Vec<ModelChoice> = serde_json::from_str(r#"[{"id":"opus","label":"Opus"}]"#).unwrap();
+        let old: Vec<ModelChoice> =
+            serde_json::from_str(r#"[{"id":"opus","label":"Opus"}]"#).unwrap();
         assert_eq!(old[0].efforts, None);
 
-        let gemini = from_acp(&json!({ "sessionId": "s", "models": { "currentModelId": "auto", "availableModels": [
+        let gemini = from_acp(
+            &json!({ "sessionId": "s", "models": { "currentModelId": "auto", "availableModels": [
             { "modelId": "auto", "name": "Auto", "description": "Picks for you" },
             { "modelId": "gemini-2.5-pro", "name": "gemini-2.5-pro" }
-        ] } }), "Gemini CLI");
-        assert_eq!(gemini.iter().map(|m| m.id.as_str()).collect::<Vec<_>>(), ["default", "auto", "gemini-2.5-pro"]);
+        ] } }),
+            "Gemini CLI",
+        );
+        assert_eq!(
+            gemini.iter().map(|m| m.id.as_str()).collect::<Vec<_>>(),
+            ["default", "auto", "gemini-2.5-pro"]
+        );
         assert!(from_acp(&json!({ "sessionId": "s" }), "Grok").is_empty());
 
         let agy = from_agy(&json!({ "models": [
             { "slug": "gemini-3.8-flash-medium", "label": "Gemini 3.8 Flash (medium)" },
             "gemini-3.1-pro-high"
         ] }));
-        assert_eq!(agy.iter().map(|m| m.id.as_str()).collect::<Vec<_>>(), ["default", "gemini-3.8-flash-medium", "gemini-3.1-pro-high"]);
+        assert_eq!(
+            agy.iter().map(|m| m.id.as_str()).collect::<Vec<_>>(),
+            ["default", "gemini-3.8-flash-medium", "gemini-3.1-pro-high"]
+        );
     }
 }
 
@@ -532,10 +625,22 @@ mod live_tests {
     #[ignore]
     fn the_installed_agents_list_their_models() {
         let claude = probe("claude-code").expect("claude");
-        eprintln!("claude: {:?}", claude.iter().map(|m| (&m.id, &m.efforts)).collect::<Vec<_>>());
+        eprintln!(
+            "claude: {:?}",
+            claude
+                .iter()
+                .map(|m| (&m.id, &m.efforts))
+                .collect::<Vec<_>>()
+        );
         assert!(claude.iter().any(|m| m.id == "default") && claude.len() > 2);
         let codex = probe("codex").expect("codex");
-        eprintln!("codex: {:?}", codex.iter().map(|m| (&m.id, &m.efforts, &m.default_effort)).collect::<Vec<_>>());
+        eprintln!(
+            "codex: {:?}",
+            codex
+                .iter()
+                .map(|m| (&m.id, &m.efforts, &m.default_effort))
+                .collect::<Vec<_>>()
+        );
         assert!(codex.len() > 2);
     }
 }

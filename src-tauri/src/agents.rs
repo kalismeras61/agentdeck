@@ -15,7 +15,15 @@ pub const MAX_LIVE: usize = 6;
 pub const IDLE_CLOSE_MS: i64 = 10 * 60 * 1000;
 
 /// Providers AgentDeck can run as live sessions.
-pub const LIVE_PROVIDERS: &[&str] = &["claude-code", "codex", "gemini-cli", "grok-build", "kimi-code", "antigravity", "api"];
+pub const LIVE_PROVIDERS: &[&str] = &[
+    "claude-code",
+    "codex",
+    "gemini-cli",
+    "grok-build",
+    "kimi-code",
+    "antigravity",
+    "api",
+];
 
 pub fn label(provider: &str) -> &'static str {
     match provider {
@@ -225,14 +233,21 @@ impl Agents {
             Kind::Claude => EffortStatus {
                 running: self.claude.is_running(sid),
                 effort: self.claude.applied_effort(sid)?,
-                env: self.claude.effort_env().map(|v| (crate::claude::EFFORT_ENV.to_string(), v)),
+                env: self
+                    .claude
+                    .effort_env()
+                    .map(|v| (crate::claude::EFFORT_ENV.to_string(), v)),
             },
             Kind::Codex => EffortStatus {
                 running: self.codex.is_running(sid),
                 effort: self.codex.current_effort(sid),
                 env: None,
             },
-            _ => EffortStatus { running: self.is_running(sid), effort: None, env: None },
+            _ => EffortStatus {
+                running: self.is_running(sid),
+                effort: None,
+                env: None,
+            },
         })
     }
 

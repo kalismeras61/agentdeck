@@ -161,7 +161,14 @@ mod tests {
         let ids: Vec<_> = probe_all().into_iter().map(|p| p.id).collect();
         assert_eq!(
             ids,
-            vec!["claude-code", "codex", "gemini-cli", "grok-build", "kimi-code", "antigravity"]
+            vec![
+                "claude-code",
+                "codex",
+                "gemini-cli",
+                "grok-build",
+                "kimi-code",
+                "antigravity"
+            ]
         );
     }
 }

@@ -10,17 +10,17 @@ mod agy;
 mod api;
 mod attach;
 mod claude;
-mod commands;
 mod codex;
+mod commands;
 mod context;
 mod db;
 mod flow;
 mod git;
 mod import;
+mod models;
 mod providers;
 mod pty;
 mod relay;
-mod models;
 mod secrets;
 mod setup;
 mod shellenv;
@@ -262,7 +262,10 @@ fn open_chats(app: tauri::AppHandle, state: State<'_, AppState>) -> CmdResult<Pr
 
 /// A folder of a project's repository: the project folder, or one of its worktrees.
 fn repo_dir(db: &Db, project_id: &str, dir: Option<&str>) -> CmdResult<String> {
-    let project = db.project(project_id).map_err(err)?.ok_or("Project not found")?;
+    let project = db
+        .project(project_id)
+        .map_err(err)?
+        .ok_or("Project not found")?;
     match dir {
         None => Ok(project.path),
         Some(d) if d == project.path => Ok(project.path),
@@ -278,21 +281,40 @@ fn repo_dir(db: &Db, project_id: &str, dir: Option<&str>) -> CmdResult<String> {
 }
 
 #[tauri::command]
-async fn git_overview(state: State<'_, AppState>, project_id: String, dir: Option<String>) -> CmdResult<git::Overview> {
+async fn git_overview(
+    state: State<'_, AppState>,
+    project_id: String,
+    dir: Option<String>,
+) -> CmdResult<git::Overview> {
     let d = repo_dir(&state.db, &project_id, dir.as_deref())?;
-    tauri::async_runtime::spawn_blocking(move || git::overview(&d)).await.map_err(err)?
+    tauri::async_runtime::spawn_blocking(move || git::overview(&d))
+        .await
+        .map_err(err)?
 }
 
 #[tauri::command]
-async fn git_log(state: State<'_, AppState>, project_id: String, skip: usize, limit: usize) -> CmdResult<Vec<git::Commit>> {
+async fn git_log(
+    state: State<'_, AppState>,
+    project_id: String,
+    skip: usize,
+    limit: usize,
+) -> CmdResult<Vec<git::Commit>> {
     let d = repo_dir(&state.db, &project_id, None)?;
-    tauri::async_runtime::spawn_blocking(move || git::log(&d, skip, limit)).await.map_err(err)?
+    tauri::async_runtime::spawn_blocking(move || git::log(&d, skip, limit))
+        .await
+        .map_err(err)?
 }
 
 #[tauri::command]
-async fn git_commit_files(state: State<'_, AppState>, project_id: String, hash: String) -> CmdResult<Vec<git::ChangedFile>> {
+async fn git_commit_files(
+    state: State<'_, AppState>,
+    project_id: String,
+    hash: String,
+) -> CmdResult<Vec<git::ChangedFile>> {
     let d = repo_dir(&state.db, &project_id, None)?;
-    tauri::async_runtime::spawn_blocking(move || git::commit_files(&d, &hash)).await.map_err(err)?
+    tauri::async_runtime::spawn_blocking(move || git::commit_files(&d, &hash))
+        .await
+        .map_err(err)?
 }
 
 /// A file before and after; `new_rev` "WORKTREE" is the file on disk in `dir`.
@@ -307,14 +329,25 @@ async fn git_file_pair(
     from: Option<String>,
 ) -> CmdResult<git::FilePair> {
     let d = repo_dir(&state.db, &project_id, dir.as_deref())?;
-    tauri::async_runtime::spawn_blocking(move || git::file_pair(&d, &old_rev, &new_rev, &path, from.as_deref()))
-        .await
-        .map_err(err)?
+    tauri::async_runtime::spawn_blocking(move || {
+        git::file_pair(&d, &old_rev, &new_rev, &path, from.as_deref())
+    })
+    .await
+    .map_err(err)?
 }
 
-fn session_worktree_of(db: &Db, session_id: &str) -> CmdResult<(SessionRow, String, String, String)> {
-    let s = db.session(session_id).map_err(err)?.ok_or("Session not found")?;
-    let project = db.project(&s.project_id).map_err(err)?.ok_or("Project not found")?;
+fn session_worktree_of(
+    db: &Db,
+    session_id: &str,
+) -> CmdResult<(SessionRow, String, String, String)> {
+    let s = db
+        .session(session_id)
+        .map_err(err)?
+        .ok_or("Session not found")?;
+    let project = db
+        .project(&s.project_id)
+        .map_err(err)?
+        .ok_or("Project not found")?;
     let (Some(path), Some(branch)) = (s.worktree.clone(), s.branch.clone()) else {
         return Err("This session works in the project folder, not a worktree".into());
     };
@@ -323,7 +356,10 @@ fn session_worktree_of(db: &Db, session_id: &str) -> CmdResult<(SessionRow, Stri
 
 /// What a session's worktree changed and how it stands against the project's branch.
 #[tauri::command]
-async fn session_worktree(state: State<'_, AppState>, session_id: String) -> CmdResult<git::WorktreeState> {
+async fn session_worktree(
+    state: State<'_, AppState>,
+    session_id: String,
+) -> CmdResult<git::WorktreeState> {
     let (_, project, path, branch) = session_worktree_of(&state.db, &session_id)?;
     tauri::async_runtime::spawn_blocking(move || git::worktree_state(&project, &path, &branch))
         .await
@@ -332,21 +368,43 @@ async fn session_worktree(state: State<'_, AppState>, session_id: String) -> Cmd
 
 /// Before the first message: give the session its own worktree, or take it away again.
 #[tauri::command]
-async fn set_session_worktree(state: State<'_, AppState>, session_id: String, on: bool) -> CmdResult<SessionRow> {
-    let s = state.db.session(&session_id).map_err(err)?.ok_or("Session not found")?;
+async fn set_session_worktree(
+    state: State<'_, AppState>,
+    session_id: String,
+    on: bool,
+) -> CmdResult<SessionRow> {
+    let s = state
+        .db
+        .session(&session_id)
+        .map_err(err)?
+        .ok_or("Session not found")?;
     let started = s.provider_session_id.is_some()
-        || state.db.events(&session_id).map_err(err)?.iter().any(|e| e.kind == "user_message");
+        || state
+            .db
+            .events(&session_id)
+            .map_err(err)?
+            .iter()
+            .any(|e| e.kind == "user_message");
     if started {
         return Err("This session has already started in its folder. Start a new session to work in a worktree.".into());
     }
-    let project = state.db.project(&s.project_id).map_err(err)?.ok_or("Project not found")?;
+    let project = state
+        .db
+        .project(&s.project_id)
+        .map_err(err)?
+        .ok_or("Project not found")?;
     let db = state.db.clone();
     tauri::async_runtime::spawn_blocking(move || {
         match (on, s.worktree.clone(), s.branch.clone()) {
             (true, None, _) => {
-                let name = format!("{}-{}", agents::label(&s.provider).to_lowercase().replace(' ', "-"), &s.id.trim_start_matches("s-")[..4]);
+                let name = format!(
+                    "{}-{}",
+                    agents::label(&s.provider).to_lowercase().replace(' ', "-"),
+                    &s.id.trim_start_matches("s-")[..4]
+                );
                 let (path, branch) = git::add_worktree(&project.path, &name)?;
-                db.set_session_worktree(&s.id, Some(&path), Some(&branch)).map_err(err)
+                db.set_session_worktree(&s.id, Some(&path), Some(&branch))
+                    .map_err(err)
             }
             (false, Some(path), Some(branch)) => {
                 // Nothing happened in it yet, so the folder and its branch go.
@@ -363,10 +421,15 @@ async fn set_session_worktree(state: State<'_, AppState>, session_id: String, on
 
 /// Commits what the session's worktree has and merges its branch into the project folder's.
 #[tauri::command]
-async fn merge_session_worktree(state: State<'_, AppState>, session_id: String) -> CmdResult<git::MergeResult> {
+async fn merge_session_worktree(
+    state: State<'_, AppState>,
+    session_id: String,
+) -> CmdResult<git::MergeResult> {
     let (s, project, path, branch) = session_worktree_of(&state.db, &session_id)?;
     if state.agents.is_running(&session_id) && (s.status == "running" || s.status == "waiting") {
-        return Err("The agent is still working. Wait for it to finish, or stop it, then merge.".into());
+        return Err(
+            "The agent is still working. Wait for it to finish, or stop it, then merge.".into(),
+        );
     }
     let msg = format!("{} (AgentDeck)", s.title);
     let db = state.db.clone();
@@ -385,7 +448,11 @@ async fn merge_session_worktree(state: State<'_, AppState>, session_id: String) 
 /// Deletes the session's worktree folder (and its branch when asked); the session goes back to
 /// the project folder with a fresh conversation.
 #[tauri::command]
-async fn remove_session_worktree(state: State<'_, AppState>, session_id: String, delete_branch: bool) -> CmdResult<SessionRow> {
+async fn remove_session_worktree(
+    state: State<'_, AppState>,
+    session_id: String,
+    delete_branch: bool,
+) -> CmdResult<SessionRow> {
     let (_, project, path, branch) = session_worktree_of(&state.db, &session_id)?;
     // Other sessions sharing the worktree (a workflow) go back to the project folder too.
     let sharing: Vec<String> = state
@@ -404,7 +471,9 @@ async fn remove_session_worktree(state: State<'_, AppState>, session_id: String,
     let b = branch.clone();
     tauri::async_runtime::spawn_blocking(move || {
         let start = std::time::Instant::now();
-        while wait.iter().any(|id| agents.is_running(id)) && start.elapsed() < std::time::Duration::from_secs(5) {
+        while wait.iter().any(|id| agents.is_running(id))
+            && start.elapsed() < std::time::Duration::from_secs(5)
+        {
             std::thread::sleep(std::time::Duration::from_millis(100));
         }
         git::remove_worktree(&project, &path, &b, delete_branch)
@@ -413,9 +482,17 @@ async fn remove_session_worktree(state: State<'_, AppState>, session_id: String,
     .map_err(err)??;
     let mut me = None;
     for id in sharing {
-        state.db.set_session_worktree(&id, None, None).map_err(err)?;
+        state
+            .db
+            .set_session_worktree(&id, None, None)
+            .map_err(err)?;
         let row = state.db.update_session_agent_id_clear(&id).map_err(err)?;
-        if let Ok(Some(ev)) = state.db.append_event(&id, "agentdeck", "worktree_removed", &serde_json::json!({ "branch": branch, "branchDeleted": delete_branch })) {
+        if let Ok(Some(ev)) = state.db.append_event(
+            &id,
+            "agentdeck",
+            "worktree_removed",
+            &serde_json::json!({ "branch": branch, "branchDeleted": delete_branch }),
+        ) {
             (state.sink)(Outbound::Event(ev));
         }
         if let Some(r) = row {
@@ -451,7 +528,12 @@ async fn scan_context(
     let (homes, _) = context_env(&app, &state.db)?;
     let root = match project_id {
         Some(id) => Some(PathBuf::from(
-            state.db.project(&id).map_err(err)?.ok_or("Project not found")?.path,
+            state
+                .db
+                .project(&id)
+                .map_err(err)?
+                .ok_or("Project not found")?
+                .path,
         )),
         None => None,
     };
@@ -497,7 +579,12 @@ fn new_context_item(
     let (homes, projects) = context_env(&app, &state.db)?;
     let root = match &project_id {
         Some(id) => Some(PathBuf::from(
-            state.db.project(id).map_err(err)?.ok_or("Project not found")?.path,
+            state
+                .db
+                .project(id)
+                .map_err(err)?
+                .ok_or("Project not found")?
+                .path,
         )),
         None => None,
     };
@@ -687,7 +774,9 @@ fn move_session(
         return Err("This session is working with other agents. Stop that first.".into());
     }
     if s.worktree.is_some() {
-        return Err("This session works in its own worktree. Merge or remove the worktree first.".into());
+        return Err(
+            "This session works in its own worktree. Merge or remove the worktree first.".into(),
+        );
     }
     let from = state.db.project(&s.project_id).map_err(err)?;
     let to = state
@@ -753,7 +842,10 @@ fn finish_welcome(state: State<'_, AppState>) -> CmdResult<()> {
 /// Turns Antigravity sessions on or off (off by default; see Settings for why).
 #[tauri::command]
 fn set_antigravity_enabled(state: State<'_, AppState>, enabled: bool) -> CmdResult<bool> {
-    state.db.set_meta(setup::AGY_ENABLED_KEY, if enabled { "1" } else { "0" }).map_err(err)?;
+    state
+        .db
+        .set_meta(setup::AGY_ENABLED_KEY, if enabled { "1" } else { "0" })
+        .map_err(err)?;
     if !enabled {
         state.agents.agy.stop_all();
     }
@@ -823,14 +915,22 @@ fn valid_model_id(model: &str) -> bool {
 
 /// Checks an effort pick for an agent. None, "" and "default" mean the agent's own default.
 fn check_effort(provider: &str, effort: Option<&str>) -> Result<Option<String>, String> {
-    let Some(e) = effort.map(str::trim).filter(|e| !e.is_empty() && *e != "default") else {
+    let Some(e) = effort
+        .map(str::trim)
+        .filter(|e| !e.is_empty() && *e != "default")
+    else {
         return Ok(None);
     };
     let ok = match provider {
         "claude-code" => claude::EFFORTS.contains(&e),
         // Codex lists its own per model (minimal, low, medium, high, xhigh, …).
         "codex" => e.len() <= 24 && e.chars().all(|c| c.is_ascii_lowercase()),
-        _ => return Err(format!("{} has no effort setting", provider_label(provider))),
+        _ => {
+            return Err(format!(
+                "{} has no effort setting",
+                provider_label(provider)
+            ))
+        }
     };
     if !ok {
         return Err(format!("Unknown effort: {e}"));
@@ -896,7 +996,11 @@ fn create_session(
         .ok_or("Project not found")?;
     // A worktree first, so a failure (not a repository, no commits) leaves no empty session.
     let wt = if worktree.unwrap_or(false) {
-        let name = format!("{}-{}", agents::label(&provider).to_lowercase().replace(' ', "-"), &uuid::Uuid::new_v4().simple().to_string()[..4]);
+        let name = format!(
+            "{}-{}",
+            agents::label(&provider).to_lowercase().replace(' ', "-"),
+            &uuid::Uuid::new_v4().simple().to_string()[..4]
+        );
         Some(git::add_worktree(&project.path, &name)?)
     } else {
         None
@@ -906,10 +1010,16 @@ fn create_session(
         .create_session(&project_id, &provider, &model, "New session")
         .map_err(err)?;
     if let Some((path, branch)) = &wt {
-        state.db.set_session_worktree(&s.id, Some(path), Some(branch)).map_err(err)?;
+        state
+            .db
+            .set_session_worktree(&s.id, Some(path), Some(branch))
+            .map_err(err)?;
     }
     if effort.is_some() {
-        state.db.set_session_effort(&s.id, effort.as_deref()).map_err(err)?;
+        state
+            .db
+            .set_session_effort(&s.id, effort.as_deref())
+            .map_err(err)?;
     }
     state
         .db
@@ -942,7 +1052,13 @@ fn set_session_agent(
     }
     state
         .db
-        .set_session_agent(&session_id, &provider, &model, profile_id.as_deref(), effort.as_deref())
+        .set_session_agent(
+            &session_id,
+            &provider,
+            &model,
+            profile_id.as_deref(),
+            effort.as_deref(),
+        )
         .map_err(err)?
         .ok_or_else(|| "Session not found".into())
 }
@@ -1019,13 +1135,24 @@ async fn list_models(
     provider: String,
     refresh: Option<bool>,
 ) -> CmdResult<models::ModelList> {
-    if !["claude-code", "codex", "gemini-cli", "grok-build", "kimi-code", "antigravity"].contains(&provider.as_str()) {
+    if ![
+        "claude-code",
+        "codex",
+        "gemini-cli",
+        "grok-build",
+        "kimi-code",
+        "antigravity",
+    ]
+    .contains(&provider.as_str())
+    {
         return Err(format!("Unknown agent: {provider}"));
     }
     let db = state.db.clone();
-    tauri::async_runtime::spawn_blocking(move || models::list(&db, &provider, refresh.unwrap_or(false)))
-        .await
-        .map_err(|e| e.to_string())
+    tauri::async_runtime::spawn_blocking(move || {
+        models::list(&db, &provider, refresh.unwrap_or(false))
+    })
+    .await
+    .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -1290,11 +1417,18 @@ async fn start_flow(
     }
     // All stages work in one worktree, so the reviewer sees what the builder changed.
     if worktree.unwrap_or(false) {
-        let shared = rows.iter().flatten().find_map(|r| r.worktree.clone().zip(r.branch.clone()));
+        let shared = rows
+            .iter()
+            .flatten()
+            .find_map(|r| r.worktree.clone().zip(r.branch.clone()));
         let (path, branch) = match shared {
             Some(w) => w,
             None => {
-                let project = state.db.project(&me.project_id).map_err(err)?.ok_or("Project not found")?;
+                let project = state
+                    .db
+                    .project(&me.project_id)
+                    .map_err(err)?
+                    .ok_or("Project not found")?;
                 git::add_worktree(&project.path, &crate::claude::first_line(&task, 40))?
             }
         };
@@ -1305,7 +1439,11 @@ async fn start_flow(
             if r.provider_session_id.is_some() || r.worktree.is_some() {
                 return Err(format!("\"{}\" already has a conversation in another folder. Start the workflow from a new session to run it in a worktree.", r.title));
             }
-            if let Some(row) = state.db.set_session_worktree(&r.id, Some(&path), Some(&branch)).map_err(err)? {
+            if let Some(row) = state
+                .db
+                .set_session_worktree(&r.id, Some(&path), Some(&branch))
+                .map_err(err)?
+            {
                 (state.sink)(Outbound::Session(row.clone()));
                 *r = row;
             }
@@ -1372,11 +1510,19 @@ fn term_open(
     // A session in a worktree gets its terminal there.
     let dir = match session_id {
         Some(sid) => {
-            let s = state.db.session(&sid).map_err(err)?.ok_or("Session not found")?;
+            let s = state
+                .db
+                .session(&sid)
+                .map_err(err)?
+                .ok_or("Session not found")?;
             if s.project_id != project_id {
                 return Err("That session belongs to another project".into());
             }
-            state.db.session_dir(&s).map_err(err)?.unwrap_or(project.path)
+            state
+                .db
+                .session_dir(&s)
+                .map_err(err)?
+                .unwrap_or(project.path)
         }
         None => project.path,
     };
@@ -1469,8 +1615,14 @@ async fn retry_last_message(state: State<'_, AppState>, session_id: String) -> C
     let agents = state.agents.clone();
     let db = state.db.clone();
     tauri::async_runtime::spawn_blocking(move || {
-        let session = db.session(&session_id).map_err(err)?.ok_or("Session not found")?;
-        let dir = db.session_dir(&session).map_err(err)?.ok_or("Project not found")?;
+        let session = db
+            .session(&session_id)
+            .map_err(err)?
+            .ok_or("Session not found")?;
+        let dir = db
+            .session_dir(&session)
+            .map_err(err)?
+            .ok_or("Project not found")?;
         let last = db
             .events(&session_id)
             .map_err(err)?
@@ -1486,13 +1638,18 @@ async fn retry_last_message(state: State<'_, AppState>, session_id: String) -> C
             .filter_map(|a| a.as_str())
             .map(|a| {
                 let p = Path::new(a);
-                if p.is_absolute() { a.to_string() } else { Path::new(&dir).join(p).to_string_lossy().into_owned() }
+                if p.is_absolute() {
+                    a.to_string()
+                } else {
+                    Path::new(&dir).join(p).to_string_lossy().into_owned()
+                }
             })
             .filter(|p| Path::new(p).exists())
             .collect();
         agents.stop(&session_id);
         let start = std::time::Instant::now();
-        while agents.is_running(&session_id) && start.elapsed() < std::time::Duration::from_secs(5) {
+        while agents.is_running(&session_id) && start.elapsed() < std::time::Duration::from_secs(5)
+        {
             std::thread::sleep(std::time::Duration::from_millis(100));
         }
         agents.send_with(&session_id, &text, &files)
@@ -1636,11 +1793,18 @@ fn respond_permission(
 
 /// The slash commands the session's agent offers in its folder.
 #[tauri::command]
-async fn list_commands(app: tauri::AppHandle, state: State<'_, AppState>, session_id: String) -> CmdResult<Vec<commands::SlashCommand>> {
+async fn list_commands(
+    app: tauri::AppHandle,
+    state: State<'_, AppState>,
+    session_id: String,
+) -> CmdResult<Vec<commands::SlashCommand>> {
     let home = app.path().home_dir().map_err(err)?;
     let db = state.db.clone();
     tauri::async_runtime::spawn_blocking(move || {
-        let s = db.session(&session_id).map_err(err)?.ok_or("Session not found")?;
+        let s = db
+            .session(&session_id)
+            .map_err(err)?
+            .ok_or("Session not found")?;
         Ok(commands::list(&db, &s, &context::Homes::from_home(&home)))
     })
     .await
@@ -1657,7 +1821,11 @@ async fn read_image(path: String) -> CmdResult<String> {
         if !p.is_absolute() {
             return Err("Not an absolute path".to_string());
         }
-        let ext = p.extension().and_then(|e| e.to_str()).map(str::to_lowercase).unwrap_or_default();
+        let ext = p
+            .extension()
+            .and_then(|e| e.to_str())
+            .map(str::to_lowercase)
+            .unwrap_or_default();
         let mime = match ext.as_str() {
             "png" => "image/png",
             "jpg" | "jpeg" => "image/jpeg",
@@ -1670,7 +1838,10 @@ async fn read_image(path: String) -> CmdResult<String> {
             return Err("That image is too large to show".to_string());
         }
         let bytes = std::fs::read(&p).map_err(err)?;
-        Ok(format!("data:{mime};base64,{}", base64::engine::general_purpose::STANDARD.encode(bytes)))
+        Ok(format!(
+            "data:{mime};base64,{}",
+            base64::engine::general_purpose::STANDARD.encode(bytes)
+        ))
     })
     .await
     .map_err(err)?
@@ -1689,7 +1860,9 @@ fn answer_question(
             return Err("That answer is too long".into());
         }
     }
-    state.agents.answer(&session_id, &request_id, answers.as_ref())
+    state
+        .agents
+        .answer(&session_id, &request_id, answers.as_ref())
 }
 
 #[tauri::command]
@@ -1744,7 +1917,9 @@ pub fn run() {
                                     r.on_event(&e);
                                     f.on_event(&e);
                                 });
-                            } else if e.kind == "control_request/can_use_tool" || e.kind == "approval" {
+                            } else if e.kind == "control_request/can_use_tool"
+                                || e.kind == "approval"
+                            {
                                 let (f, e) = (f.clone(), e.clone());
                                 std::thread::spawn(move || f.on_approval(&e));
                             }
@@ -1976,12 +2151,24 @@ mod effort_tests {
     fn efforts_are_checked_per_agent() {
         assert_eq!(check_effort("claude-code", None), Ok(None));
         assert_eq!(check_effort("claude-code", Some("default")), Ok(None));
-        assert_eq!(check_effort("claude-code", Some(" max ")), Ok(Some("max".into())));
-        assert!(check_effort("claude-code", Some("minimal")).is_err(), "not a Claude Code level");
+        assert_eq!(
+            check_effort("claude-code", Some(" max ")),
+            Ok(Some("max".into()))
+        );
+        assert!(
+            check_effort("claude-code", Some("minimal")).is_err(),
+            "not a Claude Code level"
+        );
         assert!(check_effort("claude-code", Some("--model")).is_err());
-        assert_eq!(check_effort("codex", Some("minimal")), Ok(Some("minimal".into())));
+        assert_eq!(
+            check_effort("codex", Some("minimal")),
+            Ok(Some("minimal".into()))
+        );
         assert!(check_effort("codex", Some("high; rm")).is_err());
-        assert!(check_effort("gemini-cli", Some("high")).is_err(), "no effort setting");
+        assert!(
+            check_effort("gemini-cli", Some("high")).is_err(),
+            "no effort setting"
+        );
         assert_eq!(check_effort("gemini-cli", None), Ok(None));
     }
 }

@@ -194,7 +194,8 @@ pub fn open_in_terminal(cache: PathBuf, agent: &str, action: &str) -> Result<Str
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
-        std::fs::set_permissions(&file, std::fs::Permissions::from_mode(0o700)).map_err(|e| e.to_string())?;
+        std::fs::set_permissions(&file, std::fs::Permissions::from_mode(0o700))
+            .map_err(|e| e.to_string())?;
     }
     std::process::Command::new("/usr/bin/open")
         .args(["-a", "Terminal"])
@@ -210,10 +211,18 @@ mod tests {
 
     #[test]
     fn install_commands_follow_what_the_mac_has() {
-        assert_eq!(install_command("codex", true, true), Some("npm install -g @openai/codex"));
-        assert_eq!(install_command("codex", false, true), Some("brew install --cask codex"));
+        assert_eq!(
+            install_command("codex", true, true),
+            Some("npm install -g @openai/codex")
+        );
+        assert_eq!(
+            install_command("codex", false, true),
+            Some("brew install --cask codex")
+        );
         assert_eq!(install_command("codex", false, false), None);
-        assert!(install_command("claude-code", false, false).unwrap().starts_with("curl -fsSL https://claude.ai/"));
+        assert!(install_command("claude-code", false, false)
+            .unwrap()
+            .starts_with("curl -fsSL https://claude.ai/"));
         assert_eq!(install_command("grok-build", true, true), None);
         assert_eq!(install_command("rm -rf", true, true), None);
     }
@@ -223,7 +232,8 @@ mod tests {
         let db = Db::open_in_memory().unwrap();
         assert!(!antigravity_enabled(&db));
         let p = db.add_project("app", "/tmp/app").unwrap();
-        db.create_session(&p.id, "antigravity", "default", "x").unwrap();
+        db.create_session(&p.id, "antigravity", "default", "x")
+            .unwrap();
         assert!(antigravity_enabled(&db), "people already using it keep it");
         db.set_meta(AGY_ENABLED_KEY, "0").unwrap();
         assert!(!antigravity_enabled(&db));

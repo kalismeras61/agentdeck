@@ -480,11 +480,17 @@ impl AcpManager {
 
     /// Picks the session's model when the agent lets clients choose one.
     fn apply_model(&self, sid: &str, proc: &Proc) {
-        let Some(model) = self.db.session(sid).ok().flatten().map(|s| s.model) else { return };
+        let Some(model) = self.db.session(sid).ok().flatten().map(|s| s.model) else {
+            return;
+        };
         if model.is_empty() || model == "default" {
             return;
         }
-        let offered = proc.models.lock().map(|m| m.iter().any(|x| x == &model)).unwrap_or(false);
+        let offered = proc
+            .models
+            .lock()
+            .map(|m| m.iter().any(|x| x == &model))
+            .unwrap_or(false);
         if let (true, Some(s)) = (offered, proc.sid()) {
             let _ = proc.request(
                 "session/set_model",
@@ -522,12 +528,14 @@ impl AcpManager {
                     .and_then(Value::as_str)
                     .unwrap_or("The agent returned an error");
                 // Agents often pass the API's JSON error through; show its message.
-                let inner = serde_json::from_str::<Value>(raw.trim()).ok().and_then(|j| {
-                    j.pointer("/error/message")
-                        .or_else(|| j.get("message"))
-                        .and_then(Value::as_str)
-                        .map(str::to_owned)
-                });
+                let inner = serde_json::from_str::<Value>(raw.trim())
+                    .ok()
+                    .and_then(|j| {
+                        j.pointer("/error/message")
+                            .or_else(|| j.get("message"))
+                            .and_then(Value::as_str)
+                            .map(str::to_owned)
+                    });
                 let msg = inner.as_deref().unwrap_or(raw);
                 // The agent couldn't reopen its earlier conversation (e.g. it was never saved
                 // because the first turn failed): start a new one instead of stopping here.
@@ -799,7 +807,11 @@ impl AcpManager {
         }
         proc.last_update
             .store(crate::db::now_ms() as u64, Ordering::SeqCst);
-        if params.pointer("/update/sessionUpdate").and_then(Value::as_str) == Some("available_commands_update") {
+        if params
+            .pointer("/update/sessionUpdate")
+            .and_then(Value::as_str)
+            == Some("available_commands_update")
+        {
             crate::commands::remember(sid, crate::commands::from_acp(&params["update"]));
             return;
         }
@@ -862,9 +874,7 @@ impl AcpManager {
             .map_err(|e| e.to_string())?
             .ok_or("Project not found")?;
         if !Path::new(&dir).is_dir() {
-            return Err(format!(
-                "The folder {dir} doesn't exist anymore"
-            ));
+            return Err(format!("The folder {dir} doesn't exist anymore"));
         }
         let proc = match self.proc(sid) {
             Some(p) => p,
@@ -1210,11 +1220,17 @@ mod integration {
         h.mgr.send_message(&h.sid, "hello").unwrap();
         h.wait("turn/ended");
         let saved = h.db.meta("models:gemini-cli").unwrap().unwrap_or_default();
-        assert!(saved.contains("gemini-2.5-pro") && saved.contains("\"default\""), "{saved}");
+        assert!(
+            saved.contains("gemini-2.5-pro") && saved.contains("\"default\""),
+            "{saved}"
+        );
         // The mock records each request; the answer came from the model that was picked.
         let log = std::fs::read_to_string("/tmp/mock_gemini_requests.jsonl").unwrap_or_default();
         assert!(
-            log.lines().rev().take(3).any(|l| l.contains("models/gemini-2.5-pro:stream")),
+            log.lines()
+                .rev()
+                .take(3)
+                .any(|l| l.contains("models/gemini-2.5-pro:stream")),
             "the picked model answered"
         );
     }

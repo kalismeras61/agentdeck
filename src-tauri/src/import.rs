@@ -328,7 +328,10 @@ pub fn claude_dir_name(folder: &str) -> String {
 /// name matches wins; failing that, the name is read back against the disk; failing that, the
 /// last folder seen.
 fn claude_folder(file: &Path, cwds: &[String]) -> Option<String> {
-    let dir = file.parent().and_then(|d| d.file_name()).and_then(|n| n.to_str());
+    let dir = file
+        .parent()
+        .and_then(|d| d.file_name())
+        .and_then(|n| n.to_str());
     if let Some(dir) = dir {
         if let Some(c) = cwds.iter().find(|c| claude_dir_name(c) == dir) {
             return Some(c.clone());
@@ -351,7 +354,11 @@ pub fn folder_from_dir_name(name: &str) -> Option<PathBuf> {
         let entries = std::fs::read_dir(dir).ok()?;
         let mut names: Vec<String> = entries
             .filter_map(|e| e.ok())
-            .filter(|e| e.file_type().map(|t| t.is_dir() || t.is_symlink()).unwrap_or(false))
+            .filter(|e| {
+                e.file_type()
+                    .map(|t| t.is_dir() || t.is_symlink())
+                    .unwrap_or(false)
+            })
             .filter_map(|e| e.file_name().to_str().map(str::to_owned))
             .filter(|n| {
                 let k = claude_dir_name(n);
@@ -390,7 +397,9 @@ pub fn folder_from_dir_name(name: &str) -> Option<PathBuf> {
 pub fn carry_claude_conversation(projects: &Path, id: &str, from: &str, to: &str) -> bool {
     let id_ok = !id.is_empty()
         && id.len() <= 128
-        && id.chars().all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_');
+        && id
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_');
     if !id_ok {
         return false;
     }
@@ -630,18 +639,36 @@ mod tests {
         std::fs::create_dir_all(&api).unwrap();
         let (m, p) = (shop.to_string_lossy(), api.to_string_lossy());
         let line = |cwd: &str, text: &str| {
-            format!(r#"{{"type":"user","cwd":"{cwd}","sessionId":"ddd","timestamp":"2026-11-01T10:00:00Z","message":{{"role":"user","content":"{text}"}}}}"#)
+            format!(
+                r#"{{"type":"user","cwd":"{cwd}","sessionId":"ddd","timestamp":"2026-11-01T10:00:00Z","message":{{"role":"user","content":"{text}"}}}}"#
+            )
         };
         // Started in shop_api, but the first lines came from an earlier conversation in shop.web.
-        let body = [line(&m, "earlier"), line(&p, "now in the api"), line(&m, "looked at the web app")].join("\n");
-        let f = write(&home, &format!(".claude/projects/{}/ddd.jsonl", claude_dir_name(&p)), &body);
+        let body = [
+            line(&m, "earlier"),
+            line(&p, "now in the api"),
+            line(&m, "looked at the web app"),
+        ]
+        .join("\n");
+        let f = write(
+            &home,
+            &format!(".claude/projects/{}/ddd.jsonl", claude_dir_name(&p)),
+            &body,
+        );
         assert_eq!(parse_claude(&f).cwd.as_deref(), Some(p.as_ref()));
 
         // No line names the folder: it's read back from the folder name on disk.
         let only_m = [line(&m, "hi")].join("\n");
-        let g = write(&home, &format!(".claude/projects/{}/eee.jsonl", claude_dir_name(&p)), &only_m);
+        let g = write(
+            &home,
+            &format!(".claude/projects/{}/eee.jsonl", claude_dir_name(&p)),
+            &only_m,
+        );
         assert_eq!(parse_claude(&g).cwd.as_deref(), Some(p.as_ref()));
-        assert_eq!(folder_from_dir_name(&claude_dir_name(&m)), Some(shop.clone()));
+        assert_eq!(
+            folder_from_dir_name(&claude_dir_name(&m)),
+            Some(shop.clone())
+        );
         assert_eq!(folder_from_dir_name("-no-such-place-here"), None);
     }
 
@@ -651,15 +678,34 @@ mod tests {
         let projects = dir.path().join("projects");
         let from = "/Users/me/code/shop.web";
         let to = "/Users/me/code/shop_api";
-        write(&projects, &format!("{}/abc-1.jsonl", claude_dir_name(from)), "{}");
-        write(&projects, &format!("{}/abc-1/tool-results/t1.txt", claude_dir_name(from)), "out");
+        write(
+            &projects,
+            &format!("{}/abc-1.jsonl", claude_dir_name(from)),
+            "{}",
+        );
+        write(
+            &projects,
+            &format!("{}/abc-1/tool-results/t1.txt", claude_dir_name(from)),
+            "out",
+        );
         assert!(carry_claude_conversation(&projects, "abc-1", from, to));
         let dst = projects.join(claude_dir_name(to));
         assert!(dst.join("abc-1.jsonl").is_file());
         assert!(dst.join("abc-1/tool-results/t1.txt").is_file());
-        assert!(projects.join(claude_dir_name(from)).join("abc-1.jsonl").is_file(), "the original stays");
+        assert!(
+            projects
+                .join(claude_dir_name(from))
+                .join("abc-1.jsonl")
+                .is_file(),
+            "the original stays"
+        );
         // Found even when it isn't under the old folder; ids that aren't ids are refused.
-        assert!(carry_claude_conversation(&projects, "abc-1", "/elsewhere", "/Users/me/third"));
+        assert!(carry_claude_conversation(
+            &projects,
+            "abc-1",
+            "/elsewhere",
+            "/Users/me/third"
+        ));
         assert!(!carry_claude_conversation(&projects, "../abc-1", from, to));
         assert!(!carry_claude_conversation(&projects, "missing", from, to));
     }

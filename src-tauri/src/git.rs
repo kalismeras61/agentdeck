@@ -26,7 +26,11 @@ fn git(dir: &str, args: &[&str]) -> Result<String, String> {
         Ok(String::from_utf8_lossy(&out.stdout).into_owned())
     } else {
         let err = String::from_utf8_lossy(&out.stderr).trim().to_string();
-        Err(if err.is_empty() { format!("git {} failed", args.first().unwrap_or(&"")) } else { err })
+        Err(if err.is_empty() {
+            format!("git {} failed", args.first().unwrap_or(&""))
+        } else {
+            err
+        })
     }
 }
 
@@ -41,8 +45,14 @@ pub fn check_rev(rev: &str) -> Result<(), String> {
         && !rev.starts_with('-')
         && !rev.contains("..")
         && !rev.contains("@{")
-        && rev.chars().all(|c| c.is_ascii_alphanumeric() || "._/-^~".contains(c));
-    if ok { Ok(()) } else { Err(format!("\"{rev}\" isn't a revision")) }
+        && rev
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || "._/-^~".contains(c));
+    if ok {
+        Ok(())
+    } else {
+        Err(format!("\"{rev}\" isn't a revision"))
+    }
 }
 
 /// A path inside the repository, relative and without `..`.
@@ -51,12 +61,19 @@ pub fn check_rel(path: &str) -> Result<(), String> {
     let ok = !path.is_empty()
         && !path.starts_with('-')
         && p.components().all(|c| matches!(c, Component::Normal(_)));
-    if ok { Ok(()) } else { Err(format!("\"{path}\" isn't a path in the repository")) }
+    if ok {
+        Ok(())
+    } else {
+        Err(format!("\"{path}\" isn't a path in the repository"))
+    }
 }
 
 /// The repository's top folder, if `dir` is inside one.
 pub fn root(dir: &str) -> Option<String> {
-    git(dir, &["rev-parse", "--show-toplevel"]).ok().map(|s| s.trim().to_string()).filter(|s| !s.is_empty())
+    git(dir, &["rev-parse", "--show-toplevel"])
+        .ok()
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
 }
 
 #[derive(Serialize, Debug, Clone, PartialEq)]
@@ -146,32 +163,51 @@ fn parse_track(t: &str) -> (u32, u32) {
 
 fn refs(dir: &str, pattern: &str) -> Vec<Branch> {
     let fmt = "%(refname:short)%00%(objectname)%00%(upstream:short)%00%(upstream:track)%00%(HEAD)%00%(worktreepath)";
-    git(dir, &["for-each-ref", &format!("--format={fmt}"), "--sort=-committerdate", pattern])
-        .unwrap_or_default()
-        .lines()
-        .filter_map(|l| {
-            let f: Vec<&str> = l.split('\0').collect();
-            if f.len() < 6 || f[0].ends_with("/HEAD") {
-                return None;
-            }
-            let (ahead, behind) = parse_track(f[3]);
-            Some(Branch {
-                name: f[0].to_string(),
-                hash: f[1].to_string(),
-                upstream: Some(f[2].to_string()).filter(|s| !s.is_empty()),
-                ahead,
-                behind,
-                current: f[4] == "*",
-                worktree: Some(f[5].to_string()).filter(|s| !s.is_empty()),
-            })
+    git(
+        dir,
+        &[
+            "for-each-ref",
+            &format!("--format={fmt}"),
+            "--sort=-committerdate",
+            pattern,
+        ],
+    )
+    .unwrap_or_default()
+    .lines()
+    .filter_map(|l| {
+        let f: Vec<&str> = l.split('\0').collect();
+        if f.len() < 6 || f[0].ends_with("/HEAD") {
+            return None;
+        }
+        let (ahead, behind) = parse_track(f[3]);
+        Some(Branch {
+            name: f[0].to_string(),
+            hash: f[1].to_string(),
+            upstream: Some(f[2].to_string()).filter(|s| !s.is_empty()),
+            ahead,
+            behind,
+            current: f[4] == "*",
+            worktree: Some(f[5].to_string()).filter(|s| !s.is_empty()),
         })
-        .collect()
+    })
+    .collect()
 }
 
 pub fn parse_worktrees(porcelain: &str) -> Vec<Worktree> {
     let mut out = Vec::new();
-    for (i, block) in porcelain.split("\n\n").filter(|b| !b.trim().is_empty()).enumerate() {
-        let mut w = Worktree { path: String::new(), branch: None, hash: String::new(), main: i == 0, locked: false, prunable: false };
+    for (i, block) in porcelain
+        .split("\n\n")
+        .filter(|b| !b.trim().is_empty())
+        .enumerate()
+    {
+        let mut w = Worktree {
+            path: String::new(),
+            branch: None,
+            hash: String::new(),
+            main: i == 0,
+            locked: false,
+            prunable: false,
+        };
         for line in block.lines() {
             if let Some(p) = line.strip_prefix("worktree ") {
                 w.path = p.to_string();
@@ -206,7 +242,11 @@ pub fn parse_status(z: &str) -> Vec<FileStatus> {
         }
         let (x, y) = (entry.as_bytes()[0] as char, entry.as_bytes()[1] as char);
         let path = entry[3..].to_string();
-        let from = if x == 'R' || x == 'C' || y == 'R' { parts.next().map(str::to_owned) } else { None };
+        let from = if x == 'R' || x == 'C' || y == 'R' {
+            parts.next().map(str::to_owned)
+        } else {
+            None
+        };
         let change = match (x, y) {
             ('?', '?') => "untracked",
             ('U', _) | (_, 'U') | ('A', 'A') | ('D', 'D') => "conflict",
@@ -215,20 +255,41 @@ pub fn parse_status(z: &str) -> Vec<FileStatus> {
             ('D', _) | (_, 'D') => "deleted",
             _ => "modified",
         };
-        out.push(FileStatus { path, change: change.into(), staged: x != ' ' && x != '?', from });
+        out.push(FileStatus {
+            path,
+            change: change.into(),
+            staged: x != ' ' && x != '?',
+            from,
+        });
     }
     out
 }
 
 pub fn status(dir: &str) -> Vec<FileStatus> {
-    parse_status(&git(dir, &["status", "--porcelain=v1", "-z", "--untracked-files=all"]).unwrap_or_default())
+    parse_status(
+        &git(
+            dir,
+            &["status", "--porcelain=v1", "-z", "--untracked-files=all"],
+        )
+        .unwrap_or_default(),
+    )
 }
 
 pub fn overview(dir: &str) -> Result<Overview, String> {
     let root = root(dir).ok_or("This folder isn't a git repository")?;
-    let head = git(&root, &["rev-parse", "--verify", "-q", "HEAD"]).ok().map(|s| s.trim().to_string());
-    let branch = git(&root, &["symbolic-ref", "-q", "--short", "HEAD"]).ok().map(|s| s.trim().to_string()).filter(|s| !s.is_empty());
-    let tags = git(&root, &["tag", "--sort=-creatordate"]).unwrap_or_default().lines().take(200).map(str::to_owned).collect();
+    let head = git(&root, &["rev-parse", "--verify", "-q", "HEAD"])
+        .ok()
+        .map(|s| s.trim().to_string());
+    let branch = git(&root, &["symbolic-ref", "-q", "--short", "HEAD"])
+        .ok()
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty());
+    let tags = git(&root, &["tag", "--sort=-creatordate"])
+        .unwrap_or_default()
+        .lines()
+        .take(200)
+        .map(str::to_owned)
+        .collect();
     Ok(Overview {
         branches: refs(&root, "refs/heads"),
         remotes: refs(&root, "refs/remotes"),
@@ -258,7 +319,12 @@ pub fn parse_log(z: &str) -> Vec<Commit> {
                 email: f[3].to_string(),
                 time: f[4].trim().parse::<i64>().unwrap_or(0) * 1000,
                 subject: f[5].to_string(),
-                refs: f[6].split(", ").map(str::trim).filter(|s| !s.is_empty()).map(str::to_owned).collect(),
+                refs: f[6]
+                    .split(", ")
+                    .map(str::trim)
+                    .filter(|s| !s.is_empty())
+                    .map(str::to_owned)
+                    .collect(),
             })
         })
         .collect()
@@ -267,13 +333,23 @@ pub fn parse_log(z: &str) -> Vec<Commit> {
 /// Commits newest first, all branches, in an order that keeps a branch's commits together.
 pub fn log(dir: &str, skip: usize, limit: usize) -> Result<Vec<Commit>, String> {
     let root = root(dir).ok_or("This folder isn't a git repository")?;
-    if git(&root, &["rev-parse", "--verify", "-q", "HEAD"]).is_err() && refs(&root, "refs/heads").is_empty() {
+    if git(&root, &["rev-parse", "--verify", "-q", "HEAD"]).is_err()
+        && refs(&root, "refs/heads").is_empty()
+    {
         return Ok(Vec::new());
     }
     let fmt = format!("--format=%H{SEP}%P{SEP}%an{SEP}%ae{SEP}%at{SEP}%s{SEP}%D\u{1e}");
     let out = git(
         &root,
-        &["log", "--all", "--topo-order", "--decorate=short", &fmt, &format!("--skip={skip}"), &format!("--max-count={}", limit.min(2000))],
+        &[
+            "log",
+            "--all",
+            "--topo-order",
+            "--decorate=short",
+            &fmt,
+            &format!("--skip={skip}"),
+            &format!("--max-count={}", limit.min(2000)),
+        ],
     )?;
     Ok(parse_log(&out))
 }
@@ -296,7 +372,11 @@ fn name_status(out: &str) -> Vec<ChangedFile> {
             'C' => "added",
             _ => "modified",
         };
-        v.push(ChangedFile { path, change: change.into(), from });
+        v.push(ChangedFile {
+            path,
+            change: change.into(),
+            from,
+        });
     }
     v
 }
@@ -305,7 +385,21 @@ fn name_status(out: &str) -> Vec<ChangedFile> {
 pub fn commit_files(dir: &str, hash: &str) -> Result<Vec<ChangedFile>, String> {
     check_rev(hash)?;
     let root = root(dir).ok_or("This folder isn't a git repository")?;
-    let out = git(&root, &["diff-tree", "--no-commit-id", "-r", "-z", "-M", "--name-status", "--root", "--first-parent", "-m", hash])?;
+    let out = git(
+        &root,
+        &[
+            "diff-tree",
+            "--no-commit-id",
+            "-r",
+            "-z",
+            "-M",
+            "--name-status",
+            "--root",
+            "--first-parent",
+            "-m",
+            hash,
+        ],
+    )?;
     Ok(name_status(&out))
 }
 
@@ -331,7 +425,13 @@ fn text_of(bytes: Option<Vec<u8>>) -> (String, bool) {
 }
 
 /// A file before and after: `new_rev` "WORKTREE" means the file on disk in `dir`.
-pub fn file_pair(dir: &str, old_rev: &str, new_rev: &str, path: &str, from: Option<&str>) -> Result<FilePair, String> {
+pub fn file_pair(
+    dir: &str,
+    old_rev: &str,
+    new_rev: &str,
+    path: &str,
+    from: Option<&str>,
+) -> Result<FilePair, String> {
     check_rel(path)?;
     if let Some(f) = from {
         check_rel(f)?;
@@ -345,14 +445,21 @@ pub fn file_pair(dir: &str, old_rev: &str, new_rev: &str, path: &str, from: Opti
     };
     let new = if new_rev == "WORKTREE" {
         let p = PathBuf::from(dir).join(path);
-        std::fs::metadata(&p).ok().filter(|m| m.is_file()).and_then(|_| std::fs::read(&p).ok())
+        std::fs::metadata(&p)
+            .ok()
+            .filter(|m| m.is_file())
+            .and_then(|_| std::fs::read(&p).ok())
     } else {
         check_rev(new_rev)?;
         show_file(dir, new_rev, path)
     };
     let (o, ob) = text_of(old);
     let (n, nb) = text_of(new);
-    Ok(FilePair { old: o, new: n, binary: ob || nb })
+    Ok(FilePair {
+        old: o,
+        new: n,
+        binary: ob || nb,
+    })
 }
 
 /* ---------------------------------------------------------------- worktrees for sessions */
@@ -368,13 +475,20 @@ fn slug(s: &str) -> String {
     }
     let out = out.trim_matches('-').chars().take(40).collect::<String>();
     let out = out.trim_matches('-').to_string();
-    if out.is_empty() { "session".into() } else { out }
+    if out.is_empty() {
+        "session".into()
+    } else {
+        out
+    }
 }
 
 /// Where a project's worktrees go: next to it, `<project>.worktrees/<name>`.
 pub fn worktree_home(repo_root: &str) -> PathBuf {
     let r = Path::new(repo_root);
-    let name = r.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_else(|| "project".into());
+    let name = r
+        .file_name()
+        .map(|n| n.to_string_lossy().into_owned())
+        .unwrap_or_else(|| "project".into());
     r.parent().unwrap_or(r).join(format!("{name}.worktrees"))
 }
 
@@ -388,10 +502,24 @@ pub fn add_worktree(project_dir: &str, name: &str) -> Result<(String, String), S
     let home = worktree_home(&root);
     std::fs::create_dir_all(&home).map_err(|e| format!("Couldn't make {}: {e}", home.display()))?;
     for n in 0..100 {
-        let tag = if n == 0 { base.clone() } else { format!("{base}-{}", n + 1) };
+        let tag = if n == 0 {
+            base.clone()
+        } else {
+            format!("{base}-{}", n + 1)
+        };
         let branch = format!("agentdeck/{tag}");
         let path = home.join(&tag);
-        if path.exists() || git_ok(&root, &["rev-parse", "--verify", "-q", &format!("refs/heads/{branch}")]) {
+        if path.exists()
+            || git_ok(
+                &root,
+                &[
+                    "rev-parse",
+                    "--verify",
+                    "-q",
+                    &format!("refs/heads/{branch}"),
+                ],
+            )
+        {
             continue;
         }
         let p = path.to_string_lossy().into_owned();
@@ -418,14 +546,29 @@ pub struct WorktreeState {
     pub files: Vec<ChangedFile>,
 }
 
-pub fn worktree_state(project_dir: &str, path: &str, branch: &str) -> Result<WorktreeState, String> {
+pub fn worktree_state(
+    project_dir: &str,
+    path: &str,
+    branch: &str,
+) -> Result<WorktreeState, String> {
     check_rev(branch)?;
     let root = root(project_dir).ok_or("This project isn't a git repository")?;
-    let base = git(&root, &["symbolic-ref", "-q", "--short", "HEAD"]).ok().map(|s| s.trim().to_string()).filter(|s| !s.is_empty());
+    let base = git(&root, &["symbolic-ref", "-q", "--short", "HEAD"])
+        .ok()
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty());
     let exists = Path::new(path).is_dir();
     let (mut ahead, mut behind, mut files) = (0, 0, Vec::new());
     if let Some(b) = &base {
-        if let Ok(c) = git(&root, &["rev-list", "--left-right", "--count", &format!("{b}...{branch}")]) {
+        if let Ok(c) = git(
+            &root,
+            &[
+                "rev-list",
+                "--left-right",
+                "--count",
+                &format!("{b}...{branch}"),
+            ],
+        ) {
             let mut it = c.split_whitespace().filter_map(|n| n.parse::<u32>().ok());
             behind = it.next().unwrap_or(0);
             ahead = it.next().unwrap_or(0);
@@ -433,34 +576,60 @@ pub fn worktree_state(project_dir: &str, path: &str, branch: &str) -> Result<Wor
         if exists {
             // Committed changes on the branch plus whatever is still uncommitted in the worktree.
             if let Ok(mb) = git(&root, &["merge-base", b, branch]) {
-                files = name_status(&git(path, &["diff", "-z", "-M", "--name-status", mb.trim()]).unwrap_or_default());
+                files = name_status(
+                    &git(path, &["diff", "-z", "-M", "--name-status", mb.trim()])
+                        .unwrap_or_default(),
+                );
             }
         }
     }
     let uncommitted = if exists { status(path) } else { Vec::new() };
     for u in uncommitted.iter().filter(|u| u.change == "untracked") {
         if !files.iter().any(|f| f.path == u.path) {
-            files.push(ChangedFile { path: u.path.clone(), change: "added".into(), from: None });
+            files.push(ChangedFile {
+                path: u.path.clone(),
+                change: "added".into(),
+                from: None,
+            });
         }
     }
-    Ok(WorktreeState { path: path.into(), branch: branch.into(), base, exists, ahead, behind, uncommitted, files })
+    Ok(WorktreeState {
+        path: path.into(),
+        branch: branch.into(),
+        base,
+        exists,
+        ahead,
+        behind,
+        uncommitted,
+        files,
+    })
 }
 
 /// Commits everything in the worktree (when the user asked to), then merges its branch into the
 /// project folder's branch with a merge commit. On a conflict nothing is left half-merged: the
 /// merge is undone and the conflicting files are returned.
-pub fn merge_worktree(project_dir: &str, path: &str, branch: &str, message: &str) -> Result<MergeResult, String> {
+pub fn merge_worktree(
+    project_dir: &str,
+    path: &str,
+    branch: &str,
+    message: &str,
+) -> Result<MergeResult, String> {
     check_rev(branch)?;
     let root = root(project_dir).ok_or("This project isn't a git repository")?;
     let base = git(&root, &["symbolic-ref", "-q", "--short", "HEAD"])
         .ok()
         .map(|s| s.trim().to_string())
         .filter(|s| !s.is_empty())
-        .ok_or("The project folder isn't on a branch (detached HEAD); check out a branch there first")?;
+        .ok_or(
+            "The project folder isn't on a branch (detached HEAD); check out a branch there first",
+        )?;
     if base == branch {
         return Err("The project folder has the worktree's branch checked out".into());
     }
-    let main_dirty: Vec<FileStatus> = status(&root).into_iter().filter(|f| f.change != "untracked").collect();
+    let main_dirty: Vec<FileStatus> = status(&root)
+        .into_iter()
+        .filter(|f| f.change != "untracked")
+        .collect();
     if !main_dirty.is_empty() {
         return Err(format!(
             "The project folder has uncommitted changes ({}). Commit or stash them first, so the merge can't mix with them.",
@@ -469,22 +638,65 @@ pub fn merge_worktree(project_dir: &str, path: &str, branch: &str, message: &str
     }
     if Path::new(path).is_dir() && !status(path).is_empty() {
         git(path, &["add", "-A"])?;
-        git(path, &["-c", "user.useConfigOnly=false", "commit", "-q", "-m", message])
-            .map_err(|e| format!("Couldn't commit the worktree's changes: {e}"))?;
+        git(
+            path,
+            &[
+                "-c",
+                "user.useConfigOnly=false",
+                "commit",
+                "-q",
+                "-m",
+                message,
+            ],
+        )
+        .map_err(|e| format!("Couldn't commit the worktree's changes: {e}"))?;
     }
-    let ahead = git(&root, &["rev-list", "--count", &format!("{base}..{branch}")]).unwrap_or_default();
+    let ahead = git(
+        &root,
+        &["rev-list", "--count", &format!("{base}..{branch}")],
+    )
+    .unwrap_or_default();
     if ahead.trim() == "0" {
-        return Ok(MergeResult { merged: false, base, conflicts: Vec::new(), message: "Nothing to merge: the branch has no new commits.".into() });
+        return Ok(MergeResult {
+            merged: false,
+            base,
+            conflicts: Vec::new(),
+            message: "Nothing to merge: the branch has no new commits.".into(),
+        });
     }
-    match git(&root, &["merge", "--no-ff", "--no-edit", "-m", &format!("Merge {branch}"), branch]) {
-        Ok(_) => Ok(MergeResult { merged: true, base: base.clone(), conflicts: Vec::new(), message: format!("Merged {branch} into {base}.") }),
+    match git(
+        &root,
+        &[
+            "merge",
+            "--no-ff",
+            "--no-edit",
+            "-m",
+            &format!("Merge {branch}"),
+            branch,
+        ],
+    ) {
+        Ok(_) => Ok(MergeResult {
+            merged: true,
+            base: base.clone(),
+            conflicts: Vec::new(),
+            message: format!("Merged {branch} into {base}."),
+        }),
         Err(e) => {
-            let conflicts: Vec<String> = git(&root, &["diff", "--name-only", "--diff-filter=U"]).unwrap_or_default().lines().map(str::to_owned).collect();
+            let conflicts: Vec<String> = git(&root, &["diff", "--name-only", "--diff-filter=U"])
+                .unwrap_or_default()
+                .lines()
+                .map(str::to_owned)
+                .collect();
             let _ = git(&root, &["merge", "--abort"]);
             if conflicts.is_empty() {
                 Err(e)
             } else {
-                Ok(MergeResult { merged: false, base, conflicts, message: "The branches change the same lines; nothing was merged.".into() })
+                Ok(MergeResult {
+                    merged: false,
+                    base,
+                    conflicts,
+                    message: "The branches change the same lines; nothing was merged.".into(),
+                })
             }
         }
     }
@@ -501,10 +713,17 @@ pub struct MergeResult {
 
 /// Removes a session's worktree folder (and, when asked, its branch). Uncommitted changes in it
 /// are lost, which the interface says before calling this.
-pub fn remove_worktree(project_dir: &str, path: &str, branch: &str, delete_branch: bool) -> Result<(), String> {
+pub fn remove_worktree(
+    project_dir: &str,
+    path: &str,
+    branch: &str,
+    delete_branch: bool,
+) -> Result<(), String> {
     check_rev(branch)?;
     let root = root(project_dir).ok_or("This project isn't a git repository")?;
-    let known = worktrees(&root).into_iter().any(|w| !w.main && w.path == path);
+    let known = worktrees(&root)
+        .into_iter()
+        .any(|w| !w.main && w.path == path);
     if known {
         git(&root, &["worktree", "remove", "--force", path])?;
     } else {
@@ -537,7 +756,11 @@ mod tests {
 
     #[test]
     fn checks_what_comes_from_the_interface() {
-        assert!(check_rev("a1b2c3d").is_ok() && check_rev("agentdeck/fix-login").is_ok() && check_rev("HEAD~1").is_ok());
+        assert!(
+            check_rev("a1b2c3d").is_ok()
+                && check_rev("agentdeck/fix-login").is_ok()
+                && check_rev("HEAD~1").is_ok()
+        );
         for bad in ["--output=/tmp/x", "a..b", "main@{1}", "x;rm", ""] {
             assert!(check_rev(bad).is_err(), "{bad}");
         }
@@ -561,7 +784,10 @@ mod tests {
         std::fs::write(Path::new(&r).join("new file.txt"), "x").unwrap();
 
         let log = log(&r, 0, 50).unwrap();
-        assert_eq!(log.iter().map(|c| c.subject.as_str()).collect::<Vec<_>>(), ["Merge feature", "add b", "first"]);
+        assert_eq!(
+            log.iter().map(|c| c.subject.as_str()).collect::<Vec<_>>(),
+            ["Merge feature", "add b", "first"]
+        );
         assert_eq!(log[0].parents.len(), 2);
         assert!(log[0].refs.iter().any(|x| x.contains("main")));
         assert_eq!(log[0].author, "Tester");
@@ -570,13 +796,30 @@ mod tests {
         assert_eq!(o.branch.as_deref(), Some("main"));
         assert!(o.branches.iter().any(|b| b.name == "feature" && !b.current));
         assert_eq!(o.worktrees.len(), 1);
-        let st: Vec<_> = o.status.iter().map(|f| (f.path.as_str(), f.change.as_str())).collect();
-        assert!(st.contains(&("a.txt", "modified")) && st.contains(&("new file.txt", "untracked")), "{st:?}");
+        let st: Vec<_> = o
+            .status
+            .iter()
+            .map(|f| (f.path.as_str(), f.change.as_str()))
+            .collect();
+        assert!(
+            st.contains(&("a.txt", "modified")) && st.contains(&("new file.txt", "untracked")),
+            "{st:?}"
+        );
 
         let files = commit_files(&r, &log[0].hash).unwrap();
-        assert_eq!(files, vec![ChangedFile { path: "b.txt".into(), change: "added".into(), from: None }]);
+        assert_eq!(
+            files,
+            vec![ChangedFile {
+                path: "b.txt".into(),
+                change: "added".into(),
+                from: None
+            }]
+        );
         let pair = file_pair(&r, "HEAD", "WORKTREE", "a.txt", None).unwrap();
-        assert_eq!((pair.old.as_str(), pair.new.as_str()), ("one\n", "one\nmore\n"));
+        assert_eq!(
+            (pair.old.as_str(), pair.new.as_str()),
+            ("one\n", "one\nmore\n")
+        );
         assert!(file_pair(&r, "HEAD", "WORKTREE", "../outside", None).is_err());
     }
 
@@ -595,26 +838,46 @@ mod tests {
         let st = worktree_state(&r, &wt, &branch).unwrap();
         assert_eq!(st.base.as_deref(), Some("main"));
         assert_eq!(st.uncommitted.len(), 2);
-        let mut f: Vec<_> = st.files.iter().map(|x| (x.path.as_str(), x.change.as_str())).collect();
+        let mut f: Vec<_> = st
+            .files
+            .iter()
+            .map(|x| (x.path.as_str(), x.change.as_str()))
+            .collect();
         f.sort();
         assert_eq!(f, [("a.txt", "modified"), ("c.txt", "added")]);
         // The project folder was untouched.
-        assert_eq!(std::fs::read_to_string(Path::new(&r).join("a.txt")).unwrap(), "one\n");
+        assert_eq!(
+            std::fs::read_to_string(Path::new(&r).join("a.txt")).unwrap(),
+            "one\n"
+        );
 
         // An uncommitted change in the project folder blocks the merge.
         std::fs::write(Path::new(&r).join("a.txt"), "dirty\n").unwrap();
-        assert!(merge_worktree(&r, &wt, &branch, "Fix login").unwrap_err().contains("uncommitted"));
+        assert!(merge_worktree(&r, &wt, &branch, "Fix login")
+            .unwrap_err()
+            .contains("uncommitted"));
         git(&r, &["checkout", "--", "a.txt"]).unwrap();
 
         let m = merge_worktree(&r, &wt, &branch, "Fix login").unwrap();
         assert!(m.merged, "{}", m.message);
-        assert_eq!(std::fs::read_to_string(Path::new(&r).join("a.txt")).unwrap(), "one\nfixed\n");
+        assert_eq!(
+            std::fs::read_to_string(Path::new(&r).join("a.txt")).unwrap(),
+            "one\nfixed\n"
+        );
         let st = worktree_state(&r, &wt, &branch).unwrap();
         assert_eq!((st.ahead, st.uncommitted.len()), (0, 0));
 
         remove_worktree(&r, &wt, &branch, true).unwrap();
         assert!(!Path::new(&wt).exists());
-        assert!(!git_ok(&r, &["rev-parse", "--verify", "-q", "refs/heads/agentdeck/fix-the-login-bug"]));
+        assert!(!git_ok(
+            &r,
+            &[
+                "rev-parse",
+                "--verify",
+                "-q",
+                "refs/heads/agentdeck/fix-the-login-bug"
+            ]
+        ));
     }
 
     #[test]
@@ -628,6 +891,9 @@ mod tests {
         assert!(!m.merged);
         assert_eq!(m.conflicts, ["a.txt"]);
         assert!(status(&r).is_empty(), "nothing half-merged is left behind");
-        assert_eq!(std::fs::read_to_string(Path::new(&r).join("a.txt")).unwrap(), "from you\n");
+        assert_eq!(
+            std::fs::read_to_string(Path::new(&r).join("a.txt")).unwrap(),
+            "from you\n"
+        );
     }
 }

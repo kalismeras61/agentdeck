@@ -72,13 +72,22 @@ pub fn from_claude(init: &Value) -> Vec<SlashCommand> {
                 return None;
             }
             let desc = c["description"].as_str().unwrap_or("");
-            let from_file = desc.trim_end().ends_with("(user)") || desc.trim_end().ends_with("(project)") || desc.contains("(plugin");
+            let from_file = desc.trim_end().ends_with("(user)")
+                || desc.trim_end().ends_with("(project)")
+                || desc.contains("(plugin");
             let skill = desc.to_lowercase().contains("skill") && from_file;
             Some(SlashCommand {
                 name,
                 description: short(Some(desc), 300),
                 hint: short(c["argumentHint"].as_str(), 80),
-                source: if skill { "skill" } else if from_file { "custom" } else { "agent" }.into(),
+                source: if skill {
+                    "skill"
+                } else if from_file {
+                    "custom"
+                } else {
+                    "agent"
+                }
+                .into(),
                 expand: None,
             })
         })
@@ -136,7 +145,11 @@ fn from_files(agent: &str, project: Option<&Path>, homes: &Homes) -> Vec<SlashCo
                 continue;
             }
             let (desc, body) = front_matter(&text);
-            let name = if base.starts_with("prompts:") { base.clone() } else { format!("prompts:{base}") };
+            let name = if base.starts_with("prompts:") {
+                base.clone()
+            } else {
+                format!("prompts:{base}")
+            };
             if valid_name(&name) {
                 out.push(SlashCommand {
                     name,
@@ -147,7 +160,13 @@ fn from_files(agent: &str, project: Option<&Path>, homes: &Homes) -> Vec<SlashCo
                 });
             }
         } else if valid_name(&base) {
-            out.push(SlashCommand { name: base, description: item.description.clone(), hint: None, source: "custom".into(), expand: None });
+            out.push(SlashCommand {
+                name: base,
+                description: item.description.clone(),
+                hint: None,
+                source: "custom".into(),
+                expand: None,
+            });
         }
     }
     out
@@ -166,7 +185,9 @@ pub fn list(db: &Db, session: &SessionRow, homes: &Homes) -> Vec<SlashCommand> {
             if let Some(c) = cached(&key) {
                 return c;
             }
-            let probe_dir = project.map(Path::to_path_buf).unwrap_or_else(std::env::temp_dir);
+            let probe_dir = project
+                .map(Path::to_path_buf)
+                .unwrap_or_else(std::env::temp_dir);
             match crate::models::claude_initialize(&probe_dir) {
                 Ok(init) => {
                     let list = from_claude(&init);
@@ -176,7 +197,9 @@ pub fn list(db: &Db, session: &SessionRow, homes: &Homes) -> Vec<SlashCommand> {
                 Err(_) => from_files("claude-code", project, homes),
             }
         }
-        "gemini-cli" => cached(&session.id).unwrap_or_else(|| from_files("gemini-cli", project, homes)),
+        "gemini-cli" => {
+            cached(&session.id).unwrap_or_else(|| from_files("gemini-cli", project, homes))
+        }
         "codex" => from_files("codex", project, homes),
         _ => cached(&session.id).unwrap_or_default(),
     }
@@ -196,11 +219,28 @@ mod tests {
             { "name": "bad name; rm", "description": "x" },
         ]});
         let c = from_claude(&init);
-        assert_eq!(c.iter().map(|x| (x.name.as_str(), x.source.as_str())).collect::<Vec<_>>(), vec![("compact", "agent"), ("deploy-check", "custom"), ("pdf-tools", "skill")]);
-        assert_eq!(c[0].hint.as_deref(), Some("<optional custom summarization instructions>"));
+        assert_eq!(
+            c.iter()
+                .map(|x| (x.name.as_str(), x.source.as_str()))
+                .collect::<Vec<_>>(),
+            vec![
+                ("compact", "agent"),
+                ("deploy-check", "custom"),
+                ("pdf-tools", "skill")
+            ]
+        );
+        assert_eq!(
+            c[0].hint.as_deref(),
+            Some("<optional custom summarization instructions>")
+        );
         assert_eq!(c[1].hint, None);
-        let a = from_acp(&json!({ "availableCommands": [{ "name": "memory", "description": "Manage memory", "input": { "hint": "show|add" } }] }));
-        assert_eq!((a[0].name.as_str(), a[0].hint.as_deref()), ("memory", Some("show|add")));
+        let a = from_acp(
+            &json!({ "availableCommands": [{ "name": "memory", "description": "Manage memory", "input": { "hint": "show|add" } }] }),
+        );
+        assert_eq!(
+            (a[0].name.as_str(), a[0].hint.as_deref()),
+            ("memory", Some("show|add"))
+        );
     }
 
     #[test]
@@ -208,12 +248,24 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let home = dir.path();
         std::fs::create_dir_all(home.join(".codex/prompts")).unwrap();
-        std::fs::write(home.join(".codex/prompts/release.md"), "---\ndescription: Cut a release\n---\nBump the version and write the changelog.\n").unwrap();
-        let homes = Homes { home: home.to_path_buf(), claude: home.join(".claude"), codex: home.join(".codex"), gemini: home.join(".gemini") };
+        std::fs::write(
+            home.join(".codex/prompts/release.md"),
+            "---\ndescription: Cut a release\n---\nBump the version and write the changelog.\n",
+        )
+        .unwrap();
+        let homes = Homes {
+            home: home.to_path_buf(),
+            claude: home.join(".claude"),
+            codex: home.join(".codex"),
+            gemini: home.join(".gemini"),
+        };
         let c = from_files("codex", None, &homes);
         assert_eq!(c.len(), 1);
         assert_eq!(c[0].name, "prompts:release");
         assert_eq!(c[0].description.as_deref(), Some("Cut a release"));
-        assert_eq!(c[0].expand.as_deref(), Some("Bump the version and write the changelog.\n"));
+        assert_eq!(
+            c[0].expand.as_deref(),
+            Some("Bump the version and write the changelog.\n")
+        );
     }
 }

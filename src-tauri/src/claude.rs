@@ -582,7 +582,11 @@ impl Manager {
                 }
                 if ours && !on_profile {
                     if let Some(r) = v.pointer("/response/response") {
-                        crate::models::remember(&self.db, "claude-code", &crate::models::from_claude(r));
+                        crate::models::remember(
+                            &self.db,
+                            "claude-code",
+                            &crate::models::from_claude(r),
+                        );
                     }
                 }
                 return;
@@ -728,9 +732,7 @@ impl Manager {
             .map_err(|e| e.to_string())?
             .ok_or("Project not found")?;
         if !Path::new(&dir).is_dir() {
-            return Err(format!(
-                "The folder {dir} doesn't exist anymore"
-            ));
+            return Err(format!("The folder {dir} doesn't exist anymore"));
         }
         let proc = match self.proc(session_id) {
             Some(p) => p,
@@ -903,7 +905,9 @@ impl Manager {
                 input["answers"] = Value::Object(map);
                 json!({ "behavior": "allow", "updatedInput": input })
             }
-            None => json!({ "behavior": "deny", "message": "The user skipped this question. Carry on with your best judgment and say which choice you made." }),
+            None => {
+                json!({ "behavior": "deny", "message": "The user skipped this question. Carry on with your best judgment and say which choice you made." })
+            }
         };
         proc.write_line(&json!({ "type": "control_response", "response": { "subtype": "success", "request_id": request_id, "response": response } }))?;
         if let Ok(mut p) = proc.pending.lock() {
@@ -916,7 +920,11 @@ impl Manager {
             &json!({ "requestId": request_id, "answers": answers, "skipped": answers.is_none() }),
         );
         let still_waiting = proc.pending.lock().map(|p| !p.is_empty()).unwrap_or(false);
-        self.set_status(session_id, if still_waiting { "waiting" } else { "running" }, Some("Working"));
+        self.set_status(
+            session_id,
+            if still_waiting { "waiting" } else { "running" },
+            Some("Working"),
+        );
         Ok(())
     }
 
@@ -947,12 +955,18 @@ impl Manager {
     /// Sends a control request to a running Claude Code and waits for its answer.
     fn control(&self, session_id: &str, purpose: &str, request: Value) -> Result<Value, String> {
         let proc = self.proc(session_id).ok_or("This session isn't running")?;
-        let rid = format!("agentdeck-{purpose}-{}-{}", now_ms(), uuid::Uuid::new_v4().simple());
+        let rid = format!(
+            "agentdeck-{purpose}-{}-{}",
+            now_ms(),
+            uuid::Uuid::new_v4().simple()
+        );
         let (tx, rx) = std::sync::mpsc::channel();
         if let Ok(mut w) = proc.waiters.lock() {
             w.insert(rid.clone(), tx);
         }
-        let sent = proc.write_line(&json!({ "type": "control_request", "request_id": rid, "request": request }));
+        let sent = proc.write_line(
+            &json!({ "type": "control_request", "request_id": rid, "request": request }),
+        );
         let answer = sent.and_then(|_| {
             rx.recv_timeout(CONTROL_TIMEOUT)
                 .map_err(|_| "Claude Code didn't answer in time".to_string())
@@ -1111,14 +1125,22 @@ mod tests {
             effort: None,
         };
         let a = args(&s).join(" ");
-        assert!(!a.contains("--model") && !a.contains("--effort"), "defaults are left to Claude Code: {a}");
+        assert!(
+            !a.contains("--model") && !a.contains("--effort"),
+            "defaults are left to Claude Code: {a}"
+        );
         s.model = "opus".into();
         s.effort = Some("xhigh".into());
         s.provider_session_id = Some("abc".into());
         s.mode = "plan".into();
-        assert!(args(&s).join(" ").ends_with("--model opus --effort xhigh --resume abc --permission-mode plan"));
+        assert!(args(&s)
+            .join(" ")
+            .ends_with("--model opus --effort xhigh --resume abc --permission-mode plan"));
         s.effort = Some("--danger".into());
-        assert!(!args(&s).iter().any(|x| x == "--effort" || x == "--danger"), "only known levels are passed");
+        assert!(
+            !args(&s).iter().any(|x| x == "--effort" || x == "--danger"),
+            "only known levels are passed"
+        );
     }
 
     #[test]
@@ -1372,20 +1394,42 @@ mod integration {
     #[ignore]
     fn answers_a_question_from_claude_code() {
         let Some(h) = harness() else { return };
-        h.mgr.send_message(&h.sid, "please ask me which library to use").unwrap();
+        h.mgr
+            .send_message(&h.sid, "please ask me which library to use")
+            .unwrap();
         let req = h.wait_event("control_request/can_use_tool");
-        assert_eq!(req.payload.pointer("/request/tool_name").and_then(Value::as_str), Some("AskUserQuestion"));
+        assert_eq!(
+            req.payload
+                .pointer("/request/tool_name")
+                .and_then(Value::as_str),
+            Some("AskUserQuestion")
+        );
         assert_eq!(h.status(), "waiting");
         let rid = req.payload["request_id"].as_str().unwrap().to_string();
         let mut answers = std::collections::HashMap::new();
-        assert!(h.mgr.answer_question(&h.sid, &rid, Some(&answers)).is_err(), "an empty answer is refused");
-        answers.insert("Which state library should the app use?".to_string(), vec!["Riverpod".to_string()]);
+        assert!(
+            h.mgr.answer_question(&h.sid, &rid, Some(&answers)).is_err(),
+            "an empty answer is refused"
+        );
+        answers.insert(
+            "Which state library should the app use?".to_string(),
+            vec!["Riverpod".to_string()],
+        );
         h.mgr.answer_question(&h.sid, &rid, Some(&answers)).unwrap();
         let answered = h.wait_event("question_answered");
-        assert_eq!(answered.payload["answers"]["Which state library should the app use?"][0], "Riverpod");
+        assert_eq!(
+            answered.payload["answers"]["Which state library should the app use?"][0],
+            "Riverpod"
+        );
         let done = h.wait_event("result");
-        let reply = done.payload["result"].as_str().unwrap_or_default().to_string();
-        assert!(reply.contains("Got your answer") && reply.contains("Riverpod"), "Claude got the answer: {reply}");
+        let reply = done.payload["result"]
+            .as_str()
+            .unwrap_or_default()
+            .to_string();
+        assert!(
+            reply.contains("Got your answer") && reply.contains("Riverpod"),
+            "Claude got the answer: {reply}"
+        );
         h.mgr.stop(&h.sid);
     }
 
@@ -1510,12 +1554,23 @@ mod integration {
         h.db.set_session_effort(&h.sid, Some("low")).unwrap();
         h.mgr.send_message(&h.sid, "hello").unwrap();
         h.wait_event("result");
-        assert_eq!(h.mgr.applied_effort(&h.sid).unwrap().as_deref(), Some("low"), "--effort on start");
+        assert_eq!(
+            h.mgr.applied_effort(&h.sid).unwrap().as_deref(),
+            Some("low"),
+            "--effort on start"
+        );
         h.mgr.set_effort(&h.sid, Some("max")).unwrap();
-        assert_eq!(h.mgr.applied_effort(&h.sid).unwrap().as_deref(), Some("max"), "changed without a restart");
+        assert_eq!(
+            h.mgr.applied_effort(&h.sid).unwrap().as_deref(),
+            Some("max"),
+            "changed without a restart"
+        );
         h.mgr.set_effort(&h.sid, None).unwrap();
         let back = h.mgr.applied_effort(&h.sid).unwrap();
-        assert!(back.is_some() && back.as_deref() != Some("max"), "back to Claude Code's default: {back:?}");
+        assert!(
+            back.is_some() && back.as_deref() != Some("max"),
+            "back to Claude Code's default: {back:?}"
+        );
         h.mgr.send_message(&h.sid, "hello again").unwrap();
         h.wait_event("result");
         h.mgr.shutdown_all();
