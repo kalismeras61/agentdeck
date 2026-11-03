@@ -62,6 +62,19 @@ Comandos e edições que precisam do seu OK aparecem como cards que dizem o que 
 
 ![Um fluxo de trabalho de plano, implementação e revisão: o Codex implementou, o Claude Code revisou e aprovou](../screenshots/readme/workflow.png)
 
+### Bots que continuam trabalhando
+
+Um bot é um agente que fica. Dê a ele um nome, uma função, instruções, um agente e um modelo (Claude Code, Codex, Gemini CLI, Grok Build, Kimi Code, Antigravity ou seus próprios modelos) e uma pasta, e depois passe tarefas para ele. Ele as resolve em segundo plano enquanto você faz outra coisa.
+
+- **Uma fila de tarefas.** Adicione tarefas enquanto o bot está ocupado; ele executa uma de cada vez. Pause, retome, cancele ou tente de novo, e cada tarefa concluída guarda o relatório do bot como resultado.
+- **Memória.** Cada bot mantém um arquivo de memória curto (fora do git). Ele lê esse arquivo no início de cada tarefa e anota o que vale a pena lembrar: convenções, decisões, onde as coisas ficam, o que você prefere. Você pode ler e editar a memória na página do bot.
+- **Sem supervisão, mas não sem controle.** Enquanto um bot trabalha em uma tarefa, pedidos comuns são aprovados para ele. Qualquer coisa arriscada (apagar, fazer push, fazer deploy, credenciais, qualquer coisa fora da pasta dele) e toda pergunta esperam por você, e o bot mostra "Precisa de você" na barra lateral.
+- **Uma página só dele.** A conversa do bot com diffs e aprovações como em qualquer sessão, uma caixa para dar uma tarefa a ele ou enviar uma mensagem simples, e a fila e a memória dele lado a lado.
+
+Em breve: um workspace próprio para cada bot (com cada tarefa podendo indicar um projeto), agendamentos ("dias úteis às 9:00"), um bot gerente que distribui trabalho para outros bots e reúne os resultados, e acesso aos seus bots pelo celular ou pelo Telegram.
+
+![Um bot trabalhando na fila dele, com a memória a uma aba de distância](../screenshots/readme/bots.png)
+
 ### Isole o trabalho em worktrees do git
 
 Inicie uma sessão no próprio worktree e branch, para que o agente não atrapalhe sua cópia de trabalho. Veja o grafo de branches na visualização Git e depois faça merge do worktree (com um aviso claro quando os dois lados alteraram as mesmas linhas) ou descarte-o.
@@ -80,6 +93,7 @@ Digite `/` na caixa de mensagem para ver os comandos do próprio agente naquela 
 - **Terminal inteligente.** Seu próprio shell na pasta do projeto. Pergunte a qualquer agente sobre a seleção ou as últimas 80 linhas, com um botão "Explique este erro" a um clique.
 - **Anexe qualquer coisa.** Solte arquivos ou pastas, cole uma captura de tela ou escolha arquivos. Imagens chegam ao agente como imagens.
 - **Seus próprios modelos.** DeepSeek, Kimi, GLM (Z.ai), Ollama, LM Studio, OpenRouter ou qualquer endpoint compatível com OpenAI ou Anthropic, com as mesmas aprovações, o mesmo modo de planejamento e os mesmos fluxos de trabalho.
+- **Limites do plano à vista.** Abaixo da caixa de mensagem, as sessões do Claude Code e do Codex mostram quanto você já usou dos limites de 5 horas e semanal e quando eles reiniciam.
 - **Login onde ele falha.** Quando um agente precisa de login, um botão executa o login dele em um terminal integrado e envia sua mensagem de novo.
 - **Atualiza sozinho.** As novas versões são assinadas e notarizadas, e cada atualização é verificada com uma chave embutida no app antes de ser instalada.
 

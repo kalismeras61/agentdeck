@@ -62,6 +62,19 @@ Les commandes et modifications qui nécessitent votre accord apparaissent sous f
 
 ![Un workflow plan, implémentation, revue : Codex a implémenté, Claude Code a relu et approuvé](../screenshots/readme/workflow.png)
 
+### Des bots qui continuent de travailler
+
+Un bot est un agent qui reste. Donnez-lui un nom, un rôle, des instructions, un agent et un modèle (Claude Code, Codex, Gemini CLI, Grok Build, Kimi Code, Antigravity ou vos propres modèles) et un dossier, puis confiez-lui des tâches. Il les traite en arrière-plan pendant que vous faites autre chose.
+
+- **Une file de tâches.** Ajoutez des tâches pendant que le bot est occupé ; il les exécute une par une. Mettez en pause, reprenez, annulez ou relancez, et chaque tâche terminée garde le rapport du bot comme résultat.
+- **Mémoire.** Chaque bot tient un court fichier de mémoire (exclu de git). Il le lit au début de chaque tâche et y note ce qui mérite d'être retenu : conventions, décisions, où se trouvent les choses, vos préférences. Vous pouvez le lire et le modifier sur la page du bot.
+- **Sans surveillance, mais pas sans contrôle.** Pendant qu'un bot travaille sur une tâche, les demandes ordinaires sont approuvées pour lui. Tout ce qui est risqué (suppression, push, déploiement, identifiants, tout ce qui sort de son dossier) ainsi que chaque question vous attendent, et le bot affiche « Vous attend » dans la barre latérale.
+- **Sa propre page.** La conversation du bot avec les diffs et les approbations comme dans n'importe quelle session, un champ pour lui confier une tâche ou envoyer un simple message, et sa file et sa mémoire côte à côte.
+
+À venir : un espace de travail propre à chaque bot (chaque tâche pouvant indiquer un projet), des planifications (« en semaine à 9 h »), un bot manager qui confie du travail à d'autres bots et rassemble leurs résultats, et l'accès à vos bots depuis votre téléphone ou Telegram.
+
+![Un bot qui traite sa file, avec sa mémoire à un onglet de distance](../screenshots/readme/bots.png)
+
 ### Isolez le travail dans des worktrees git
 
 Démarrez une session dans son propre worktree et sa propre branche, pour qu'un agent ne puisse pas empiéter sur votre copie de travail. Visualisez le graphe des branches dans la vue Git, puis fusionnez le worktree (avec un avertissement clair quand les deux côtés ont modifié les mêmes lignes) ou jetez-le.
@@ -80,6 +93,7 @@ Tapez `/` dans le champ de message pour accéder aux commandes propres à l'agen
 - **Terminal intelligent.** Votre propre shell dans le dossier du projet. Interrogez n'importe quel agent sur la sélection ou sur les 80 dernières lignes, avec un bouton « Expliquer cette erreur » en un clic.
 - **Joignez ce que vous voulez.** Déposez des fichiers ou des dossiers, collez une capture d'écran ou choisissez des fichiers. Les images parviennent à l'agent en tant qu'images.
 - **Vos propres modèles.** DeepSeek, Kimi, GLM (Z.ai), Ollama, LM Studio, OpenRouter ou n'importe quel endpoint compatible OpenAI ou Anthropic, avec les mêmes approbations, le même mode plan et les mêmes workflows.
+- **Limites du forfait en un coup d'œil.** Sous le champ de message, les sessions Claude Code et Codex indiquent quelle part de vos limites sur 5 heures et hebdomadaire vous avez utilisée, et quand elles se réinitialisent.
 - **Connexion là où ça bloque.** Quand un agent a besoin de se connecter, un bouton lance sa propre procédure de connexion dans un terminal intégré, puis renvoie votre message.
 - **Mises à jour automatiques.** Les nouvelles versions sont signées et notarisées, et chaque mise à jour est vérifiée avec une clé intégrée à l'application avant son installation.
 

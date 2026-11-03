@@ -62,6 +62,19 @@ Los comandos y las ediciones que necesitan tu visto bueno aparecen como tarjetas
 
 ![Un flujo de planificar, implementar y revisar: Codex implementó, Claude Code revisó y aprobó](../screenshots/readme/workflow.png)
 
+### Bots que siguen trabajando
+
+Un bot es un agente que se queda. Dale un nombre, un trabajo, instrucciones, un agente y un modelo (Claude Code, Codex, Gemini CLI, Grok Build, Kimi Code, Antigravity o tus propios modelos) y una carpeta, y luego encárgale tareas. Las va resolviendo en segundo plano mientras tú haces otra cosa.
+
+- **Una cola de tareas.** Añade tareas mientras el bot está ocupado; las ejecuta de una en una. Pausa, reanuda, cancela o reintenta, y cada tarea terminada conserva el informe del bot como resultado.
+- **Memoria.** Cada bot tiene un breve archivo de memoria (fuera de git). Lo lee al empezar cada tarea y apunta lo que vale la pena recordar: convenciones, decisiones, dónde está cada cosa, qué prefieres. Puedes leerlo y editarlo en la página del bot.
+- **Desatendido, pero no sin control.** Mientras un bot trabaja en una tarea, las solicitudes normales se aprueban en su nombre. Todo lo arriesgado (borrar, hacer push, desplegar, credenciales, cualquier cosa fuera de su carpeta) y cada pregunta te esperan a ti, y el bot muestra «Te necesita» en la barra lateral.
+- **Su propia página.** La conversación del bot con diffs y aprobaciones como en cualquier sesión, un cuadro para darle una tarea o enviarle un mensaje normal, y su cola y su memoria una al lado de la otra.
+
+Próximamente: un espacio de trabajo propio para cada bot (y que cada tarea pueda indicar un proyecto), programaciones («los días laborables a las 9:00»), un bot gestor que reparte trabajo a otros bots y recoge sus resultados, y acceso a tus bots desde el móvil o Telegram.
+
+![Un bot avanzando por su cola, con su memoria a una pestaña de distancia](../screenshots/readme/bots.png)
+
 ### Aísla el trabajo en worktrees de git
 
 Inicia una sesión en su propio worktree y rama, para que un agente no pueda pisar tu copia de trabajo. Consulta el grafo de ramas en la vista Git y luego fusiona el worktree de vuelta (con un aviso claro cuando ambos lados cambiaron las mismas líneas) o descártalo.
@@ -80,6 +93,7 @@ Escribe `/` en el cuadro de mensaje para ver los comandos propios del agente en 
 - **Terminal inteligente.** Tu propio shell en la carpeta del proyecto. Pregunta a cualquier agente sobre la selección o las últimas 80 líneas, con un «Explicar este error» a un clic.
 - **Adjunta lo que sea.** Suelta archivos o carpetas, pega una captura o elige archivos. Las imágenes llegan al agente como imágenes.
 - **Tus propios modelos.** DeepSeek, Kimi, GLM (Z.ai), Ollama, LM Studio, OpenRouter o cualquier endpoint compatible con OpenAI o Anthropic, con las mismas aprobaciones, modo plan y flujos de trabajo.
+- **Límites del plan de un vistazo.** Bajo el cuadro de mensaje, las sesiones de Claude Code y Codex muestran cuánto has usado de tus límites de 5 horas y semanal, y cuándo se restablecen.
 - **Inicia sesión donde falla.** Cuando un agente necesita iniciar sesión, un botón ejecuta su propio inicio de sesión en una terminal integrada y vuelve a enviar tu mensaje.
 - **Se actualiza solo.** Las versiones nuevas están firmadas y notarizadas, y cada actualización se verifica con una clave integrada en la app antes de instalarse.
 

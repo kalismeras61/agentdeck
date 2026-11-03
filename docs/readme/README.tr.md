@@ -62,6 +62,19 @@ Onayınızı gerektiren komutlar ve düzenlemeler, neyin nerede çalışacağın
 
 ![Plan, geliştirme ve inceleme iş akışı: Codex geliştirdi, Claude Code inceleyip onayladı](../screenshots/readme/workflow.png)
 
+### Çalışmaya devam eden botlar
+
+Bot, kalıcı bir ajandır. Ona bir ad, bir iş, talimatlar, bir ajan ve model (Claude Code, Codex, Gemini CLI, Grok Build, Kimi Code, Antigravity ya da kendi modelleriniz) ve bir klasör verin, ardından görevler atayın. Siz başka bir işle uğraşırken bot bu görevleri arka planda tek tek tamamlar.
+
+- **Görev sırası.** Bot meşgulken de görev ekleyebilirsiniz; görevleri tek tek çalıştırır. Duraklatın, sürdürün, iptal edin ya da yeniden deneyin; tamamlanan her görev, botun raporunu sonuç olarak saklar.
+- **Hafıza.** Her botun kısa bir hafıza dosyası vardır (git'e dahil edilmez). Bot her görevin başında bu dosyayı okur ve hatırlamaya değer olanları not eder: kurallar, kararlar, nelerin nerede olduğu, neleri tercih ettiğiniz. Dosyayı botun sayfasında okuyup düzenleyebilirsiniz.
+- **Gözetimsiz ama denetimsiz değil.** Bot bir görev üzerinde çalışırken sıradan istekler onun adına onaylanır. Riskli her şey (silme, push, deploy, kimlik bilgileri, klasörünün dışındaki her şey) ve her soru sizi bekler; bot da kenar çubuğunda "Sizi bekliyor" olarak görünür.
+- **Kendi sayfası.** Herhangi bir oturumdaki gibi diff'ler ve onaylarla botun konuşması, ona görev vermek ya da düz bir mesaj göndermek için bir kutu, yan yana sırası ve hafızası.
+
+Yakında: her bota ait ayrı bir çalışma alanı (her görev bir proje belirtebilecek), zamanlamalar ("hafta içi 09:00'da"), işi diğer botlara dağıtıp sonuçlarını toplayan bir yönetici bot ve botlarınıza telefonunuzdan ya da Telegram'dan ulaşma.
+
+![Sırasındaki görevleri tamamlayan bir bot; hafızası bir sekme ötede](../screenshots/readme/bots.png)
+
 ### İşi git worktree'lerinde izole edin
 
 Bir oturumu kendi worktree'si ve dalında başlatın; böylece ajan çalışma kopyanıza karışamaz. Git görünümünde dal grafiğini izleyin, ardından worktree'yi geri birleştirin (iki taraf da aynı satırları değiştirdiyse açık bir uyarıyla) ya da tamamen silin.
@@ -80,6 +93,7 @@ Mesaj kutusuna `/` yazdığınızda, o klasörde ajanın kendi komutları (Claud
 - **Akıllı terminal.** Proje klasöründe kendi shell'iniz. Seçili metin ya da son 80 satır hakkında herhangi bir ajana soru sorun; tek tıkla "Bu hatayı açıkla" deyin.
 - **Her şeyi ekleyin.** Dosya ya da klasör sürükleyip bırakın, ekran görüntüsü yapıştırın veya dosya seçin. Görseller ajana görsel olarak ulaşır.
 - **Kendi modelleriniz.** DeepSeek, Kimi, GLM (Z.ai), Ollama, LM Studio, OpenRouter ya da OpenAI veya Anthropic uyumlu herhangi bir uç nokta; aynı onaylar, plan modu ve iş akışlarıyla.
+- **Plan limitleri bir bakışta.** Claude Code ve Codex oturumlarında mesaj kutusunun altında, 5 saatlik ve haftalık limitlerinizin ne kadarını kullandığınız ve ne zaman sıfırlanacakları görünür.
 - **Takıldığı yerde giriş yapın.** Bir ajanın girişe ihtiyacı olduğunda, bir düğme ajanın kendi giriş akışını yerleşik bir terminalde çalıştırır ve mesajınızı yeniden gönderir.
 - **Kendini günceller.** Yeni sürümler imzalı ve Apple tarafından onaylıdır (notarized); her güncelleme, kurulmadan önce uygulamaya gömülü bir anahtarla doğrulanır.
 
