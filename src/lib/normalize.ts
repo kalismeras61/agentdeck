@@ -172,6 +172,12 @@ export function normalizeFor(provider: ProviderId, events: StoredEvent[], ctx: N
         type: "notice",
         payload: { tone: "info", text: t("The workflow answers this agent's requests on its own, but left the next one for you: {why}.", { why: str(p.why) ?? t("it looked risky") }) },
       });
+    } else if (e.kind === "flow_no_reply") {
+      own.push({
+        ...base(e, `fnr-${e.seq}`),
+        type: "notice",
+        payload: { tone: "info", text: t("{agent} finished without a reply, so the workflow is waiting. Its next reply moves the workflow on; write to it here if it needs a nudge.", { agent: str(p.who) ?? t("The agent") }) },
+      });
     } else if (e.kind === "flow_plan_taken") {
       const rid = str(p.requestId);
       if (rid) taken.add(rid);

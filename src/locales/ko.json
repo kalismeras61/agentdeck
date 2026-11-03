@@ -3,6 +3,7 @@
   "(hidden)": "(숨김)",
   "{agent} didn't list any models.": "{agent}에서 제공한 모델 목록이 없습니다.",
   "{agent} effort": "{agent} 추론 강도",
+  "{agent} finished without a reply, so the workflow is waiting. Its next reply moves the workflow on; write to it here if it needs a nudge.": "{agent}이(가) 답변 없이 끝나서 워크플로가 기다리고 있습니다. 다음 답변이 오면 워크플로가 진행됩니다. 필요하면 여기서 메시지를 보내세요.",
   "{agent} has a question|{agent} has {n} questions": {
     "other": "{agent}의 질문 {n}개"
   },
@@ -945,6 +946,9 @@
   "Skips every approval (--dangerously-skip-permissions): commands, deletions and pushes all run without asking. Only for projects you can afford to lose work in.": "모든 승인을 건너뜁니다(--dangerously-skip-permissions). 명령, 삭제, 푸시가 모두 묻지 않고 실행됩니다. 작업을 잃어도 괜찮은 프로젝트에서만 사용하세요.",
   "Something went wrong": "문제가 발생했습니다",
   "Something went wrong talking to the desktop app.": "데스크톱 앱과 통신하는 중 문제가 발생했습니다.",
+  "Stage done": "단계 완료",
+  "Stage in progress": "단계 진행 중",
+  "Stage not started yet": "아직 시작하지 않은 단계",
   "Start a new Vite + React app in a folder called my-app": "my-app 폴더에 새 Vite + React 앱을 만들어 주세요",
   "Start a session": "세션 시작",
   "Start relay": "릴레이 시작",
@@ -1015,6 +1019,7 @@
   "The turn ended with an error": "턴이 오류로 종료되었습니다",
   "The turn failed": "턴이 실패했습니다",
   "The workflow answers this agent's requests on its own, but left the next one for you: {why}.": "워크플로가 이 에이전트의 요청에 자동으로 응답하지만, 다음 요청은 직접 결정하도록 남겨 두었습니다: {why}.",
+  "The workflow stopped here": "워크플로가 여기서 멈췄습니다",
   "The worktree was removed with its branch {branch}.": "워크트리와 {branch} 브랜치가 제거되었습니다.",
   "The worktree was removed.": "워크트리가 제거되었습니다.",
   "the worktree's branch": "워크트리 브랜치",

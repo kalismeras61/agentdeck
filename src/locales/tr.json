@@ -3,6 +3,7 @@
   "(hidden)": "(gizli)",
   "{agent} didn't list any models.": "{agent} hiç model listelemedi.",
   "{agent} effort": "{agent} efor düzeyi",
+  "{agent} finished without a reply, so the workflow is waiting. Its next reply moves the workflow on; write to it here if it needs a nudge.": "{agent} yanıt vermeden bitirdi, bu yüzden iş akışı bekliyor. Bir sonraki yanıtı iş akışını ilerletir; gerekirse buradan ona yazın.",
   "{agent} has a question|{agent} has {n} questions": {
     "one": "{agent} bir soru soruyor",
     "other": "{agent} {n} soru soruyor"
@@ -981,6 +982,9 @@
   "Skips every approval (--dangerously-skip-permissions): commands, deletions and pushes all run without asking. Only for projects you can afford to lose work in.": "Her onayı atlar (--dangerously-skip-permissions): komutlar, silmeler ve push işlemleri sormadan çalışır. Yalnızca iş kaybetmeyi göze alabileceğiniz projeler için.",
   "Something went wrong": "Bir sorun oluştu",
   "Something went wrong talking to the desktop app.": "Masaüstü uygulamasıyla iletişimde bir sorun oluştu.",
+  "Stage done": "Adım tamamlandı",
+  "Stage in progress": "Adım sürüyor",
+  "Stage not started yet": "Adım henüz başlamadı",
   "Start a new Vite + React app in a folder called my-app": "my-app adlı bir klasörde yeni bir Vite + React uygulaması başlat",
   "Start a session": "Oturum başlat",
   "Start relay": "Eşli çalışmayı başlat",
@@ -1052,6 +1056,7 @@
   "The turn ended with an error": "Tur bir hatayla sona erdi",
   "The turn failed": "Tur başarısız oldu",
   "The workflow answers this agent's requests on its own, but left the next one for you: {why}.": "İş akışı bu ajanın isteklerini kendisi yanıtlıyor ama bir sonrakini size bıraktı: {why}.",
+  "The workflow stopped here": "İş akışı burada durdu",
   "The worktree was removed with its branch {branch}.": "Worktree, {branch} dalıyla birlikte kaldırıldı.",
   "The worktree was removed.": "Worktree kaldırıldı.",
   "the worktree's branch": "worktree'nin",

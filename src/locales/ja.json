@@ -3,6 +3,7 @@
   "(hidden)": "（非表示）",
   "{agent} didn't list any models.": "{agent}からモデルの一覧が返されませんでした。",
   "{agent} effort": "{agent} の思考レベル",
+  "{agent} finished without a reply, so the workflow is waiting. Its next reply moves the workflow on; write to it here if it needs a nudge.": "{agent} が返答なしで終了したため、ワークフローは待機中です。次の返答でワークフローが進みます。必要ならここからメッセージを送ってください。",
   "{agent} has a question|{agent} has {n} questions": {
     "other": "{agent}から{n}件の質問があります"
   },
@@ -945,6 +946,9 @@
   "Skips every approval (--dangerously-skip-permissions): commands, deletions and pushes all run without asking. Only for projects you can afford to lose work in.": "すべての承認をスキップします（--dangerously-skip-permissions）：コマンド、削除、プッシュがすべて確認なしで実行されます。作業が失われても構わないプロジェクトでのみ使ってください。",
   "Something went wrong": "問題が発生しました",
   "Something went wrong talking to the desktop app.": "デスクトップアプリとの通信中に問題が発生しました。",
+  "Stage done": "ステップ完了",
+  "Stage in progress": "ステップ実行中",
+  "Stage not started yet": "ステップ未開始",
   "Start a new Vite + React app in a folder called my-app": "my-appというフォルダに新しいVite + Reactアプリを作成して",
   "Start a session": "セッションを開始",
   "Start relay": "リレーを開始",
@@ -1015,6 +1019,7 @@
   "The turn ended with an error": "ターンがエラーで終了しました",
   "The turn failed": "ターンが失敗しました",
   "The workflow answers this agent's requests on its own, but left the next one for you: {why}.": "ワークフローはこのエージェントのリクエストに自動で応答しますが、次のリクエストはあなたに任せました：{why}。",
+  "The workflow stopped here": "ワークフローはここで停止しました",
   "The worktree was removed with its branch {branch}.": "ワークツリーをブランチ{branch}とともに削除しました。",
   "The worktree was removed.": "ワークツリーを削除しました。",
   "the worktree's branch": "ワークツリーのブランチ",

@@ -1,6 +1,6 @@
 [package]
 name = "agentdeck"
-version = "0.3.2"
+version = "0.3.3"
 license = "AGPL-3.0-only"
 repository = "https://github.com/kalismeras61/agentdeck"
 description = "A focused desktop workspace for AI coding agents"

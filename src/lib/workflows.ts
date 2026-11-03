@@ -83,3 +83,21 @@ export function useFlowFor(sessionId: string): FlowRow | undefined {
 }
 
 export type Slots = Pick<Workflow, "planAgent" | "buildAgent" | "reviewAgent" | "gatePlan" | "maxReviews">;
+
+export type StageState = "done" | "current" | "pending" | "stopped";
+
+/** Where a session's stage stands in its workflow run, for the sidebar's marks. */
+export function stageState(flow: FlowRow, sessionId: string): StageState | undefined {
+  const order: [string, string | null][] = [
+    ["plan", flow.planSession],
+    ["build", flow.buildSession],
+    ["review", flow.reviewSession],
+  ];
+  const mine = order.findIndex(([, sid]) => sid === sessionId);
+  if (mine < 0) return undefined;
+  if (flow.status === "done") return "done";
+  const current = order.findIndex(([id]) => id === (flow.stage === "approve" ? "plan" : flow.stage));
+  if (mine < current) return "done";
+  if (mine > current) return "pending";
+  return flow.status === "stopped" ? "stopped" : "current";
+}

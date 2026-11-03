@@ -5,6 +5,10 @@ import {
   Check,
   ChevronDown,
   ChevronRight,
+  Circle,
+  CircleAlert,
+  CircleCheck,
+  CircleDot,
   Download,
   FolderGit2,
   GitBranch,
@@ -29,6 +33,7 @@ import { t } from "../lib/i18n";
 import { liveApi } from "../lib/live";
 import { ago, MOD } from "../lib/format";
 import { useAllChanges, usePermissions } from "../hooks/useDerived";
+import { stageState, useFlowFor } from "../lib/workflows";
 import { useStore, type AppView } from "../state/store";
 import { AgentMark, cx, IconButton, Kbd, StatusDot, statusLabel, Tip } from "./ui";
 import { NewProjectDialog } from "./NewProjectDialog";
@@ -511,6 +516,7 @@ function SessionRow({ s, selected, onSelect }: { s: Session; selected: boolean; 
           <span className="flex items-center gap-2">
             <span dir="auto" className={cx("truncate text-[13px]", selected ? "font-medium text-fg" : "text-fg/90")}>{s.title === "New session" ? t("New session") : s.title}</span>
             {s.worktree && <GitBranch size={11} aria-label={t("In worktree {branch}", { branch: s.branch ?? "" })} className="shrink-0 text-violet-text" />}
+            <FlowStageMark sessionId={s.id} />
             <span className="ms-auto shrink-0 text-[11px] tabular-nums text-fg-3">{ago(s.updatedAt)}</span>
           </span>
           <span className="mt-0.5 flex items-center gap-1.5">
@@ -522,5 +528,28 @@ function SessionRow({ s, selected, onSelect }: { s: Session; selected: boolean; 
         </span>
       </button>
     </li>
+  );
+}
+
+/** A workflow session's stage at a glance: done, working now, next, or where it stopped. */
+function FlowStageMark({ sessionId }: { sessionId: string }) {
+  const flow = useFlowFor(sessionId);
+  const state = flow ? stageState(flow, sessionId) : undefined;
+  if (!state) return null;
+  const label = { done: t("Stage done"), current: t("Stage in progress"), pending: t("Stage not started yet"), stopped: t("The workflow stopped here") }[state];
+  return (
+    <Tip label={label}>
+      <span aria-label={label} className="inline-flex shrink-0">
+        {state === "done" ? (
+          <CircleCheck size={12} className="text-success" />
+        ) : state === "current" ? (
+          <CircleDot size={12} className="text-violet-text" />
+        ) : state === "stopped" ? (
+          <CircleAlert size={12} className="text-warning" />
+        ) : (
+          <Circle size={12} className="text-fg-3/60" />
+        )}
+      </span>
+    </Tip>
   );
 }

@@ -3,6 +3,7 @@
   "(hidden)": "(ausgeblendet)",
   "{agent} didn't list any models.": "{agent} hat keine Modelle aufgelistet.",
   "{agent} effort": "{agent}-Aufwand",
+  "{agent} finished without a reply, so the workflow is waiting. Its next reply moves the workflow on; write to it here if it needs a nudge.": "{agent} hat ohne Antwort aufgehört, daher wartet der Workflow. Die nächste Antwort bringt den Workflow weiter; schreib hier, falls es einen Anstoß braucht.",
   "{agent} has a question|{agent} has {n} questions": {
     "one": "{agent} hat eine Frage",
     "other": "{agent} hat {n} Fragen"
@@ -981,6 +982,9 @@
   "Skips every approval (--dangerously-skip-permissions): commands, deletions and pushes all run without asking. Only for projects you can afford to lose work in.": "Überspringt jede Freigabe (--dangerously-skip-permissions): Befehle, Löschvorgänge und Pushes laufen alle ohne Nachfrage. Nur für Projekte, in denen du dir Arbeitsverlust leisten kannst.",
   "Something went wrong": "Etwas ist schiefgelaufen",
   "Something went wrong talking to the desktop app.": "Bei der Kommunikation mit der Desktop-App ist etwas schiefgelaufen.",
+  "Stage done": "Schritt erledigt",
+  "Stage in progress": "Schritt läuft",
+  "Stage not started yet": "Schritt noch nicht begonnen",
   "Start a new Vite + React app in a folder called my-app": "Erstelle eine neue Vite + React-App in einem Ordner namens my-app",
   "Start a session": "Sitzung starten",
   "Start relay": "Relay starten",
@@ -1052,6 +1056,7 @@
   "The turn ended with an error": "Der Durchgang endete mit einem Fehler",
   "The turn failed": "Der Durchgang ist fehlgeschlagen",
   "The workflow answers this agent's requests on its own, but left the next one for you: {why}.": "Der Workflow beantwortet die Anfragen dieses Agenten selbst, hat die nächste aber dir überlassen: {why}.",
+  "The workflow stopped here": "Der Workflow hat hier angehalten",
   "The worktree was removed with its branch {branch}.": "Der Worktree wurde samt seinem Branch {branch} entfernt.",
   "The worktree was removed.": "Der Worktree wurde entfernt.",
   "the worktree's branch": "den Branch des Worktrees",

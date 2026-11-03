@@ -3,6 +3,7 @@
   "(hidden)": "（已隐藏）",
   "{agent} didn't list any models.": "{agent} 没有列出任何模型。",
   "{agent} effort": "{agent} 推理强度",
+  "{agent} finished without a reply, so the workflow is waiting. Its next reply moves the workflow on; write to it here if it needs a nudge.": "{agent} 结束时没有回复，因此工作流正在等待。它的下一条回复会让工作流继续；如需推动，可在此给它发消息。",
   "{agent} has a question|{agent} has {n} questions": {
     "other": "{agent} 有 {n} 个问题"
   },
@@ -945,6 +946,9 @@
   "Skips every approval (--dangerously-skip-permissions): commands, deletions and pushes all run without asking. Only for projects you can afford to lose work in.": "跳过所有审批（--dangerously-skip-permissions）：命令、删除和推送都会直接运行而不询问。仅适用于丢失工作也无妨的项目。",
   "Something went wrong": "出了点问题",
   "Something went wrong talking to the desktop app.": "与桌面应用通信时出了点问题。",
+  "Stage done": "阶段已完成",
+  "Stage in progress": "阶段进行中",
+  "Stage not started yet": "阶段尚未开始",
   "Start a new Vite + React app in a folder called my-app": "在名为 my-app 的文件夹中新建一个 Vite + React 应用",
   "Start a session": "开始会话",
   "Start relay": "开始接力",
@@ -1015,6 +1019,7 @@
   "The turn ended with an error": "本轮以错误结束",
   "The turn failed": "本轮失败",
   "The workflow answers this agent's requests on its own, but left the next one for you: {why}.": "工作流会自行回应此智能体的请求，但把下一个留给了你：{why}。",
+  "The workflow stopped here": "工作流在此停止",
   "The worktree was removed with its branch {branch}.": "工作树已连同其分支 {branch} 一起移除。",
   "The worktree was removed.": "工作树已移除。",
   "the worktree's branch": "工作树的分支",

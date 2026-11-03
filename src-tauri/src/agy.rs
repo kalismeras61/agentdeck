@@ -248,11 +248,16 @@ pub fn valid_rule(r: &str) -> bool {
     let Some((name, rest)) = r.split_once('(') else {
         return false;
     };
+    let target = rest.strip_suffix(')').unwrap_or("").trim();
+    // agy's help text names rules with placeholders ("command(<target>)"): not a real rule.
+    let placeholder =
+        (target.starts_with('<') && target.ends_with('>')) || target == "..." || target == "…";
     (2..=40).contains(&name.len())
         && name.chars().all(|c| c.is_ascii_lowercase() || c == '_')
         && rest.ends_with(')')
         && (2..=300).contains(&rest.len())
         && !r.chars().any(char::is_control)
+        && !placeholder
 }
 
 /// Allow rules agy names in its notices ("…add `command(npm test)` to permissions.allow").
@@ -375,6 +380,9 @@ pub fn add_allow_rules(home: &Path, rules: &[String]) -> Result<PathBuf, String>
 /// - "auto": agy's own Auto mode: edits and commands it judges safe go ahead, a separate agent
 ///   reviews commands that leave the sandbox, irreversible actions are skipped.
 /// - "all": everything goes ahead (`--dangerously-skip-permissions`), only when you chose it.
+///   Plan mode included: agy's plan mode still keeps it from editing, but a planner or a
+///   workflow's reviewer can run what it needs to check the work (tests, git diff) instead of
+///   having every command skipped.
 pub const APPROVALS_KEY: &str = "agy:approvals";
 
 pub fn approvals(db: &Db) -> String {
@@ -408,7 +416,7 @@ pub fn args(session: &SessionRow, approvals: &str) -> Vec<String> {
         }
         .into(),
     );
-    if approvals == "all" && !plan {
+    if approvals == "all" {
         a.push("--dangerously-skip-permissions".into());
     }
     if !session.model.is_empty() && session.model != "default" {
@@ -1268,6 +1276,10 @@ mod tests {
             Some("write_file(src/)")
         );
         assert_eq!(rule_of(&json!("command")), None);
+        // The placeholder in agy's own hint isn't a rule anyone can allow.
+        let hint = "jetski: a tool required the \"command\" permission that headless mode cannot prompt for. Add an allow-rule under permissions.allow in settings.json (e.g. command(<target>)).";
+        assert!(allow_rules(hint).is_empty());
+        assert!(!valid_rule("command(<target>)") && !valid_rule("write_file(...)"));
         assert!(
             !valid_rule("command(rm -rf /)\nmore")
                 && !valid_rule("Command(x)")
@@ -1339,6 +1351,11 @@ mod tests {
         s.provider_session_id = Some("c3b66b04".into());
         assert_eq!(
             args(&s, "all").join(" "),
+            "--input-format stream-json --output-format stream-json --mode plan --dangerously-skip-permissions --model gemini-3.8-flash-medium --conversation c3b66b04",
+            "a reviewer in plan mode can still run tests when everything is allowed"
+        );
+        assert_eq!(
+            args(&s, "edits").join(" "),
             "--input-format stream-json --output-format stream-json --mode plan --model gemini-3.8-flash-medium --conversation c3b66b04"
         );
     }

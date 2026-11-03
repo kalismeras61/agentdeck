@@ -690,10 +690,13 @@ impl Flow {
                 return;
             }
             (TurnEnd::NoReply, None) => {
-                self.finish(
-                    &row,
-                    "stopped",
-                    &format!("{who} finished without a reply to pass on"),
+                // Often a step that needed an OK was skipped (Antigravity can't ask) and the
+                // agent carries on once that's sorted out. Wait for its next reply instead of
+                // ending the workflow; the user can still stop it.
+                self.record(
+                    &ev.session_id,
+                    "flow_no_reply",
+                    &json!({ "flowId": row.id, "who": who }),
                 );
                 return;
             }
@@ -1049,6 +1052,19 @@ mod tests {
             .as_str()
             .unwrap()
             .starts_with("Codex made changes"));
+        // A turn without a reply (Antigravity skipped a step it couldn't ask about) doesn't
+        // end the workflow: it waits for the reviewer's next reply.
+        flow.on_event(&end(&c.id, ""));
+        let waiting = db.flow(&f.id).unwrap().unwrap();
+        assert_eq!(
+            (waiting.status.as_str(), waiting.stage.as_str()),
+            ("active", "review")
+        );
+        assert!(db
+            .events(&c.id)
+            .unwrap()
+            .iter()
+            .any(|e| e.kind == "flow_no_reply"));
         flow.on_event(&end(&c.id, "All good.\nAPPROVED"));
         let done = db.flow(&f.id).unwrap().unwrap();
         assert_eq!(done.status, "done");
