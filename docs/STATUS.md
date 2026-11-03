@@ -2,6 +2,14 @@
 
 Updated 2026-11-03. All five milestones are built and tested on Linux with the real `claude`, `codex` and `gemini` CLIs against local mock APIs; milestone 3 was also confirmed on a Mac with a real signed-in Claude Code. Grok Build is implemented but untested (its installer isn't reachable from the test environment).
 
+## Remote Control from a Claude Code session (0.5.1)
+
+| What | How it's checked |
+|---|---|
+| `/remote-control` or `/rc` in a Claude Code session: AgentDeck ends its own Claude Code process for it and resumes the same conversation in a terminal with `claude --resume … --remote-control=<title>` (model, effort and plan mode kept), which shows Claude Code's QR code and link; AgentDeck won't start Claude Code for that session meanwhile; when the terminal ends, the messages written there (phone, claude.ai or terminal) are added from Claude Code's conversation file and the session is AgentDeck's again | `remote` tests (2, with a stand-in `claude`); `pty` program-terminal test; `remote-control.test.ts`. Not yet run with a real Claude plan sign-in |
+| Not offered for other agents, custom model profiles (Remote Control needs a Claude plan), bots, or while Claude is working | `only_a_claude_code_conversation_on_a_claude_plan_that_is_not_busy` |
+| Known gap: if AgentDeck quits while a conversation is in Remote Control, the messages from there aren't added (Claude Code still has them when the conversation continues) | |
+
 ## Release: signed, notarized, universal, self-updating (0.2.0)
 
 | What | How it's checked |

@@ -1557,5 +1557,22 @@
   "Week": "الأسبوع",
   "Weekly limit": "الحد الأسبوعي",
   "Weekly Opus limit": "حد Opus الأسبوعي",
-  "Weekly Sonnet limit": "حد Sonnet الأسبوعي"
+  "Weekly Sonnet limit": "حد Sonnet الأسبوعي",
+  "Continue this conversation from your phone or claude.ai (Claude Code's Remote Control)": "تابع هذه المحادثة من هاتفك أو من claude.ai (ميزة Remote Control في Claude Code)",
+  "End Remote Control": "إنهاء Remote Control",
+  "Remote Control ended.": "انتهى Remote Control.",
+  "Remote Control ended. The message above came from there.|Remote Control ended. The {n} messages above came from there.": {
+    "zero": "انتهى Remote Control. لم تصل رسائل من هناك.",
+    "one": "انتهى Remote Control. الرسالة أعلاه جاءت من هناك.",
+    "two": "انتهى Remote Control. الرسالتان أعلاه جاءتا من هناك.",
+    "few": "انتهى Remote Control. الرسائل الـ{n} أعلاه جاءت من هناك.",
+    "many": "انتهى Remote Control. الرسائل الـ{n} أعلاه جاءت من هناك.",
+    "other": "انتهى Remote Control. الرسائل الـ{n} أعلاه جاءت من هناك."
+  },
+  "Remote Control ended. What was said there is now in the conversation.": "انتهى Remote Control. ما قيل هناك أصبح الآن في المحادثة.",
+  "Remote Control is on: this conversation continues in the Claude app or at claude.ai, and in its terminal here.": "Remote Control مفعّل: تستمر هذه المحادثة في تطبيق Claude أو على claude.ai، وفي الطرفية الخاصة بها هنا.",
+  "Remote Control works in the desktop app.": "يعمل Remote Control في تطبيق سطح المكتب.",
+  "Remote Control: scan the QR code with the Claude app, or open the link, to continue this conversation there. You can also keep typing here. When you're done, end it and the conversation comes back to AgentDeck with what was said.": "Remote Control: امسح رمز QR بتطبيق Claude، أو افتح الرابط، لتتابع هذه المحادثة هناك. يمكنك أيضًا مواصلة الكتابة هنا. عندما تنتهي، أنهِه وستعود المحادثة إلى AgentDeck مع كل ما قيل.",
+  "Show QR code": "عرض رمز QR",
+  "This conversation is in Remote Control: continue it in the Claude app or at claude.ai. It comes back here when you end it.": "هذه المحادثة في Remote Control: تابعها في تطبيق Claude أو على claude.ai. ستعود إلى هنا عندما تنهيه."
 }

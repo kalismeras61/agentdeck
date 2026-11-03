@@ -28,7 +28,7 @@ pub struct TermExit {
     pub code: Option<u32>,
 }
 
-#[derive(Clone, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TermInfo {
     pub term_id: String,
@@ -116,6 +116,53 @@ impl Terminals {
 
     /// Opens the user's login shell in `cwd`, which the caller has checked is a project folder.
     pub fn open(&self, cwd: &str, cols: u16, rows: u16) -> Result<TermInfo, String> {
+        let shell = login_shell();
+        let mut cmd = CommandBuilder::new(&shell);
+        cmd.arg("-l");
+        self.start(cwd, cols, rows, cmd, shell)
+    }
+
+    /// Runs one program (chosen by the backend, never the frontend) in `cwd` through the login
+    /// shell, so it sees your usual environment; the terminal ends when the program does.
+    pub fn open_program(
+        &self,
+        cwd: &str,
+        cols: u16,
+        rows: u16,
+        program: &std::path::Path,
+        args: &[String],
+    ) -> Result<TermInfo, String> {
+        let shell = login_shell();
+        let mut cmd = CommandBuilder::new(&shell);
+        // `exec "$@"`: the arguments are passed as they are, never parsed by the shell.
+        cmd.args(["-l", "-c", "exec \"$@\"", "agentdeck"]);
+        cmd.arg(program);
+        cmd.args(args);
+        // Like AgentDeck's own agent processes: not "nested" in another Claude session.
+        for (k, _) in std::env::vars_os() {
+            let k = k.to_string_lossy();
+            if k.starts_with("CLAUDE_CODE_")
+                || k == "CLAUDECODE"
+                || (k.starts_with("CLAUDE_") && k != "CLAUDE_CONFIG_DIR")
+            {
+                cmd.env_remove(k.as_ref());
+            }
+        }
+        let label = program
+            .file_name()
+            .map(|n| n.to_string_lossy().into_owned())
+            .unwrap_or_else(|| program.to_string_lossy().into_owned());
+        self.start(cwd, cols, rows, cmd, label)
+    }
+
+    fn start(
+        &self,
+        cwd: &str,
+        cols: u16,
+        rows: u16,
+        mut cmd: CommandBuilder,
+        shell: String,
+    ) -> Result<TermInfo, String> {
         if self.terms.lock().map(|t| t.len()).unwrap_or(0) >= MAX_TERMINALS {
             return Err(format!(
                 "At most {MAX_TERMINALS} terminals can be open. Close one first."
@@ -130,9 +177,6 @@ impl Terminals {
                 pixel_height: 0,
             })
             .map_err(|e| format!("Couldn't open a terminal: {e}"))?;
-        let shell = login_shell();
-        let mut cmd = CommandBuilder::new(&shell);
-        cmd.arg("-l");
         cmd.cwd(cwd);
         cmd.env("TERM", "xterm-256color");
         cmd.env("COLORTERM", "truecolor");
@@ -326,5 +370,43 @@ mod tests {
         assert!(!terms.info(&info.term_id).unwrap().running);
         terms.close(&info.term_id);
         assert!(terms.info(&info.term_id).is_err());
+    }
+
+    #[test]
+    fn a_program_gets_its_arguments_as_they_are_and_the_terminal_ends_with_it() {
+        let dir = tempfile::tempdir().unwrap();
+        let (tx, rx) = mpsc::channel();
+        let tx = Mutex::new(tx);
+        let terms = Terminals::new(Arc::new(move |e| {
+            let _ = tx.lock().unwrap().send(e);
+        }));
+        let args = vec![
+            "--remote-control=My $HOME `x` \"quoted\" ; done".to_string(),
+            "two words".to_string(),
+        ];
+        let info = terms
+            .open_program(
+                &dir.path().to_string_lossy(),
+                200,
+                24,
+                std::path::Path::new("/bin/echo"),
+                &args,
+            )
+            .unwrap();
+        assert_eq!(info.shell, "echo");
+        let deadline = Instant::now() + Duration::from_secs(20);
+        let (mut out, mut code) = (String::new(), None);
+        while Instant::now() < deadline && code.is_none() {
+            match rx.recv_timeout(Duration::from_millis(100)) {
+                Ok(TermEvent::Output(o)) => out.push_str(&o.data),
+                Ok(TermEvent::Exit(x)) => code = Some(x.code),
+                _ => {}
+            }
+        }
+        assert!(
+            out.contains("--remote-control=My $HOME `x` \"quoted\" ; done two words"),
+            "nothing expanded or split: {out:?}"
+        );
+        assert_eq!(code, Some(Some(0)), "the terminal ended with the program");
     }
 }

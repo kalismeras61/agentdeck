@@ -1,9 +1,9 @@
 import { withoutHidden } from "../lib/setup";
 import { agentLabel } from "../lib/agentName";
 import * as Dropdown from "@radix-ui/react-dropdown-menu";
-import { ArrowUp, Check, ChevronDown, ClipboardList, GitBranch, FileText, Folder, Image as ImageIcon, Paperclip, Square, X } from "lucide-react";
+import { ArrowUp, Check, ChevronDown, ClipboardList, GitBranch, FileText, Folder, Image as ImageIcon, Paperclip, Smartphone, Square, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { APP_COMMANDS, matchCommands, useAgentCommands, type SlashCommand } from "../lib/commands";
+import { appCommandsFor, isRemoteControl, matchCommands, useAgentCommands, type SlashCommand } from "../lib/commands";
 import { SlashMenu } from "./SlashMenu";
 import { liveModelsFor, providerLabel, providerModels, type Session } from "../data/demo";
 import { t } from "../lib/i18n";
@@ -61,7 +61,7 @@ export function Composer({ session }: { session: Session }) {
   const { commands: agentCommands, loading: slashLoading } = useAgentCommands(session.id, Boolean(slash) && Boolean(session.live));
   const slashItems = useMemo(() => {
     if (!slash) return [];
-    const found = matchCommands([...agentCommands, ...APP_COMMANDS], slash[1] ?? "");
+    const found = matchCommands([...agentCommands, ...appCommandsFor(session.provider)], slash[1] ?? "");
     return (["custom", "agent", "skill", "agentdeck"] as const).flatMap((src) => found.filter((c) => c.source === src));
   }, [slash?.[1], agentCommands]); // eslint-disable-line react-hooks/exhaustive-deps
   const slashOpen = Boolean(slash) && !slashClosed;
@@ -75,6 +75,15 @@ export function Composer({ session }: { session: Session }) {
   const openGit = useStore((s) => s.openGit);
   const openSetup = useStore((s) => s.openSetup);
   const openRelayDialog = useStore((s) => s.openRelayDialog);
+  const startRemote = useStore((s) => s.startRemote);
+  const endRemote = useStore((s) => s.endRemote);
+  // In Remote Control until its "off" arrives (only for a hand-over made in this run of the app).
+  const remoteOn = useStore((s) => {
+    if (!s.remotes[session.id]) return false;
+    const ev = s.liveEvents[session.id] ?? [];
+    for (let i = ev.length - 1; i >= 0; i--) if (ev[i]!.kind === "remote_control") return ev[i]!.payload.state === "on";
+    return false;
+  });
   const pickCommand = (c: SlashCommand) => {
     if (c.source === "agentdeck") {
       setDraft(session.id, "");
@@ -85,6 +94,7 @@ export function Composer({ session }: { session: Session }) {
       else if (c.name === "workflow") openRelayDialog(session.id);
       else if (c.name === "git") openGit(session.projectId, session.worktree ?? null);
       else if (c.name === "setup") openSetup(session.projectId);
+      else if (c.name === "remote-control") void startRemote(session.id);
       return;
     }
     setDraft(session.id, c.expand ?? `/${c.name} `);
@@ -169,6 +179,11 @@ export function Composer({ session }: { session: Session }) {
   const canSend = draft.trim().length > 0 || files.length > 0;
   const submit = () => {
     if (!canSend) return;
+    if (session.provider === "claude-code" && files.length === 0 && isRemoteControl(draft)) {
+      setDraft(session.id, "");
+      void startRemote(session.id);
+      return;
+    }
     if (target.id !== session.id && mention) {
       send(target.id, draft.slice(mention[0].length), []);
       setDraft(session.id, "");
@@ -187,6 +202,18 @@ export function Composer({ session }: { session: Session }) {
             <span className="min-w-0 flex-1 break-words">{error}</span>
             <button type="button" onClick={() => clearError(session.id)} aria-label={t("Dismiss")} className="shrink-0 rounded p-0.5 text-fg-3 hover:text-fg">
               <X size={13} />
+            </button>
+          </div>
+        )}
+        {remoteOn && (
+          <div className="mb-2 flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-xl border border-[color-mix(in_srgb,var(--violet)_35%,var(--border))] bg-violet-soft px-3 py-2 text-[12.5px] text-fg">
+            <Smartphone size={14} className="shrink-0 text-violet-text" />
+            <span className="min-w-0 flex-1">{t("This conversation is in Remote Control: continue it in the Claude app or at claude.ai. It comes back here when you end it.")}</span>
+            <button type="button" onClick={() => setViewMode("terminal")} className="h-7 rounded-lg px-2.5 text-fg-2 hover:bg-elevated hover:text-fg">
+              {t("Show QR code")}
+            </button>
+            <button type="button" onClick={() => endRemote(session.id)} className="h-7 rounded-lg bg-violet-strong px-3 font-medium text-white hover:brightness-110">
+              {t("End Remote Control")}
             </button>
           </div>
         )}

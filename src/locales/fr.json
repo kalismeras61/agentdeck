@@ -1419,5 +1419,19 @@
   "Week": "Semaine",
   "Weekly limit": "Limite hebdomadaire",
   "Weekly Opus limit": "Limite hebdomadaire Opus",
-  "Weekly Sonnet limit": "Limite hebdomadaire Sonnet"
+  "Weekly Sonnet limit": "Limite hebdomadaire Sonnet",
+  "Continue this conversation from your phone or claude.ai (Claude Code's Remote Control)": "Poursuivre cette conversation depuis votre téléphone ou claude.ai (Remote Control de Claude Code)",
+  "End Remote Control": "Arrêter Remote Control",
+  "Remote Control ended.": "Remote Control est terminé.",
+  "Remote Control ended. The message above came from there.|Remote Control ended. The {n} messages above came from there.": {
+    "one": "Remote Control est terminé. Le message ci-dessus vient de là-bas.",
+    "many": "Remote Control est terminé. Les {n} messages ci-dessus viennent de là-bas.",
+    "other": "Remote Control est terminé. Les {n} messages ci-dessus viennent de là-bas."
+  },
+  "Remote Control ended. What was said there is now in the conversation.": "Remote Control est terminé. Ce qui s'est dit là-bas est maintenant dans la conversation.",
+  "Remote Control is on: this conversation continues in the Claude app or at claude.ai, and in its terminal here.": "Remote Control est activé : cette conversation continue dans l'app Claude ou sur claude.ai, et dans son terminal ici.",
+  "Remote Control works in the desktop app.": "Remote Control fonctionne dans l'application de bureau.",
+  "Remote Control: scan the QR code with the Claude app, or open the link, to continue this conversation there. You can also keep typing here. When you're done, end it and the conversation comes back to AgentDeck with what was said.": "Remote Control : scannez le QR code avec l'app Claude, ou ouvrez le lien, pour poursuivre cette conversation là-bas. Vous pouvez aussi continuer à écrire ici. Quand vous avez fini, arrêtez-le : la conversation revient dans AgentDeck avec tout ce qui a été dit.",
+  "Show QR code": "Afficher le QR code",
+  "This conversation is in Remote Control: continue it in the Claude app or at claude.ai. It comes back here when you end it.": "Cette conversation est dans Remote Control : poursuivez-la dans l'app Claude ou sur claude.ai. Elle revient ici quand vous l'arrêtez."
 }

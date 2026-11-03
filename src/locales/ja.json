@@ -1327,5 +1327,17 @@
   "Week": "週",
   "Weekly limit": "週間の上限",
   "Weekly Opus limit": "Opus の週間上限",
-  "Weekly Sonnet limit": "Sonnet の週間上限"
+  "Weekly Sonnet limit": "Sonnet の週間上限",
+  "Continue this conversation from your phone or claude.ai (Claude Code's Remote Control)": "この会話をスマートフォンや claude.ai で続ける（Claude Code の Remote Control）",
+  "End Remote Control": "Remote Control を終了",
+  "Remote Control ended.": "Remote Control を終了しました。",
+  "Remote Control ended. The message above came from there.|Remote Control ended. The {n} messages above came from there.": {
+    "other": "Remote Control を終了しました。上の {n} 件のメッセージはそちらから届いたものです。"
+  },
+  "Remote Control ended. What was said there is now in the conversation.": "Remote Control を終了しました。そちらでのやり取りは会話に追加されています。",
+  "Remote Control is on: this conversation continues in the Claude app or at claude.ai, and in its terminal here.": "Remote Control がオンです：この会話は Claude アプリや claude.ai、そしてここのターミナルで続きます。",
+  "Remote Control works in the desktop app.": "Remote Control はデスクトップアプリで使えます。",
+  "Remote Control: scan the QR code with the Claude app, or open the link, to continue this conversation there. You can also keep typing here. When you're done, end it and the conversation comes back to AgentDeck with what was said.": "Remote Control：Claude アプリで QR コードを読み取るか、リンクを開くと、そちらでこの会話を続けられます。ここで入力を続けることもできます。終わったら終了すると、そちらでのやり取りとともに会話が AgentDeck に戻ります。",
+  "Show QR code": "QR コードを表示",
+  "This conversation is in Remote Control: continue it in the Claude app or at claude.ai. It comes back here when you end it.": "この会話は Remote Control 中です：Claude アプリか claude.ai で続けてください。終了するとここに戻ります。"
 }

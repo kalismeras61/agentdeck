@@ -1419,5 +1419,19 @@
   "Week": "Semana",
   "Weekly limit": "Límite semanal",
   "Weekly Opus limit": "Límite semanal de Opus",
-  "Weekly Sonnet limit": "Límite semanal de Sonnet"
+  "Weekly Sonnet limit": "Límite semanal de Sonnet",
+  "Continue this conversation from your phone or claude.ai (Claude Code's Remote Control)": "Sigue esta conversación desde el móvil o claude.ai (Remote Control de Claude Code)",
+  "End Remote Control": "Terminar Remote Control",
+  "Remote Control ended.": "Remote Control terminó.",
+  "Remote Control ended. The message above came from there.|Remote Control ended. The {n} messages above came from there.": {
+    "one": "Remote Control terminó. El mensaje de arriba vino de allí.",
+    "many": "Remote Control terminó. Los {n} mensajes de arriba vinieron de allí.",
+    "other": "Remote Control terminó. Los {n} mensajes de arriba vinieron de allí."
+  },
+  "Remote Control ended. What was said there is now in the conversation.": "Remote Control terminó. Lo que se dijo allí ya está en la conversación.",
+  "Remote Control is on: this conversation continues in the Claude app or at claude.ai, and in its terminal here.": "Remote Control está activo: esta conversación sigue en la app de Claude o en claude.ai, y en su terminal aquí.",
+  "Remote Control works in the desktop app.": "Remote Control funciona en la app de escritorio.",
+  "Remote Control: scan the QR code with the Claude app, or open the link, to continue this conversation there. You can also keep typing here. When you're done, end it and the conversation comes back to AgentDeck with what was said.": "Remote Control: escanea el código QR con la app de Claude, o abre el enlace, para seguir esta conversación allí. También puedes seguir escribiendo aquí. Cuando termines, ciérralo y la conversación vuelve a AgentDeck con todo lo que se dijo.",
+  "Show QR code": "Mostrar código QR",
+  "This conversation is in Remote Control: continue it in the Claude app or at claude.ai. It comes back here when you end it.": "Esta conversación está en Remote Control: síguela en la app de Claude o en claude.ai. Vuelve aquí cuando lo termines."
 }

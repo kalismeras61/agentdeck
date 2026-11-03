@@ -1419,5 +1419,19 @@
   "Week": "Semana",
   "Weekly limit": "Limite semanal",
   "Weekly Opus limit": "Limite semanal do Opus",
-  "Weekly Sonnet limit": "Limite semanal do Sonnet"
+  "Weekly Sonnet limit": "Limite semanal do Sonnet",
+  "Continue this conversation from your phone or claude.ai (Claude Code's Remote Control)": "Continuar esta conversa no celular ou em claude.ai (Remote Control do Claude Code)",
+  "End Remote Control": "Encerrar Remote Control",
+  "Remote Control ended.": "Remote Control encerrado.",
+  "Remote Control ended. The message above came from there.|Remote Control ended. The {n} messages above came from there.": {
+    "one": "Remote Control encerrado. A mensagem acima veio de lá.",
+    "many": "Remote Control encerrado. As {n} mensagens acima vieram de lá.",
+    "other": "Remote Control encerrado. As {n} mensagens acima vieram de lá."
+  },
+  "Remote Control ended. What was said there is now in the conversation.": "Remote Control encerrado. O que foi dito lá agora está na conversa.",
+  "Remote Control is on: this conversation continues in the Claude app or at claude.ai, and in its terminal here.": "Remote Control ativado: esta conversa continua no app Claude ou em claude.ai, e no terminal dela aqui.",
+  "Remote Control works in the desktop app.": "O Remote Control funciona no app para desktop.",
+  "Remote Control: scan the QR code with the Claude app, or open the link, to continue this conversation there. You can also keep typing here. When you're done, end it and the conversation comes back to AgentDeck with what was said.": "Remote Control: leia o QR code com o app Claude, ou abra o link, para continuar esta conversa lá. Você também pode continuar escrevendo aqui. Quando terminar, encerre e a conversa volta para o AgentDeck com tudo o que foi dito.",
+  "Show QR code": "Mostrar QR code",
+  "This conversation is in Remote Control: continue it in the Claude app or at claude.ai. It comes back here when you end it.": "Esta conversa está no Remote Control: continue no app Claude ou em claude.ai. Ela volta para cá quando você encerrar."
 }

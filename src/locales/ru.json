@@ -1465,5 +1465,20 @@
   "Week": "Неделя",
   "Weekly limit": "Недельный лимит",
   "Weekly Opus limit": "Недельный лимит Opus",
-  "Weekly Sonnet limit": "Недельный лимит Sonnet"
+  "Weekly Sonnet limit": "Недельный лимит Sonnet",
+  "Continue this conversation from your phone or claude.ai (Claude Code's Remote Control)": "Продолжить этот разговор с телефона или на claude.ai (Remote Control в Claude Code)",
+  "End Remote Control": "Завершить Remote Control",
+  "Remote Control ended.": "Remote Control завершён.",
+  "Remote Control ended. The message above came from there.|Remote Control ended. The {n} messages above came from there.": {
+    "one": "Remote Control завершён. {n} сообщение выше пришло оттуда.",
+    "few": "Remote Control завершён. {n} сообщения выше пришли оттуда.",
+    "many": "Remote Control завершён. {n} сообщений выше пришли оттуда.",
+    "other": "Remote Control завершён. {n} сообщения выше пришли оттуда."
+  },
+  "Remote Control ended. What was said there is now in the conversation.": "Remote Control завершён. Всё, что было сказано там, теперь в разговоре.",
+  "Remote Control is on: this conversation continues in the Claude app or at claude.ai, and in its terminal here.": "Remote Control включён: разговор продолжается в приложении Claude или на claude.ai, а также в его терминале здесь.",
+  "Remote Control works in the desktop app.": "Remote Control работает в настольном приложении.",
+  "Remote Control: scan the QR code with the Claude app, or open the link, to continue this conversation there. You can also keep typing here. When you're done, end it and the conversation comes back to AgentDeck with what was said.": "Remote Control: отсканируйте QR-код приложением Claude или откройте ссылку, чтобы продолжить разговор там. Здесь тоже можно писать. Когда закончите, завершите его, и разговор вернётся в AgentDeck со всем, что было сказано.",
+  "Show QR code": "Показать QR-код",
+  "This conversation is in Remote Control: continue it in the Claude app or at claude.ai. It comes back here when you end it.": "Этот разговор в Remote Control: продолжайте его в приложении Claude или на claude.ai. Когда вы его завершите, он вернётся сюда."
 }

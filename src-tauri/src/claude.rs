@@ -146,7 +146,13 @@ pub struct Manager {
     pub extra_env: Vec<(String, String)>,
     /// The `agentdeck` MCP server for bot sessions (`mcp::Hub::launcher`).
     pub mcp: Option<crate::mcp::Launcher>,
+    /// Sessions open in Remote Control: Claude Code runs them in a terminal, so AgentDeck
+    /// doesn't start its own process for them until that ends.
+    held: Mutex<std::collections::HashSet<String>>,
 }
+
+/// Why a session in Remote Control can't take a message here.
+pub const HELD: &str = "This conversation is open in Remote Control. End it (type /exit in its terminal, or press End Remote Control), then continue here.";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Decision {
@@ -305,6 +311,33 @@ pub fn augmented_path() -> std::ffi::OsString {
     std::env::join_paths(all).unwrap_or_default()
 }
 
+/// The interactive `claude` command line that picks a session's conversation up with Remote
+/// Control on, keeping its model, effort and plan mode.
+pub fn remote_control_args(session: &SessionRow) -> Result<Vec<String>, String> {
+    let id = session
+        .provider_session_id
+        .as_deref()
+        .ok_or("Send a first message, then turn on Remote Control.")?;
+    let mut a: Vec<String> = vec!["--resume".into(), id.into()];
+    if !session.model.is_empty() && session.model != "default" {
+        a.extend(["--model".into(), session.model.clone()]);
+    }
+    if let Some(e) = session.effort.as_deref().filter(|e| EFFORTS.contains(e)) {
+        a.extend(["--effort".into(), e.into()]);
+    }
+    if session.mode == "plan" {
+        a.extend(["--permission-mode".into(), "plan".into()]);
+    }
+    // The name it gets on claude.ai and in the Claude app; `=` so a title can't read as a flag.
+    let name = first_line(&session.title, 60);
+    a.push(if name.trim().is_empty() {
+        "--remote-control".into()
+    } else {
+        format!("--remote-control={}", name.trim())
+    });
+    Ok(a)
+}
+
 /// The `claude` command line for a session.
 fn args(session: &SessionRow) -> Vec<String> {
     let mut a: Vec<String> = [
@@ -344,7 +377,28 @@ impl Manager {
             binary_override: None,
             extra_env: Vec::new(),
             mcp: None,
+            held: Mutex::new(Default::default()),
         }
+    }
+
+    /// Keeps AgentDeck from starting Claude Code for this session (Remote Control has it).
+    pub fn hold(&self, session_id: &str) {
+        if let Ok(mut h) = self.held.lock() {
+            h.insert(session_id.to_string());
+        }
+    }
+
+    pub fn release(&self, session_id: &str) {
+        if let Ok(mut h) = self.held.lock() {
+            h.remove(session_id);
+        }
+    }
+
+    pub fn is_held(&self, session_id: &str) -> bool {
+        self.held
+            .lock()
+            .map(|h| h.contains(session_id))
+            .unwrap_or(false)
     }
 
     fn emit_session(&self, row: Option<SessionRow>) {
@@ -384,7 +438,7 @@ impl Manager {
             .and_then(|p| p.get(session_id).cloned())
     }
 
-    fn binary(&self) -> Result<PathBuf, String> {
+    pub fn binary(&self) -> Result<PathBuf, String> {
         if let Some(p) = &self.binary_override {
             return Ok(p.clone());
         }
@@ -394,6 +448,9 @@ impl Manager {
     }
 
     fn spawn(self: &Arc<Self>, session: &SessionRow, cwd: &str) -> Result<Arc<Proc>, String> {
+        if self.is_held(&session.id) {
+            return Err(HELD.into());
+        }
         let bin = self.binary()?;
         let mut cmd = Command::new(&bin);
         cmd.args(args(session));

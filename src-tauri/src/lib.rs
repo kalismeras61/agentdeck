@@ -24,6 +24,7 @@ mod models;
 mod providers;
 mod pty;
 mod relay;
+mod remote;
 mod schedule;
 mod secrets;
 mod setup;
@@ -56,6 +57,7 @@ struct AppState {
     flow: Arc<Flow>,
     bots: Arc<Bots>,
     terms: Arc<pty::Terminals>,
+    remote: Arc<remote::Remote>,
 }
 
 const MAX_HANDOFF_BYTES: usize = 200_000;
@@ -1772,6 +1774,38 @@ fn term_open(
     state.terms.open(&dir, cols, rows)
 }
 
+/// Hands a Claude Code conversation to Remote Control: it continues in a terminal running
+/// `claude --resume … --remote-control`, which the Claude app and claude.ai connect to.
+#[tauri::command]
+async fn remote_control_start(
+    state: State<'_, AppState>,
+    session_id: String,
+    cols: u16,
+    rows: u16,
+) -> CmdResult<pty::TermInfo> {
+    let remote = state.remote.clone();
+    let terms = state.terms.clone();
+    tauri::async_runtime::spawn_blocking(move || remote.start(&terms, &session_id, cols, rows))
+        .await
+        .map_err(err)?
+}
+
+/// Ends Remote Control: Claude Code in the terminal stops and the conversation is AgentDeck's again.
+#[tauri::command]
+fn remote_control_stop(state: State<'_, AppState>, session_id: String) -> CmdResult<()> {
+    state.remote.stop(&state.terms, &session_id);
+    Ok(())
+}
+
+/// The terminal a session is in Remote Control in, if it is.
+#[tauri::command]
+fn remote_control_term(
+    state: State<'_, AppState>,
+    session_id: String,
+) -> CmdResult<Option<String>> {
+    Ok(state.remote.term_for(&session_id))
+}
+
 #[tauri::command]
 fn term_info(state: State<'_, AppState>, term_id: String) -> CmdResult<pty::TermInfo> {
     state.terms.info(&term_id)
@@ -2236,6 +2270,12 @@ pub fn run() {
             }
             let flow = Arc::new(Flow::new(db.clone(), sink.clone(), agents.clone()));
             let home = app.path().home_dir()?;
+            let remote = Arc::new(remote::Remote::new(
+                db.clone(),
+                agents.claude.clone(),
+                sink.clone(),
+                context::Homes::from_home(&home).claude.join("projects"),
+            ));
             let bots = Arc::new(Bots::new(db.clone(), sink.clone(), agents.clone(), home));
             hub.set_bots(&bots);
             bots.delegation
@@ -2256,10 +2296,15 @@ pub fn run() {
                 });
             }
             let th = app.handle().clone();
+            let rc = remote.clone();
             let terms = Arc::new(pty::Terminals::new(Arc::new(move |e| {
                 let _ = match e {
                     pty::TermEvent::Output(o) => th.emit("agentdeck://term-output", o),
-                    pty::TermEvent::Exit(x) => th.emit("agentdeck://term-exit", x),
+                    pty::TermEvent::Exit(x) => {
+                        // A conversation that was in Remote Control comes back.
+                        rc.on_exit(&x.term_id);
+                        th.emit("agentdeck://term-exit", x)
+                    }
                 };
             })));
             app.manage(AppState {
@@ -2270,6 +2315,7 @@ pub fn run() {
                 flow,
                 bots,
                 terms,
+                remote,
             });
             Ok(())
         })
@@ -2357,6 +2403,9 @@ pub fn run() {
             delete_profile,
             test_profile,
             term_open,
+            remote_control_start,
+            remote_control_stop,
+            remote_control_term,
             term_info,
             term_write,
             term_resize,
@@ -2406,6 +2455,12 @@ mod handoff_tests {
             agy: Arc::new(crate::agy::AgyManager::new(db.clone(), sink.clone())),
             api: Arc::new(api::ApiManager::new(db.clone(), sink.clone())),
         });
+        let remote = Arc::new(remote::Remote::new(
+            db.clone(),
+            agents.claude.clone(),
+            sink.clone(),
+            std::env::temp_dir(),
+        ));
         let state = AppState {
             db: db.clone(),
             relay: Arc::new(Relay::new(db.clone(), sink.clone(), agents.clone())),
@@ -2419,6 +2474,7 @@ mod handoff_tests {
             agents,
             sink,
             terms: Arc::new(pty::Terminals::new(Arc::new(|_| {}))),
+            remote,
         };
         let p = db.add_project("demo", "/tmp/demo").unwrap();
         let from = db

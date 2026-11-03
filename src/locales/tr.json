@@ -1373,5 +1373,18 @@
   "Week": "Hafta",
   "Weekly limit": "Haftalık limit",
   "Weekly Opus limit": "Haftalık Opus limiti",
-  "Weekly Sonnet limit": "Haftalık Sonnet limiti"
+  "Weekly Sonnet limit": "Haftalık Sonnet limiti",
+  "Continue this conversation from your phone or claude.ai (Claude Code's Remote Control)": "Bu konuşmaya telefonundan ya da claude.ai'den devam et (Claude Code'un Remote Control özelliği)",
+  "End Remote Control": "Remote Control'ü bitir",
+  "Remote Control ended.": "Remote Control bitti.",
+  "Remote Control ended. The message above came from there.|Remote Control ended. The {n} messages above came from there.": {
+    "one": "Remote Control bitti. Yukarıdaki mesaj oradan geldi.",
+    "other": "Remote Control bitti. Yukarıdaki {n} mesaj oradan geldi."
+  },
+  "Remote Control ended. What was said there is now in the conversation.": "Remote Control bitti. Orada konuşulanlar artık bu konuşmada.",
+  "Remote Control is on: this conversation continues in the Claude app or at claude.ai, and in its terminal here.": "Remote Control açık: bu konuşma Claude uygulamasında ya da claude.ai'de, bir de buradaki terminalinde devam ediyor.",
+  "Remote Control works in the desktop app.": "Remote Control masaüstü uygulamasında çalışır.",
+  "Remote Control: scan the QR code with the Claude app, or open the link, to continue this conversation there. You can also keep typing here. When you're done, end it and the conversation comes back to AgentDeck with what was said.": "Remote Control: bu konuşmaya orada devam etmek için QR kodu Claude uygulamasıyla okut ya da bağlantıyı aç. Buraya yazmaya da devam edebilirsin. İşin bitince bitir; konuşma, orada söylenenlerle birlikte AgentDeck'e döner.",
+  "Show QR code": "QR kodu göster",
+  "This conversation is in Remote Control: continue it in the Claude app or at claude.ai. It comes back here when you end it.": "Bu konuşma Remote Control'de: Claude uygulamasında ya da claude.ai'de devam et. Bitirdiğinde buraya döner."
 }

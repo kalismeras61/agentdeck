@@ -1327,5 +1327,17 @@
   "Week": "주간",
   "Weekly limit": "주간 한도",
   "Weekly Opus limit": "Opus 주간 한도",
-  "Weekly Sonnet limit": "Sonnet 주간 한도"
+  "Weekly Sonnet limit": "Sonnet 주간 한도",
+  "Continue this conversation from your phone or claude.ai (Claude Code's Remote Control)": "휴대폰이나 claude.ai에서 이 대화를 이어가기 (Claude Code의 Remote Control)",
+  "End Remote Control": "Remote Control 종료",
+  "Remote Control ended.": "Remote Control이 종료되었습니다.",
+  "Remote Control ended. The message above came from there.|Remote Control ended. The {n} messages above came from there.": {
+    "other": "Remote Control이 종료되었습니다. 위의 메시지 {n}개는 그곳에서 온 것입니다."
+  },
+  "Remote Control ended. What was said there is now in the conversation.": "Remote Control이 종료되었습니다. 그곳에서 나눈 내용이 이제 대화에 들어 있습니다.",
+  "Remote Control is on: this conversation continues in the Claude app or at claude.ai, and in its terminal here.": "Remote Control 켜짐: 이 대화는 Claude 앱이나 claude.ai, 그리고 여기 터미널에서 이어집니다.",
+  "Remote Control works in the desktop app.": "Remote Control은 데스크톱 앱에서 동작합니다.",
+  "Remote Control: scan the QR code with the Claude app, or open the link, to continue this conversation there. You can also keep typing here. When you're done, end it and the conversation comes back to AgentDeck with what was said.": "Remote Control: Claude 앱으로 QR 코드를 스캔하거나 링크를 열면 그곳에서 이 대화를 이어갈 수 있습니다. 여기서 계속 입력해도 됩니다. 다 되면 종료하세요. 그곳에서 나눈 내용과 함께 대화가 AgentDeck으로 돌아옵니다.",
+  "Show QR code": "QR 코드 보기",
+  "This conversation is in Remote Control: continue it in the Claude app or at claude.ai. It comes back here when you end it.": "이 대화는 Remote Control 중입니다: Claude 앱이나 claude.ai에서 이어가세요. 종료하면 여기로 돌아옵니다."
 }

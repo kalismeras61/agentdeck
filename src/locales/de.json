@@ -1373,5 +1373,18 @@
   "Week": "Woche",
   "Weekly limit": "Wochenlimit",
   "Weekly Opus limit": "Wöchentliches Opus-Limit",
-  "Weekly Sonnet limit": "Wöchentliches Sonnet-Limit"
+  "Weekly Sonnet limit": "Wöchentliches Sonnet-Limit",
+  "Continue this conversation from your phone or claude.ai (Claude Code's Remote Control)": "Dieses Gespräch auf dem Handy oder auf claude.ai fortsetzen (Remote Control von Claude Code)",
+  "End Remote Control": "Remote Control beenden",
+  "Remote Control ended.": "Remote Control beendet.",
+  "Remote Control ended. The message above came from there.|Remote Control ended. The {n} messages above came from there.": {
+    "one": "Remote Control beendet. Die Nachricht oben kam von dort.",
+    "other": "Remote Control beendet. Die {n} Nachrichten oben kamen von dort."
+  },
+  "Remote Control ended. What was said there is now in the conversation.": "Remote Control beendet. Was dort gesagt wurde, steht jetzt im Gespräch.",
+  "Remote Control is on: this conversation continues in the Claude app or at claude.ai, and in its terminal here.": "Remote Control ist an: Dieses Gespräch geht in der Claude-App oder auf claude.ai weiter und in seinem Terminal hier.",
+  "Remote Control works in the desktop app.": "Remote Control funktioniert in der Desktop-App.",
+  "Remote Control: scan the QR code with the Claude app, or open the link, to continue this conversation there. You can also keep typing here. When you're done, end it and the conversation comes back to AgentDeck with what was said.": "Remote Control: Scanne den QR-Code mit der Claude-App oder öffne den Link, um das Gespräch dort fortzusetzen. Du kannst auch hier weiterschreiben. Wenn du fertig bist, beende es, und das Gespräch kommt mit allem, was gesagt wurde, zu AgentDeck zurück.",
+  "Show QR code": "QR-Code zeigen",
+  "This conversation is in Remote Control: continue it in the Claude app or at claude.ai. It comes back here when you end it.": "Dieses Gespräch ist in Remote Control: Setze es in der Claude-App oder auf claude.ai fort. Wenn du es beendest, kommt es hierher zurück."
 }

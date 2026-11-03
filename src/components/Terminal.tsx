@@ -3,7 +3,7 @@ import { FitAddon } from "@xterm/addon-fit";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import { Terminal as XTerm, type ITheme } from "@xterm/xterm";
 import "@xterm/xterm/css/xterm.css";
-import { CornerDownLeft, KeyRound, MessageSquareText, PanelRightClose, PanelRightOpen, RotateCcw, Sparkles, SquareTerminal, Trash2 } from "lucide-react";
+import { CornerDownLeft, KeyRound, MessageSquareText, PanelRightClose, PanelRightOpen, RotateCcw, Smartphone, Sparkles, SquareTerminal, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { providerLabel, type Session } from "../data/demo";
 import { useParsedEvents } from "../hooks/useSession";
@@ -133,6 +133,10 @@ function LiveTerminal({ session }: { session: Session }) {
   const signIn = useStore((s) => s.signIns[session.id]);
   const markSignInStarted = useStore((s) => s.markSignInStarted);
   const finishSignIn = useStore((s) => s.finishSignIn);
+  // This terminal is the conversation's Remote Control (Claude Code with its QR code).
+  const remote = useStore((s) => (s.remotes[session.id]?.termId === termId ? s.remotes[session.id] : undefined));
+  const endRemote = useStore((s) => s.endRemote);
+  const leaveRemote = useStore((s) => s.leaveRemote);
   const [ready, setReady] = useState<string | null>(null);
   const [signInCmd, setSignInCmd] = useState<string | null>(null);
 
@@ -387,6 +391,30 @@ function LiveTerminal({ session }: { session: Session }) {
             <button type="button" onClick={() => finishSignIn(session.id, false)} className="h-7 rounded-lg px-2.5 text-fg-2 hover:bg-elevated hover:text-fg">
               {signIn.agent === "antigravity" && session.provider !== "antigravity" ? t("Back to the conversation") : t("Cancel")}
             </button>
+          </div>
+        )}
+        {remote && (
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-[color-mix(in_srgb,var(--violet)_35%,var(--border))] bg-violet-soft px-4 py-2.5 text-[12.5px]">
+            <Smartphone size={14} className="shrink-0 text-violet-text" />
+            <span className="min-w-0 flex-1 leading-[1.5] text-fg">
+              {exited === undefined
+                ? t("Remote Control: scan the QR code with the Claude app, or open the link, to continue this conversation there. You can also keep typing here. When you're done, end it and the conversation comes back to AgentDeck with what was said.")
+                : t("Remote Control ended. What was said there is now in the conversation.")}
+            </span>
+            {exited === undefined ? (
+              <>
+                <button type="button" onClick={() => setMode("rich")} className="h-7 rounded-lg px-2.5 text-fg-2 hover:bg-elevated hover:text-fg">
+                  {t("Back to the conversation")}
+                </button>
+                <button type="button" onClick={() => endRemote(session.id)} className="h-7 rounded-lg bg-violet-strong px-3 font-medium text-white hover:brightness-110">
+                  {t("End Remote Control")}
+                </button>
+              </>
+            ) : (
+              <button type="button" onClick={() => leaveRemote(session.id)} className="h-7 rounded-lg bg-violet-strong px-3 font-medium text-white hover:brightness-110">
+                {t("Back to the conversation")}
+              </button>
+            )}
           </div>
         )}
         {error && (

@@ -476,6 +476,13 @@ export const termApi = {
   openLink: (url: string) => call<void>("open_link", { url }),
 };
 
+/** Claude Code's Remote Control: a conversation continues in a terminal the Claude app connects to. */
+export const remoteApi = {
+  start: (sessionId: string, cols: number, rows: number) => call<TermInfo>("remote_control_start", { sessionId, cols, rows }),
+  stop: (sessionId: string) => call<void>("remote_control_stop", { sessionId }),
+  term: (sessionId: string) => call<string | null>("remote_control_term", { sessionId }),
+};
+
 export async function subscribeTerm(handlers: {
   onOutput: (termId: string, data: string) => void;
   onExit: (termId: string, code: number | null) => void;

@@ -7,7 +7,7 @@ import { normalizeFor } from "../lib/normalize";
 import type { Bot, BotInput, BotSchedule, BotScheduleInput, BotTask, FlowRow, ModelProfile, RelayRow, StartFlow, StartRelay, Workflow } from "../lib/live";
 import { childrenOf, mergeSchedule, mergeTask, soonest } from "../lib/bots";
 import type { ProviderId } from "../lib/events";
-import { errorText, liveApi, pickFolder, type LiveProject, type LiveProvider, type LiveSessionRow } from "../lib/live";
+import { errorText, liveApi, pickFolder, remoteApi, type LiveProject, type LiveProvider, type LiveSessionRow } from "../lib/live";
 
 export type AppView = "workspace" | "overview" | "review" | "permissions" | "gallery" | "settings" | "setup" | "git" | "welcome" | "bot";
 export type ContextTab = "files" | "changes" | "preview" | "activity";
@@ -154,6 +154,14 @@ interface Actions {
   /** Ends a sign-in; with retry, the agent restarts and gets the last message again. */
   finishSignIn: (sessionId: string, retry: boolean) => void;
   setTerminal: (sessionId: string, termId: string | null) => void;
+  /** Conversations in Remote Control: its terminal, and the shell it took the place of. */
+  remotes: Record<string, { termId: string; prev: string | null }>;
+  /** Hands a Claude Code conversation to Remote Control and shows its terminal (QR code). */
+  startRemote: (sessionId: string) => Promise<void>;
+  /** Ends Remote Control; what was said there comes back into the conversation. */
+  endRemote: (sessionId: string) => void;
+  /** Back from a Remote Control terminal to the conversation. */
+  leaveRemote: (sessionId: string) => void;
   /** Relays by id (live only, not persisted here: the desktop app owns them). */
   relays: Record<string, RelayRow>;
   upsertRelay: (r: RelayRow) => void;
@@ -654,6 +662,42 @@ export const useStore = create<UiState & Actions>()(
             liveApi.retryLast(sessionId).catch((e: unknown) => setError(sessionId, e));
           }
         },
+        remotes: {},
+        startRemote: async (sessionId) => {
+          if (!liveApi.available) {
+            setError(sessionId, t("Remote Control works in the desktop app."));
+            return;
+          }
+          try {
+            const info = await remoteApi.start(sessionId, 100, 30);
+            set((s) => {
+              const shell = s.terminals[sessionId];
+              const prev = shell && shell !== info.termId ? shell : (s.remotes[sessionId]?.prev ?? null);
+              return {
+                remotes: { ...s.remotes, [sessionId]: { termId: info.termId, prev } },
+                terminals: { ...s.terminals, [sessionId]: info.termId },
+                selectedId: sessionId,
+                view: "workspace",
+                viewMode: "terminal",
+              };
+            });
+          } catch (e: unknown) {
+            setError(sessionId, e);
+          }
+        },
+        endRemote: (sessionId) => {
+          remoteApi.stop(sessionId).catch((e: unknown) => setError(sessionId, e));
+        },
+        leaveRemote: (sessionId) =>
+          set((s) => {
+            const r = s.remotes[sessionId];
+            if (!r) return { viewMode: "rich" };
+            const { [sessionId]: _done, ...remotes } = s.remotes;
+            void _done;
+            const { [sessionId]: _term, ...terminals } = s.terminals;
+            void _term;
+            return { remotes, terminals: r.prev ? { ...terminals, [sessionId]: r.prev } : terminals, viewMode: "rich" };
+          }),
         setTerminal: (sessionId, termId) =>
           set((s) => {
             const { [sessionId]: _old, ...rest } = s.terminals;
@@ -872,6 +916,16 @@ export const useStore = create<UiState & Actions>()(
           }),
 
         appendLiveEvent: (e) => {
+          // Remote Control ended while you were elsewhere: its terminal gives way to your shell.
+          if (e.kind === "remote_control" && e.payload.state === "off") {
+            const st = get();
+            const watching = st.viewMode === "terminal" && st.selectedId === e.sessionId && st.view === "workspace";
+            if (st.remotes[e.sessionId] && !watching) {
+              const mode = st.viewMode;
+              st.leaveRemote(e.sessionId);
+              set({ viewMode: mode });
+            }
+          }
           // A session whose history isn't loaded yet: load it all (this event included).
           if (get().liveEvents[e.sessionId] === undefined && get().sessions.some((x) => x.id === e.sessionId && x.live)) {
             const waiting = pendingLoads.get(e.sessionId);

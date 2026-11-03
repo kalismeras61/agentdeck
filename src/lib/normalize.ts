@@ -221,6 +221,21 @@ export function normalizeFor(provider: ProviderId, events: StoredEvent[], ctx: N
           }`,
         },
       });
+    } else if (e.kind === "remote_control") {
+      const n = Number(p.messages) || 0;
+      own.push({
+        ...base(e, `rc-${e.seq}`),
+        type: "notice",
+        payload: {
+          tone: "info",
+          text:
+            p.state === "on"
+              ? t("Remote Control is on: this conversation continues in the Claude app or at claude.ai, and in its terminal here.")
+              : n > 0
+                ? tn(n, "Remote Control ended. The message above came from there.", "Remote Control ended. The {n} messages above came from there.")
+                : t("Remote Control ended."),
+        },
+      });
     } else if (e.kind === "imported_message") {
       const text = str(p.text) ?? "";
       own.push(

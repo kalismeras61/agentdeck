@@ -9,6 +9,8 @@ export interface SlashCommand {
   source: "agent" | "custom" | "skill" | "agentdeck";
   /** Text that goes into the message instead of "/name" (Codex prompts). */
   expand: string | null;
+  /** Only offered in this agent's sessions. */
+  only?: string;
 }
 
 /** Commands AgentDeck carries out itself, for every agent. */
@@ -20,7 +22,16 @@ export const APP_COMMANDS: SlashCommand[] = /* i18n */ [
   { name: "workflow", description: "Plan, build and review with other agents, or let two agents talk", hint: null, source: "agentdeck", expand: null },
   { name: "git", description: "Open the Git view for this project", hint: null, source: "agentdeck", expand: null },
   { name: "setup", description: "Open Agent setup: instructions, skills, commands", hint: null, source: "agentdeck", expand: null },
+  { name: "remote-control", description: "Continue this conversation from your phone or claude.ai (Claude Code's Remote Control)", hint: null, source: "agentdeck", expand: null, only: "claude-code" },
 ];
+
+/** AgentDeck's commands for a session of this agent. */
+export function appCommandsFor(provider: string): SlashCommand[] {
+  return APP_COMMANDS.filter((c) => !c.only || c.only === provider);
+}
+
+/** "/remote-control" or "/rc" typed as a whole message. */
+export const isRemoteControl = (text: string) => /^\/(remote-control|rc)\s*$/i.test(text.trim());
 
 const cache = new Map<string, SlashCommand[]>();
 

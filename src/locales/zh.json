@@ -1327,5 +1327,17 @@
   "Week": "周",
   "Weekly limit": "每周限额",
   "Weekly Opus limit": "Opus 每周限额",
-  "Weekly Sonnet limit": "Sonnet 每周限额"
+  "Weekly Sonnet limit": "Sonnet 每周限额",
+  "Continue this conversation from your phone or claude.ai (Claude Code's Remote Control)": "在手机或 claude.ai 上继续这段对话（Claude Code 的 Remote Control）",
+  "End Remote Control": "结束 Remote Control",
+  "Remote Control ended.": "Remote Control 已结束。",
+  "Remote Control ended. The message above came from there.|Remote Control ended. The {n} messages above came from there.": {
+    "other": "Remote Control 已结束。上面的 {n} 条消息来自那里。"
+  },
+  "Remote Control ended. What was said there is now in the conversation.": "Remote Control 已结束。在那里说过的内容现在都在对话中。",
+  "Remote Control is on: this conversation continues in the Claude app or at claude.ai, and in its terminal here.": "Remote Control 已开启：这段对话在 Claude 应用或 claude.ai 上继续，也可在此处的终端中继续。",
+  "Remote Control works in the desktop app.": "Remote Control 需要在桌面应用中使用。",
+  "Remote Control: scan the QR code with the Claude app, or open the link, to continue this conversation there. You can also keep typing here. When you're done, end it and the conversation comes back to AgentDeck with what was said.": "Remote Control：用 Claude 应用扫描二维码，或打开链接，即可在那里继续这段对话。你也可以继续在这里输入。完成后结束它，对话会带着那里的内容回到 AgentDeck。",
+  "Show QR code": "显示二维码",
+  "This conversation is in Remote Control: continue it in the Claude app or at claude.ai. It comes back here when you end it.": "这段对话正在 Remote Control 中：请在 Claude 应用或 claude.ai 上继续。结束后会回到这里。"
 }
