@@ -1312,5 +1312,20 @@
   "Z.ai's Anthropic-compatible API, with a GLM Coding Plan key": "GLM Coding Planのキーを使う、Z.aiのAnthropic互換API",
   "Zoom {name}": "{name}を拡大",
   "Zoom in": "拡大",
-  "Zoom out": "縮小"
+  "Zoom out": "縮小",
+  "{length} limit": "{length}の上限",
+  "{name}: {percent} used.": "{name}：{percent} 使用済み。",
+  "{name}: limit reached.": "{name}：上限に達しました。",
+  "{percent} · resets {when}": "{percent} · {when}にリセット",
+  "5-hour limit": "5時間の上限",
+  "5h": "5時間",
+  "As of {time}.": "{time} 時点。",
+  "Opus week": "Opus 週",
+  "Plan usage limits": "プランの使用上限",
+  "Resets {when}.": "リセット：{when}。",
+  "Sonnet week": "Sonnet 週",
+  "Week": "週",
+  "Weekly limit": "週間の上限",
+  "Weekly Opus limit": "Opus の週間上限",
+  "Weekly Sonnet limit": "Sonnet の週間上限"
 }

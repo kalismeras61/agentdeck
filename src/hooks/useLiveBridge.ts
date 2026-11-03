@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import type { StoredEvent } from "../lib/claude";
 import { errorText, liveApi, subscribeLive } from "../lib/live";
+import { useLimits } from "../lib/limits";
 import { notifyStatus } from "../lib/notify";
 import { useStore } from "../state/store";
 
@@ -38,7 +39,12 @@ export function useLiveBridge() {
           onBot: (b) => useStore.getState().upsertBot(b),
           onBotTask: (t) => useStore.getState().upsertBotTask(t),
           onBotSchedule: (s) => useStore.getState().upsertBotSchedule(s),
+          onLimits: (l) => useLimits.getState().put(l),
         });
+        liveApi
+          .planLimits()
+          .then((ls) => ls.forEach((l) => useLimits.getState().put(l)))
+          .catch(() => undefined);
         const [projects, rows] = await Promise.all([liveApi.listProjects(), liveApi.listSessions()]);
         // Only recent and busy sessions load their history now; the rest load when opened.
         const eager = eagerRows(rows);

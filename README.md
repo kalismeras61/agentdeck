@@ -60,6 +60,19 @@ Commands and edits that need your OK appear as cards that say what will run, whe
 
 ![A plan, build, review workflow: Codex built, Claude Code reviewed and approved](docs/screenshots/readme/workflow.png)
 
+### Bots that keep working
+
+A bot is an agent that stays. Give it a name, a job, instructions, an agent and model (Claude Code, Codex, Gemini CLI, Grok Build, Kimi Code, Antigravity or your own models) and a folder, then hand it tasks. It works through them in the background while you do something else.
+
+- **A task queue.** Add tasks while the bot is busy; it runs them one at a time. Pause, resume, cancel or retry, and each finished task keeps the bot's report as its result.
+- **Memory.** Every bot keeps a short memory file (left out of git). It reads it at the start of each task and writes down what's worth remembering: conventions, decisions, where things are, what you prefer. You can read and edit it on the bot's page.
+- **Unattended, not unchecked.** While a bot works on a task, ordinary requests are approved for it. Anything risky (deleting, pushing, deploying, credentials, anything outside its folder) and every question waits for you, and the bot shows "Needs you" in the sidebar.
+- **Its own page.** The bot's conversation with diffs and approvals as in any session, a box to give it a task or send a plain message, and its queue and memory side by side.
+
+Coming next: a workspace of its own for every bot (with each task able to name a project), schedules ("weekdays at 9:00"), a manager bot that hands work to other bots and collects their results, and reaching your bots from your phone or Telegram.
+
+![A bot working through its queue, with its memory one tab away](docs/screenshots/readme/bots.png)
+
 ### Isolate work in git worktrees
 
 Start a session in its own worktree and branch, so an agent can't step on your working copy. See the branch graph in the Git view, then merge the worktree back (with a clear warning when both sides changed the same lines) or throw it away.
@@ -78,6 +91,7 @@ Type `/` in the message box for the agent's own commands in that folder (Claude 
 - **Smart terminal.** Your own shell in the project folder. Ask any agent about the selection or the last 80 lines, with a one-click "Explain this error".
 - **Attach anything.** Drop files or folders, paste a screenshot, or pick files. Images reach the agent as images.
 - **Your own models.** DeepSeek, Kimi, GLM (Z.ai), Ollama, LM Studio, OpenRouter or any OpenAI- or Anthropic-compatible endpoint, with the same approvals, plan mode and workflows.
+- **Plan limits at a glance.** Under the message box, Claude Code and Codex sessions show how much of your 5-hour and weekly limits you've used and when they reset.
 - **Sign in where it fails.** When an agent needs a login, a button runs its own sign-in in a built-in terminal and sends your message again.
 - **Updates itself.** New versions are signed and notarized, and each update is checked against a key built into the app before it installs.
 

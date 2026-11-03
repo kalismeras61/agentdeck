@@ -1312,5 +1312,20 @@
   "Z.ai's Anthropic-compatible API, with a GLM Coding Plan key": "GLM Coding Plan 키를 사용하는 Z.ai의 Anthropic 호환 API",
   "Zoom {name}": "{name} 확대",
   "Zoom in": "확대",
-  "Zoom out": "축소"
+  "Zoom out": "축소",
+  "{length} limit": "{length} 한도",
+  "{name}: {percent} used.": "{name}: {percent} 사용함.",
+  "{name}: limit reached.": "{name}: 한도에 도달했습니다.",
+  "{percent} · resets {when}": "{percent} · {when} 초기화",
+  "5-hour limit": "5시간 한도",
+  "5h": "5시간",
+  "As of {time}.": "{time} 기준.",
+  "Opus week": "Opus 주간",
+  "Plan usage limits": "요금제 사용 한도",
+  "Resets {when}.": "초기화: {when}.",
+  "Sonnet week": "Sonnet 주간",
+  "Week": "주간",
+  "Weekly limit": "주간 한도",
+  "Weekly Opus limit": "Opus 주간 한도",
+  "Weekly Sonnet limit": "Sonnet 주간 한도"
 }

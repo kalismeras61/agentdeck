@@ -4,6 +4,7 @@
  */
 import type { ProviderId } from "../lib/events";
 import type { Bot, BotSchedule, BotTask } from "../lib/live";
+import type { PlanLimits } from "../lib/limits";
 import { loginPreviewSrc } from "./loginPreview";
 
 export type SessionStatus = "running" | "waiting" | "idle" | "error" | "done";
@@ -980,6 +981,31 @@ export const providerLabel: Record<ProviderId, string> = {
   antigravity: "Antigravity",
   api: "Model API",
 };
+
+/** Sample plan limits for the demo's Claude Code and Codex sessions (made up, relative to now). */
+export function sampleLimits(provider: ProviderId, now: number): PlanLimits | undefined {
+  const min = 60_000;
+  const read = now - 3 * min;
+  if (provider === "claude-code")
+    return {
+      provider,
+      updatedAt: read,
+      windows: [
+        { kind: "five_hour", usedPercent: 34, resetsAt: now + 2 * 60 * min + 15 * min, status: "allowed" },
+        { kind: "weekly", usedPercent: 61, resetsAt: now + 3 * 1440 * min + 5 * 60 * min, status: "allowed" },
+      ],
+    };
+  if (provider === "codex")
+    return {
+      provider,
+      updatedAt: read,
+      windows: [
+        { kind: "five_hour", usedPercent: 86, resetsAt: now + 48 * min },
+        { kind: "weekly", usedPercent: 42, resetsAt: now + 5 * 1440 * min },
+      ],
+    };
+  return undefined;
+}
 
 /** Agents that can run as live sessions, in menu order. */
 export const liveProviders: ProviderId[] = ["claude-code", "codex", "gemini-cli", "grok-build", "kimi-code", "antigravity"];

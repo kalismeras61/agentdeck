@@ -1312,5 +1312,20 @@
   "Z.ai's Anthropic-compatible API, with a GLM Coding Plan key": "Z.ai 的 Anthropic 兼容 API，使用 GLM Coding Plan 密钥",
   "Zoom {name}": "缩放 {name}",
   "Zoom in": "放大",
-  "Zoom out": "缩小"
+  "Zoom out": "缩小",
+  "{length} limit": "{length}限额",
+  "{name}: {percent} used.": "{name}：已用 {percent}。",
+  "{name}: limit reached.": "{name}：已达上限。",
+  "{percent} · resets {when}": "{percent} · {when} 重置",
+  "5-hour limit": "5 小时限额",
+  "5h": "5 小时",
+  "As of {time}.": "数据时间：{time}。",
+  "Opus week": "Opus 周",
+  "Plan usage limits": "套餐用量限额",
+  "Resets {when}.": "重置时间：{when}。",
+  "Sonnet week": "Sonnet 周",
+  "Week": "周",
+  "Weekly limit": "每周限额",
+  "Weekly Opus limit": "Opus 每周限额",
+  "Weekly Sonnet limit": "Sonnet 每周限额"
 }

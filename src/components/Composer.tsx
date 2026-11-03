@@ -13,6 +13,7 @@ import { useStore } from "../state/store";
 import { useRelayFor } from "./blocks/Relay";
 import { ModelMenu } from "./ModelMenu";
 import { AgyApprovalsMenu } from "./AgyApprovals";
+import { PlanLimitsLine } from "./PlanLimits";
 import { AgentMark, cx, IconButton, Kbd, Tip } from "./ui";
 
 export function Composer({ session }: { session: Session }) {
@@ -447,6 +448,7 @@ export function Composer({ session }: { session: Session }) {
             )}
           </div>
         </div>
+        <PlanLimitsLine session={session} />
       </div>
     </div>
   );

@@ -62,6 +62,19 @@ Befehle und Bearbeitungen, die dein OK brauchen, erscheinen als Karten, die zeig
 
 ![Ein Workflow aus Plan, Umsetzung und Prüfung: Codex hat umgesetzt, Claude Code hat geprüft und freigegeben](../screenshots/readme/workflow.png)
 
+### Bots, die weiterarbeiten
+
+Ein Bot ist ein Agent, der bleibt. Gib ihm einen Namen, einen Job, Anweisungen, einen Agenten samt Modell (Claude Code, Codex, Gemini CLI, Grok Build, Kimi Code, Antigravity oder deine eigenen Modelle) und einen Ordner, dann übergib ihm Aufgaben. Er arbeitet sie im Hintergrund ab, während du etwas anderes machst.
+
+- **Eine Warteschlange für Aufgaben.** Füg Aufgaben hinzu, während der Bot beschäftigt ist; er erledigt sie nacheinander. Pausieren, fortsetzen, abbrechen oder erneut versuchen – und jede erledigte Aufgabe behält den Bericht des Bots als Ergebnis.
+- **Gedächtnis.** Jeder Bot führt eine kurze Gedächtnisdatei (nicht in git). Er liest sie zu Beginn jeder Aufgabe und notiert, was sich zu merken lohnt: Konventionen, Entscheidungen, wo was liegt, was du bevorzugst. Du kannst sie auf der Seite des Bots lesen und bearbeiten.
+- **Unbeaufsichtigt, aber nicht unkontrolliert.** Während ein Bot an einer Aufgabe arbeitet, werden gewöhnliche Anfragen für ihn freigegeben. Alles Riskante (Löschen, Pushen, Deployen, Zugangsdaten, alles außerhalb seines Ordners) und jede Frage wartet auf dich, und der Bot zeigt in der Seitenleiste „Braucht dich“.
+- **Eine eigene Seite.** Die Unterhaltung des Bots mit Diffs und Freigaben wie in jeder Sitzung, ein Feld, um ihm eine Aufgabe zu geben oder eine normale Nachricht zu schicken, und daneben seine Warteschlange und sein Gedächtnis.
+
+Als Nächstes: ein eigener Arbeitsbereich für jeden Bot (wobei jede Aufgabe ein Projekt nennen kann), Zeitpläne („werktags um 9:00“), ein Manager-Bot, der Arbeit an andere Bots verteilt und ihre Ergebnisse einsammelt, und deine Bots vom Handy oder über Telegram erreichen.
+
+![Ein Bot arbeitet seine Warteschlange ab, sein Gedächtnis ist nur einen Tab entfernt](../screenshots/readme/bots.png)
+
 ### Arbeit in Git-Worktrees isolieren
 
 Starte eine Sitzung in einem eigenen Worktree und Branch, damit ein Agent deiner Arbeitskopie nicht in die Quere kommt. Sieh dir den Branch-Graphen in der Git-Ansicht an und führe den Worktree dann zurück zusammen (mit einer klaren Warnung, wenn beide Seiten dieselben Zeilen geändert haben) oder verwirf ihn.
@@ -80,6 +93,7 @@ Tippe `/` ins Nachrichtenfeld, und du siehst die eigenen Befehle des Agenten in 
 - **Smartes Terminal.** Deine eigene Shell im Projektordner. Frag einen beliebigen Agenten zur Auswahl oder zu den letzten 80 Zeilen, inklusive „Diesen Fehler erklären“ per Klick.
 - **Alles anhängen.** Zieh Dateien oder Ordner hinein, füge ein Bildschirmfoto ein oder wähle Dateien aus. Bilder kommen beim Agenten als Bilder an.
 - **Deine eigenen Modelle.** DeepSeek, Kimi, GLM (Z.ai), Ollama, LM Studio, OpenRouter oder jeder OpenAI- bzw. Anthropic-kompatible Endpunkt, mit denselben Freigaben, demselben Planmodus und denselben Workflows.
+- **Plan-Limits auf einen Blick.** Unter dem Nachrichtenfeld zeigen Claude-Code- und Codex-Sitzungen, wie viel von deinem 5-Stunden- und Wochenlimit du verbraucht hast und wann sie zurückgesetzt werden.
 - **Anmelden, wo es hakt.** Braucht ein Agent eine Anmeldung, startet ein Button dessen eigene Anmeldung in einem eingebauten Terminal und sendet deine Nachricht erneut.
 - **Aktualisiert sich selbst.** Neue Versionen sind signiert und notarisiert, und jedes Update wird vor der Installation mit einem in die App eingebauten Schlüssel geprüft.
 

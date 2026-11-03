@@ -5,6 +5,7 @@
 import type { StoredEvent } from "./claude";
 import { isTauri } from "./native";
 import { t } from "./i18n";
+import type { PlanLimits } from "./limits";
 
 export interface LiveProject {
   id: string;
@@ -383,6 +384,8 @@ export const liveApi = {
     call<ContextFile>("new_context_item", { projectId, kind, scope, agent, name }),
   /** The models an agent offers, as the agent reports them. refresh asks the agent again. */
   listModels: (provider: string, refresh = false) => call<ModelList>("list_models", { provider, refresh }),
+  /** The latest plan usage limits Claude Code and Codex reported, saved ones included. */
+  planLimits: () => call<PlanLimits[]>("plan_limits"),
   loadEvents: (sessionId: string) => call<StoredEvent[]>("load_events", { sessionId }),
   /** files: absolute paths the user dropped, pasted or picked. */
   send: (sessionId: string, text: string, files: string[] = []) => call<void>("send_message", { sessionId, text, files: files.length ? files : null }),
@@ -520,6 +523,7 @@ export async function subscribeLive(handlers: {
   onBot: (b: Bot) => void;
   onBotTask: (t: BotTask) => void;
   onBotSchedule: (s: BotSchedule) => void;
+  onLimits: (l: PlanLimits) => void;
 }): Promise<() => void> {
   const { listen } = await import("@tauri-apps/api/event");
   const offs = await Promise.all([
@@ -531,6 +535,7 @@ export async function subscribeLive(handlers: {
     listen<Bot>("agentdeck://bot", (e) => handlers.onBot(e.payload)),
     listen<BotTask>("agentdeck://bot-task", (e) => handlers.onBotTask(e.payload)),
     listen<BotSchedule>("agentdeck://bot-schedule", (e) => handlers.onBotSchedule(e.payload)),
+    listen<PlanLimits>("agentdeck://limits", (e) => handlers.onLimits(e.payload)),
   ]);
   return () => offs.forEach((off) => off());
 }

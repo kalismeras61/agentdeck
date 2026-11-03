@@ -1358,5 +1358,20 @@
   "Z.ai's Anthropic-compatible API, with a GLM Coding Plan key": "Z.ai'nin Anthropic uyumlu API'si, GLM Coding Plan anahtarıyla",
   "Zoom {name}": "Büyüt: {name}",
   "Zoom in": "Yakınlaştır",
-  "Zoom out": "Uzaklaştır"
+  "Zoom out": "Uzaklaştır",
+  "{length} limit": "{length} limiti",
+  "{name}: {percent} used.": "{name}: {percent} kullanıldı.",
+  "{name}: limit reached.": "{name}: limite ulaşıldı.",
+  "{percent} · resets {when}": "{percent} · {when} sıfırlanır",
+  "5-hour limit": "5 saatlik limit",
+  "5h": "5 sa",
+  "As of {time}.": "{time} itibarıyla.",
+  "Opus week": "Opus haftası",
+  "Plan usage limits": "Plan kullanım limitleri",
+  "Resets {when}.": "Sıfırlanma: {when}.",
+  "Sonnet week": "Sonnet haftası",
+  "Week": "Hafta",
+  "Weekly limit": "Haftalık limit",
+  "Weekly Opus limit": "Haftalık Opus limiti",
+  "Weekly Sonnet limit": "Haftalık Sonnet limiti"
 }
