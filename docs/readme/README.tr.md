@@ -64,16 +64,18 @@ Onayınızı gerektiren komutlar ve düzenlemeler, neyin nerede çalışacağın
 
 ### Çalışmaya devam eden botlar
 
-Bot, kalıcı bir ajandır. Ona bir ad, bir iş, talimatlar, bir ajan ve model (Claude Code, Codex, Gemini CLI, Grok Build, Kimi Code, Antigravity ya da kendi modelleriniz) ve bir klasör verin, ardından görevler atayın. Siz başka bir işle uğraşırken bot bu görevleri arka planda tek tek tamamlar.
+Bot, kalıcı bir ajandır. Ona bir ad, bir iş, talimatlar ve bir ajan ile model (Claude Code, Codex, Gemini CLI, Grok Build, Kimi Code, Antigravity ya da kendi modelleriniz) verin, ardından görevler atayın. Siz başka bir işle uğraşırken bot bu görevleri arka planda tamamlar.
 
+- **Kendine ait bir yer.** Her botun kendi klasörü (`~/AgentDeck/Bots/<name>`) vardır ve bir görev bir proje belirtmedikçe orada çalışır. Herhangi bir görevi herhangi bir projeye yönlendirebilirsiniz; bot her yer için ayrı bir konuşma tutar, böylece nerede ne yaptığını hatırlar.
 - **Görev sırası.** Bot meşgulken de görev ekleyebilirsiniz; görevleri tek tek çalıştırır. Duraklatın, sürdürün, iptal edin ya da yeniden deneyin; tamamlanan her görev, botun raporunu sonuç olarak saklar.
-- **Hafıza.** Her botun kısa bir hafıza dosyası vardır (git'e dahil edilmez). Bot her görevin başında bu dosyayı okur ve hatırlamaya değer olanları not eder: kurallar, kararlar, nelerin nerede olduğu, neleri tercih ettiğiniz. Dosyayı botun sayfasında okuyup düzenleyebilirsiniz.
-- **Gözetimsiz ama denetimsiz değil.** Bot bir görev üzerinde çalışırken sıradan istekler onun adına onaylanır. Riskli her şey (silme, push, deploy, kimlik bilgileri, klasörünün dışındaki her şey) ve her soru sizi bekler; bot da kenar çubuğunda "Sizi bekliyor" olarak görünür.
-- **Kendi sayfası.** Herhangi bir oturumdaki gibi diff'ler ve onaylarla botun konuşması, ona görev vermek ya da düz bir mesaj göndermek için bir kutu, yan yana sırası ve hafızası.
+- **Hafıza.** Her bot, klasöründe kısa bir hafıza dosyası tutar. Her görevin başında bu dosyayı okur ve hatırlamaya değer olanları not eder: kurallar, kararlar, nelerin nerede olduğu, neleri tercih ettiğiniz. Dosyayı botun sayfasında okuyup düzenleyebilirsiniz.
+- **Zamanlamalar.** "Hafta içi 09:00'da: dün birleştirilen pull request'leri incele", "6 saatte bir: kararsız testleri bul". Her çalıştırma, her görev gibi sıraya girer.
+- **Yönetici bot.** Botlar, AgentDeck'in kendi araçlarıyla (`list_bots`, `delegate_task`, `wait_for_tasks`) bir görevin parçalarını başka botlara devredip sonuçlarını bekleyebilir. Lider bir bot, işi bir inceleyici, bir test uzmanı ve bir yazar arasında bölüp raporlarını bir araya getirebilir.
+- **Gözetimsiz ama denetimsiz değil.** Bot bir görev üzerinde çalışırken, kendi klasörü ve görevin projesi içindeki sıradan istekler onun adına onaylanır. Riskli her şey (silme, push, deploy, kimlik bilgileri, başka bir yerdeki her şey) ve her soru sizi bekler; bot da kenar çubuğunda "Sizi bekliyor" olarak görünür.
 
-Yakında: her bota ait ayrı bir çalışma alanı (her görev bir proje belirtebilecek), zamanlamalar ("hafta içi 09:00'da"), işi diğer botlara dağıtıp sonuçlarını toplayan bir yönetici bot ve botlarınıza telefonunuzdan ya da Telegram'dan ulaşma.
+Yakında: botlarınıza telefonunuzdan ve Telegram'dan ulaşma.
 
-![Sırasındaki görevleri tamamlayan bir bot; hafızası bir sekme ötede](../screenshots/readme/bots.png)
+![Sırasındaki görevleri tamamlayan bir bot; zamanlamaları ve hafızası bir sekme ötede](../screenshots/readme/bots.png)
 
 ### İşi git worktree'lerinde izole edin
 

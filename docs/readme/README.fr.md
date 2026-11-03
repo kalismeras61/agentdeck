@@ -64,16 +64,18 @@ Les commandes et modifications qui nécessitent votre accord apparaissent sous f
 
 ### Des bots qui continuent de travailler
 
-Un bot est un agent qui reste. Donnez-lui un nom, un rôle, des instructions, un agent et un modèle (Claude Code, Codex, Gemini CLI, Grok Build, Kimi Code, Antigravity ou vos propres modèles) et un dossier, puis confiez-lui des tâches. Il les traite en arrière-plan pendant que vous faites autre chose.
+Un bot est un agent qui reste. Donnez-lui un nom, un rôle, des instructions, un agent et un modèle (Claude Code, Codex, Gemini CLI, Grok Build, Kimi Code, Antigravity ou vos propres modèles), puis confiez-lui des tâches. Il les traite en arrière-plan pendant que vous faites autre chose.
 
+- **Un endroit à lui.** Chaque bot a son propre dossier (`~/AgentDeck/Bots/<name>`) et y travaille, sauf si une tâche indique un projet. Vous pouvez diriger n'importe quelle tâche vers n'importe quel projet ; le bot garde une conversation distincte pour chaque endroit, et se souvient donc de ce qu'il a fait et où.
 - **Une file de tâches.** Ajoutez des tâches pendant que le bot est occupé ; il les exécute une par une. Mettez en pause, reprenez, annulez ou relancez, et chaque tâche terminée garde le rapport du bot comme résultat.
-- **Mémoire.** Chaque bot tient un court fichier de mémoire (exclu de git). Il le lit au début de chaque tâche et y note ce qui mérite d'être retenu : conventions, décisions, où se trouvent les choses, vos préférences. Vous pouvez le lire et le modifier sur la page du bot.
-- **Sans surveillance, mais pas sans contrôle.** Pendant qu'un bot travaille sur une tâche, les demandes ordinaires sont approuvées pour lui. Tout ce qui est risqué (suppression, push, déploiement, identifiants, tout ce qui sort de son dossier) ainsi que chaque question vous attendent, et le bot affiche « Vous attend » dans la barre latérale.
-- **Sa propre page.** La conversation du bot avec les diffs et les approbations comme dans n'importe quelle session, un champ pour lui confier une tâche ou envoyer un simple message, et sa file et sa mémoire côte à côte.
+- **Mémoire.** Chaque bot tient un court fichier de mémoire dans son dossier. Il le lit au début de chaque tâche et y note ce qui mérite d'être retenu : conventions, décisions, où se trouvent les choses, vos préférences. Vous pouvez le lire et le modifier sur la page du bot.
+- **Planifications.** « En semaine à 9 h : relire les pull requests fusionnées la veille », « toutes les 6 heures : chercher les tests instables ». Chaque exécution rejoint la file comme n'importe quelle tâche.
+- **Un bot manager.** Les bots peuvent confier des parties d'une tâche à d'autres bots et attendre leurs résultats, grâce aux outils propres à AgentDeck (`list_bots`, `delegate_task`, `wait_for_tasks`). Un bot principal peut répartir le travail entre un relecteur, un testeur et un rédacteur, puis rassembler leurs rapports.
+- **Sans surveillance, mais pas sans contrôle.** Pendant qu'un bot travaille sur une tâche, les demandes ordinaires sont approuvées pour lui dans son dossier et dans le projet de la tâche. Tout ce qui est risqué (suppression, push, déploiement, identifiants, tout ce qui se passe ailleurs) ainsi que chaque question vous attendent, et le bot affiche « Vous attend » dans la barre latérale.
 
-À venir : un espace de travail propre à chaque bot (chaque tâche pouvant indiquer un projet), des planifications (« en semaine à 9 h »), un bot manager qui confie du travail à d'autres bots et rassemble leurs résultats, et l'accès à vos bots depuis votre téléphone ou Telegram.
+À venir : l'accès à vos bots depuis votre téléphone et depuis Telegram.
 
-![Un bot qui traite sa file, avec sa mémoire à un onglet de distance](../screenshots/readme/bots.png)
+![Un bot qui traite sa file, avec ses planifications et sa mémoire à un onglet de distance](../screenshots/readme/bots.png)
 
 ### Isolez le travail dans des worktrees git
 

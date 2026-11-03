@@ -64,16 +64,18 @@ Comandos e edições que precisam do seu OK aparecem como cards que dizem o que 
 
 ### Bots que continuam trabalhando
 
-Um bot é um agente que fica. Dê a ele um nome, uma função, instruções, um agente e um modelo (Claude Code, Codex, Gemini CLI, Grok Build, Kimi Code, Antigravity ou seus próprios modelos) e uma pasta, e depois passe tarefas para ele. Ele as resolve em segundo plano enquanto você faz outra coisa.
+Um bot é um agente que fica. Dê a ele um nome, uma função, instruções e um agente e um modelo (Claude Code, Codex, Gemini CLI, Grok Build, Kimi Code, Antigravity ou seus próprios modelos), e depois passe tarefas para ele. Ele as resolve em segundo plano enquanto você faz outra coisa.
 
+- **Um lugar só dele.** Cada bot tem a própria pasta (`~/AgentDeck/Bots/<name>`) e trabalha nela, a menos que uma tarefa indique um projeto. Você pode apontar qualquer tarefa para qualquer projeto; o bot mantém uma conversa separada para cada lugar, então lembra o que fez e onde.
 - **Uma fila de tarefas.** Adicione tarefas enquanto o bot está ocupado; ele executa uma de cada vez. Pause, retome, cancele ou tente de novo, e cada tarefa concluída guarda o relatório do bot como resultado.
-- **Memória.** Cada bot mantém um arquivo de memória curto (fora do git). Ele lê esse arquivo no início de cada tarefa e anota o que vale a pena lembrar: convenções, decisões, onde as coisas ficam, o que você prefere. Você pode ler e editar a memória na página do bot.
-- **Sem supervisão, mas não sem controle.** Enquanto um bot trabalha em uma tarefa, pedidos comuns são aprovados para ele. Qualquer coisa arriscada (apagar, fazer push, fazer deploy, credenciais, qualquer coisa fora da pasta dele) e toda pergunta esperam por você, e o bot mostra "Precisa de você" na barra lateral.
-- **Uma página só dele.** A conversa do bot com diffs e aprovações como em qualquer sessão, uma caixa para dar uma tarefa a ele ou enviar uma mensagem simples, e a fila e a memória dele lado a lado.
+- **Memória.** Cada bot mantém um arquivo de memória curto na pasta dele. Ele lê esse arquivo no início de cada tarefa e anota o que vale a pena lembrar: convenções, decisões, onde as coisas ficam, o que você prefere. Você pode ler e editar a memória na página do bot.
+- **Agendamentos.** "Dias úteis às 9:00: revisar os pull requests mesclados ontem", "a cada 6 horas: procurar testes instáveis". Cada execução entra na fila como qualquer tarefa.
+- **Um bot gerente.** Bots podem passar partes de uma tarefa para outros bots e esperar os resultados, usando as ferramentas do próprio AgentDeck (`list_bots`, `delegate_task`, `wait_for_tasks`). Um bot líder pode dividir o trabalho entre um revisor, um testador e um redator e juntar os relatórios deles.
+- **Sem supervisão, mas não sem controle.** Enquanto um bot trabalha em uma tarefa, pedidos comuns dentro da pasta dele e do projeto da tarefa são aprovados para ele. Qualquer coisa arriscada (apagar, fazer push, fazer deploy, credenciais, qualquer coisa em outro lugar) e toda pergunta esperam por você, e o bot mostra "Precisa de você" na barra lateral.
 
-Em breve: um workspace próprio para cada bot (com cada tarefa podendo indicar um projeto), agendamentos ("dias úteis às 9:00"), um bot gerente que distribui trabalho para outros bots e reúne os resultados, e acesso aos seus bots pelo celular ou pelo Telegram.
+Em breve: acesso aos seus bots pelo celular e pelo Telegram.
 
-![Um bot trabalhando na fila dele, com a memória a uma aba de distância](../screenshots/readme/bots.png)
+![Um bot trabalhando na fila dele, com os agendamentos e a memória a uma aba de distância](../screenshots/readme/bots.png)
 
 ### Isole o trabalho em worktrees do git
 

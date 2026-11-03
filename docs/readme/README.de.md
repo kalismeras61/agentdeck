@@ -64,16 +64,18 @@ Befehle und Bearbeitungen, die dein OK brauchen, erscheinen als Karten, die zeig
 
 ### Bots, die weiterarbeiten
 
-Ein Bot ist ein Agent, der bleibt. Gib ihm einen Namen, einen Job, Anweisungen, einen Agenten samt Modell (Claude Code, Codex, Gemini CLI, Grok Build, Kimi Code, Antigravity oder deine eigenen Modelle) und einen Ordner, dann übergib ihm Aufgaben. Er arbeitet sie im Hintergrund ab, während du etwas anderes machst.
+Ein Bot ist ein Agent, der bleibt. Gib ihm einen Namen, einen Job, Anweisungen und einen Agenten samt Modell (Claude Code, Codex, Gemini CLI, Grok Build, Kimi Code, Antigravity oder deine eigenen Modelle), dann übergib ihm Aufgaben. Er arbeitet sie im Hintergrund ab, während du etwas anderes machst.
 
+- **Ein eigener Ort.** Jeder Bot hat seinen eigenen Ordner (`~/AgentDeck/Bots/<name>`) und arbeitet dort, solange eine Aufgabe kein Projekt nennt. Du kannst jede Aufgabe auf jedes Projekt richten; der Bot führt für jeden Ort eine eigene Unterhaltung und weiß so, was er wo getan hat.
 - **Eine Warteschlange für Aufgaben.** Füg Aufgaben hinzu, während der Bot beschäftigt ist; er erledigt sie nacheinander. Pausieren, fortsetzen, abbrechen oder erneut versuchen – und jede erledigte Aufgabe behält den Bericht des Bots als Ergebnis.
-- **Gedächtnis.** Jeder Bot führt eine kurze Gedächtnisdatei (nicht in git). Er liest sie zu Beginn jeder Aufgabe und notiert, was sich zu merken lohnt: Konventionen, Entscheidungen, wo was liegt, was du bevorzugst. Du kannst sie auf der Seite des Bots lesen und bearbeiten.
-- **Unbeaufsichtigt, aber nicht unkontrolliert.** Während ein Bot an einer Aufgabe arbeitet, werden gewöhnliche Anfragen für ihn freigegeben. Alles Riskante (Löschen, Pushen, Deployen, Zugangsdaten, alles außerhalb seines Ordners) und jede Frage wartet auf dich, und der Bot zeigt in der Seitenleiste „Braucht dich“.
-- **Eine eigene Seite.** Die Unterhaltung des Bots mit Diffs und Freigaben wie in jeder Sitzung, ein Feld, um ihm eine Aufgabe zu geben oder eine normale Nachricht zu schicken, und daneben seine Warteschlange und sein Gedächtnis.
+- **Gedächtnis.** Jeder Bot führt eine kurze Gedächtnisdatei in seinem Ordner. Er liest sie zu Beginn jeder Aufgabe und notiert, was sich zu merken lohnt: Konventionen, Entscheidungen, wo was liegt, was du bevorzugst. Du kannst sie auf der Seite des Bots lesen und bearbeiten.
+- **Zeitpläne.** „Werktags um 9:00: die gestern gemergten Pull Requests reviewen“, „alle 6 Stunden: nach flaky Tests suchen“. Jeder Lauf reiht sich wie jede Aufgabe in die Warteschlange ein.
+- **Ein Manager-Bot.** Bots können Teile einer Aufgabe über AgentDecks eigene Tools (`list_bots`, `delegate_task`, `wait_for_tasks`) an andere Bots abgeben und auf deren Ergebnisse warten. Ein leitender Bot kann die Arbeit auf einen Reviewer, einen Tester und einen Autor verteilen und ihre Berichte zusammenführen.
+- **Unbeaufsichtigt, aber nicht unkontrolliert.** Während ein Bot an einer Aufgabe arbeitet, werden gewöhnliche Anfragen innerhalb seines Ordners und des Projekts der Aufgabe für ihn freigegeben. Alles Riskante (Löschen, Pushen, Deployen, Zugangsdaten, alles anderswo) und jede Frage wartet auf dich, und der Bot zeigt in der Seitenleiste „Braucht dich“.
 
-Als Nächstes: ein eigener Arbeitsbereich für jeden Bot (wobei jede Aufgabe ein Projekt nennen kann), Zeitpläne („werktags um 9:00“), ein Manager-Bot, der Arbeit an andere Bots verteilt und ihre Ergebnisse einsammelt, und deine Bots vom Handy oder über Telegram erreichen.
+Als Nächstes: deine Bots vom Handy und über Telegram erreichen.
 
-![Ein Bot arbeitet seine Warteschlange ab, sein Gedächtnis ist nur einen Tab entfernt](../screenshots/readme/bots.png)
+![Ein Bot arbeitet seine Warteschlange ab, seine Zeitpläne und sein Gedächtnis sind nur einen Tab entfernt](../screenshots/readme/bots.png)
 
 ### Arbeit in Git-Worktrees isolieren
 
