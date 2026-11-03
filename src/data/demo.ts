@@ -63,6 +63,7 @@ export const demoProjects: Project[] = [
   // Bots' own workspaces.
   { id: "p-ws-reviewer", name: "API Reviewer", path: "~/AgentDeck/Bots/API Reviewer", workspaceId: "demo", hidden: true },
   { id: "p-ws-docs", name: "Docs Writer", path: "~/AgentDeck/Bots/Docs Writer", workspaceId: "demo", hidden: true },
+  { id: "p-ws-lead", name: "Release Manager", path: "~/AgentDeck/Bots/Release Manager", workspaceId: "demo", hidden: true },
 ];
 
 const NOW = Date.now();
@@ -563,6 +564,67 @@ const sbwEvents = [
   }),
 ];
 
+// A manager bot handing parts of a release to the other two bots.
+const SL = "s-bot-lead";
+const SD = "s-bot-docs";
+const slEvents = [
+  ev(SL, "claude-code", at(14), "user_message", { text: "Get v2.3 ready to ship: check the API changes, update the docs, and write the release notes", label: "Task" }),
+  ev(SL, "claude-code", at(13, 40), "tool_group", {
+    title: "3 other steps",
+    items: [
+      { id: "l1", kind: "analyze", label: "Listed the bots", status: "ok" },
+      { id: "l2", kind: "analyze", label: "Delegated to API Reviewer", target: "Check the changes since v2.2 for breaking changes", status: "ok" },
+      { id: "l3", kind: "analyze", label: "Delegated to Docs Writer", target: "Update docs/changelog.md for v2.3", status: "ok" },
+    ],
+  }),
+  ev(SL, "claude-code", at(13, 20), "assistant_text", {
+    markdown: "API Reviewer is checking the changes for anything breaking, and Docs Writer is updating the changelog. I'll write the release notes once both are back.",
+  }),
+  ev(SL, "claude-code", at(13), "tool_group", {
+    title: "1 in progress",
+    items: [{ id: "l4", kind: "analyze", label: "Waited for 2 tasks", status: "running" }],
+  }),
+];
+const sdEvents = [
+  ev(SD, "codex", at(9), "user_message", { text: "Update docs/changelog.md for v2.3 from the merged pull requests", label: "Task from Release Manager" }),
+  ev(SD, "codex", at(8, 30), "tool_group", {
+    title: "Explored 2 files",
+    items: [
+      { id: "d1", kind: "read", label: "Read", target: "docs/changelog.md", status: "ok" },
+      { id: "d2", kind: "command", label: "Ran", target: "git log --merges v2.2..main --oneline", status: "ok" },
+    ],
+  }),
+  ev(SD, "codex", at(8), "assistant_text", { markdown: "Seven merged pull requests since v2.2. Writing the entries now." }),
+];
+
+export const demoLeadSession: Session = {
+  id: SL,
+  projectId: "p-ws-lead",
+  title: "Release Manager",
+  provider: "claude-code",
+  model: "Opus 5.5",
+  status: "running",
+  snippet: "Waiting for 2 tasks",
+  startedAt: at(14),
+  updatedAt: at(13),
+  raw: slEvents,
+  demo: true,
+};
+
+export const demoDocsBotSession: Session = {
+  id: SD,
+  projectId: "p-docs",
+  title: "Docs Writer · harbor_docs",
+  provider: "codex",
+  model: "gpt-5-codex",
+  status: "running",
+  snippet: "Writing the changelog entries",
+  startedAt: at(9),
+  updatedAt: at(8),
+  raw: sdEvents,
+  demo: true,
+};
+
 export const demoBotSession: Session = {
   id: SB,
   projectId: "p-api",
@@ -640,17 +702,42 @@ export const demoBots: Bot[] = [
     projectId: "p-docs",
     workspaceId: "p-ws-docs",
     workspace: "~/AgentDeck/Bots/Docs Writer",
-    places: [],
+    places: [{ projectId: "p-docs", sessionId: SD }],
     color: "green",
     paused: false,
     createdAt: at(900),
-    updatedAt: at(120),
+    updatedAt: at(8),
     queued: 0,
-    runningTaskId: null,
-    runningText: null,
-    runningProjectId: null,
-    runningSessionId: null,
+    runningTaskId: "t-demo-12",
+    runningText: "Update docs/changelog.md for v2.3 from the merged pull requests",
+    runningProjectId: "p-docs",
+    runningSessionId: SD,
     nextRunAt: nextWeekdayAt(18, 0),
+    needsYou: false,
+  },
+  {
+    id: "b-demo-lead",
+    name: "Release Manager",
+    role: "Gets releases out, handing parts to the other bots",
+    instructions: "Hand API checks to API Reviewer and docs to Docs Writer; write the release notes yourself.",
+    provider: "claude-code",
+    model: "opus",
+    effort: "high",
+    profileId: null,
+    projectId: null,
+    workspaceId: "p-ws-lead",
+    workspace: "~/AgentDeck/Bots/Release Manager",
+    places: [{ projectId: null, sessionId: SL }],
+    color: "violet",
+    paused: false,
+    createdAt: at(1200),
+    updatedAt: at(13),
+    queued: 0,
+    runningTaskId: "t-demo-10",
+    runningText: "Get v2.3 ready to ship: check the API changes, update the docs, and write the release notes",
+    runningProjectId: null,
+    runningSessionId: SL,
+    nextRunAt: null,
     needsYou: false,
   },
 ];
@@ -669,10 +756,26 @@ const task = (id: string, botId: string, text: string, status: BotTask["status"]
   parentId: null,
   projectId: "p-api",
   sessionId: null,
+  children: 0,
   ...extra,
 });
 
 export const demoBotTasks: Record<string, BotTask[]> = {
+  "b-demo-lead": [
+    task("t-demo-10", "b-demo-lead", "Get v2.3 ready to ship: check the API changes, update the docs, and write the release notes", "running", at(14), {
+      projectId: null,
+      startedAt: at(14),
+      sessionId: SL,
+      children: 2,
+    }),
+    task("t-demo-9", "b-demo-lead", "Plan the v2.3 release", "done", at(1100), {
+      projectId: null,
+      startedAt: at(1100),
+      finishedAt: at(1090),
+      sessionId: SL,
+      result: "Scope for v2.3: the refresh route, the rate limit fix, and the v1 token deprecation notice.",
+    }),
+  ],
   "b-demo-reviewer": [
     task("t-demo-3", "b-demo-reviewer", "Check the new /auth/refresh route for missing tests", "running", at(5), { startedAt: at(3), sessionId: SB }),
     task("t-demo-4", "b-demo-reviewer", "Review the CORS settings in server.ts", "queued", at(4)),
@@ -691,6 +794,14 @@ export const demoBotTasks: Record<string, BotTask[]> = {
       sessionId: SB,
       error: "the turn ended with an error",
     }),
+    task("t-demo-11", "b-demo-reviewer", "Check the changes since v2.2 for breaking changes", "done", at(13), {
+      source: "bot:b-demo-lead",
+      parentId: "t-demo-10",
+      startedAt: at(12),
+      finishedAt: at(6),
+      sessionId: SB,
+      result: "No breaking changes. One deprecation: `GET /v1/tokens` now warns and goes away in v3. Worth a line in the release notes.",
+    }),
     task("t-demo-0", "b-demo-reviewer", "Sum up this week's reviews in reviews/week-45.md", "done", at(301), {
       projectId: null,
       startedAt: at(300),
@@ -700,6 +811,13 @@ export const demoBotTasks: Record<string, BotTask[]> = {
     }),
   ],
   "b-demo-docs": [
+    task("t-demo-12", "b-demo-docs", "Update docs/changelog.md for v2.3 from the merged pull requests", "running", at(13), {
+      source: "bot:b-demo-lead",
+      parentId: "t-demo-10",
+      projectId: "p-docs",
+      startedAt: at(9),
+      sessionId: SD,
+    }),
     task("t-demo-6", "b-demo-docs", "Document the /auth/refresh route", "done", at(130), {
       projectId: "p-docs",
       startedAt: at(129),
@@ -758,6 +876,7 @@ export const demoBotMemory: Record<string, string> = {
   "b-demo-reviewer":
     "# API Reviewer memory\n\n- Tests: `npm test`; integration tests need `docker compose up db`.\n- Rate limits live in `src/limits.ts`; the team wants IP + account keys.\n- The user prefers short reviews: bugs first, style last.\n- Weekly summaries go in `reviews/` in my workspace.\n",
   "b-demo-docs": "# Docs Writer memory\n\nWhat Docs Writer keeps for later tasks.\n",
+  "b-demo-lead": "# Release Manager memory\n\n- API Reviewer checks for breaking changes; Docs Writer owns docs/changelog.md.\n- Release notes go in releases/ in my workspace.\n",
 };
 
 export const demoSessions: Session[] = [
@@ -828,6 +947,8 @@ export const demoSessions: Session[] = [
   },
   demoBotSession,
   demoBotWorkspaceSession,
+  demoLeadSession,
+  demoDocsBotSession,
 ];
 
 export const providerModels: Record<ProviderId, string[]> = {

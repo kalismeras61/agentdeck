@@ -185,7 +185,13 @@ export function normalizeFor(provider: ProviderId, events: StoredEvent[], ctx: N
       own.push({
         ...base(e, `bt-${e.seq}`),
         type: "user_message",
-        payload: { text: str(p.text) ?? "", label: p.source === "you" || !p.source ? t("Task") : t("Task from {source}", { source: str(p.source) ?? "" }) },
+        payload: {
+          text: str(p.text) ?? "",
+          label:
+            p.source === "you" || !p.source
+              ? t("Task")
+              : t("Task from {source}", { source: str(p.source)?.startsWith("bot:") ? (str(p.fromName) ?? t("another bot")) : (str(p.source) ?? "") }),
+        },
       });
     } else if (e.kind === "bot_needs_you") {
       own.push({

@@ -8,6 +8,9 @@ The real `claude` CLI is pointed at it with ANTHROPIC_BASE_URL. It answers:
 - a prompt containing "plan", when the ExitPlanMode tool is offered, with an ExitPlanMode tool_use,
 - a prompt containing "write" with a Write tool_use (hello.txt),
 - a prompt containing "ask me" with an AskUserQuestion tool_use, then a reply quoting the answer,
+- a conversation that asks "ask the greeter" (a manager bot): ToolSearch for the agentdeck tools
+  if they're deferred, mcp__agentdeck__delegate_task to the Greeter, mcp__agentdeck__wait_for_tasks
+  on the task id it got back, then a reply quoting the Greeter's result,
 - a turn whose last message carries a tool_result with a short text reply,
 - anything else with a plain text reply.
 Non-streaming helper calls (titles, token counts) get minimal valid answers.
@@ -53,8 +56,53 @@ def next_plan_step(body, tools):
         return exit_plan()
     return [{"type": "tool_use", "id": f"toolu_s{int(time.time()*1000)}", "name": "ToolSearch", "input": {"query": "select:ExitPlanMode", "max_results": 1}}]
 
+def all_user_text(body):
+    out = []
+    for m in body.get("messages") or []:
+        if m.get("role") != "user":
+            continue
+        c = m.get("content")
+        for b in ([{"type": "text", "text": c}] if isinstance(c, str) else (c or [])):
+            if b.get("type") == "text":
+                out.append(b.get("text", ""))
+    return " ".join(out).lower()
+
+def result_text(block):
+    c = block.get("content")
+    return c if isinstance(c, str) else " ".join(x.get("text", "") for x in (c or []) if isinstance(x, dict))
+
+DELEGATE = "mcp__agentdeck__delegate_task"
+WAIT = "mcp__agentdeck__wait_for_tasks"
+
+def manager(body, blocks, tools):
+    """A manager bot: hand the greeting to the Greeter, wait for it, pass its report on."""
+    if "ask the greeter" not in all_user_text(body).split("</system-reminder>")[-1]:
+        return None
+    results = [b for b in blocks if b.get("type") == "tool_result"]
+    last = last_tool_use_name(body)
+    stamp = int(time.time() * 1000)
+    if results and last == WAIT:
+        got = json.loads(result_text(results[-1]) or "{}")
+        tasks = got.get("tasks") or [{}]
+        return [{"type": "text", "text": "The Greeter reported: " + str(tasks[0].get("result") or tasks[0].get("error") or "nothing")}]
+    if results and last == DELEGATE:
+        text = result_text(results[-1])
+        try:
+            tid = json.loads(text)["task_id"]
+        except Exception:
+            return [{"type": "text", "text": "Couldn't hand it over: " + text}]
+        return [{"type": "text", "text": "Handed over. Waiting for the Greeter."}, {"type": "tool_use", "id": f"toolu_wt{stamp}", "name": WAIT, "input": {"task_ids": [tid], "timeout_seconds": 120}}]
+    if DELEGATE in tools:
+        return [{"type": "text", "text": "I'll ask the Greeter."}, {"type": "tool_use", "id": f"toolu_dt{stamp}", "name": DELEGATE, "input": {"bot": "greeter", "task": "Say hello"}}]
+    if results and last == "ToolSearch":
+        return [{"type": "text", "text": "The agentdeck tools aren't available, so I stopped."}]
+    return [{"type": "tool_use", "id": f"toolu_ts{stamp}", "name": "ToolSearch", "input": {"query": f"select:{DELEGATE},{WAIT}", "max_results": 2}}]
+
 def plan(body):
     blocks = last_user_blocks(body)
+    m = manager(body, blocks, {t.get("name") for t in body.get("tools") or []})
+    if m is not None:
+        return m
     tools = {t.get("name") for t in body.get("tools") or []}
     if any(b.get("type") == "tool_result" for b in blocks) and last_tool_use_name(body) == "Write" and "/plans/" in json.dumps(body.get("messages", [])[-2:-1]):
         return next_plan_step(body, tools)

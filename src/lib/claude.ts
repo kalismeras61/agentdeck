@@ -1,3 +1,4 @@
+import { agentdeckItem, agentdeckTool } from "./agentdeckTools";
 import { imageFromBlock, screenshotPath } from "./images";
 import { t, tn, useI18n } from "./i18n";
 /**
@@ -119,8 +120,12 @@ function itemFor(name: string, input: Json, root: string): Item {
     case "Task":
     case "Agent":
       return { id: "", kind: "analyze", label: t("Started a subagent"), target: str(input.description) ?? str(input.subagent_type), status: "running" };
-    default:
+    default: {
+      // A bot handing work to other bots (the agentdeck MCP server).
+      const ad = agentdeckTool(name);
+      if (ad) return { id: "", kind: "analyze", ...agentdeckItem(ad, input), status: "running" };
       return { id: "", kind: "analyze", label: t("Used {name}", { name }), target: file ? shortPath(file, root) : undefined, status: "running" };
+    }
   }
 }
 

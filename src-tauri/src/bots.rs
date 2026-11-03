@@ -20,6 +20,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
 /// Accent names a bot's mark can have.
@@ -171,9 +172,12 @@ pub fn stamp(ms: i64) -> String {
     )
 }
 
+/// What a bot that can hand work to other bots is told (milestone 2c).
+pub const MANAGER_BRIEF: &str = "You can hand tasks to other bots with the agentdeck tools: list_bots, delegate_task, then wait_for_tasks to get their results. Use them when another bot's job fits a part of the work better.";
+
 /// The first message of each of a bot's sessions: who it is, how tasks work, its workspace
-/// and its memory file.
-pub fn brief(bot: &Bot, workspace: &str, memory: &str) -> String {
+/// and its memory file, and (`manager`) that it can hand tasks to other bots.
+pub fn brief(bot: &Bot, workspace: &str, memory: &str, manager: bool) -> String {
     let mut s = format!("You're {}, a bot in AgentDeck.", bot.name.trim());
     if !bot.role.trim().is_empty() {
         s.push_str(&format!(
@@ -188,17 +192,32 @@ pub fn brief(bot: &Bot, workspace: &str, memory: &str) -> String {
     s.push_str("\n\nYou work through tasks one at a time. Each task arrives as a message starting with \"Task\". When you're done, end with a short report of what you did and what's left; that report is the task's result.");
     s.push_str(&format!("\n\nYour workspace is {workspace}. Work there when a task names no project, and keep the files you produce there. A task may name a project folder to work in instead; its header says which folder."));
     s.push_str(&format!("\n\nYour memory file is {memory}. Read it at the start of every task. When you learn something worth keeping for later tasks (decisions, conventions, where things are, what the user prefers), add it there in a line or two. Keep it short and current; remove what's no longer true."));
+    if manager {
+        s.push_str("\n\n");
+        s.push_str(MANAGER_BRIEF);
+    }
     s
 }
 
-/// "Task from you in /Users/me/shop (2026-11-03 14:05 UTC):\n…".
-pub fn task_header(task: &BotTask, folder: &str, now: i64) -> String {
+/// "Task from you in /Users/me/shop (2026-11-03 14:05 UTC):\n…". `from`: who it's from, as the
+/// agent reads it ("you", "schedule", "Lead (another bot)").
+pub fn task_header(task: &BotTask, from: &str, folder: &str, now: i64) -> String {
     format!(
-        "Task from {} in {folder} ({}):\n{}",
-        task.source,
+        "Task from {from} in {folder} ({}):\n{}",
         stamp(now),
         task.text.trim()
     )
+}
+
+/// Who a task is from, for its header: a bot's name for a task another bot handed over.
+fn source_label(db: &Db, source: &str) -> String {
+    match source.strip_prefix("bot:") {
+        Some(id) => match db.bot(id).ok().flatten() {
+            Some(b) => format!("{} (another bot)", b.name.trim()),
+            None => "another bot".into(),
+        },
+        None => source.to_string(),
+    }
 }
 
 /// A bot's session in a place is titled after it: "Reviewer", or "Reviewer · shop".
@@ -270,6 +289,9 @@ pub struct Bots {
     gate: Mutex<()>,
     /// Bots with a request or question waiting for the user.
     needs: Mutex<HashSet<String>>,
+    /// The `agentdeck` MCP server is up, so bots on agents that take it can hand work to
+    /// other bots (`mcp`).
+    pub delegation: AtomicBool,
 }
 
 impl Bots {
@@ -281,6 +303,7 @@ impl Bots {
             home,
             gate: Mutex::new(()),
             needs: Mutex::new(HashSet::new()),
+            delegation: AtomicBool::new(false),
         }
     }
 
@@ -725,6 +748,24 @@ impl Bots {
         self.db.bot_tasks(bot_id, limit).map_err(|e| e.to_string())
     }
 
+    /// What a task handed to other bots.
+    pub fn children(&self, task_id: &str) -> Result<Vec<BotTask>, String> {
+        self.db
+            .bot_task_children(task_id)
+            .map_err(|e| e.to_string())
+    }
+
+    /// Whether the bot can hand tasks to other bots: its agent takes the `agentdeck` MCP
+    /// server, the server is up, and there are other bots.
+    pub fn can_delegate(&self, bot: &Bot) -> bool {
+        self.delegation.load(Ordering::SeqCst)
+            && crate::mcp::supports(&bot.provider)
+            && self
+                .db
+                .list_bots()
+                .is_ok_and(|all| all.iter().any(|b| b.id != bot.id))
+    }
+
     /// Queues a task. `project_id`: the project it works in; None: the bot's workspace.
     pub fn add_task(
         &self,
@@ -732,6 +773,18 @@ impl Bots {
         text: &str,
         source: &str,
         project_id: Option<&str>,
+    ) -> Result<BotTask, String> {
+        self.add_task_from(bot_id, text, source, project_id, None)
+    }
+
+    /// Queues a task another bot's task (`parent_id`) handed over (`source` = "bot:<id>").
+    pub fn add_task_from(
+        &self,
+        bot_id: &str,
+        text: &str,
+        source: &str,
+        project_id: Option<&str>,
+        parent_id: Option<&str>,
     ) -> Result<BotTask, String> {
         let text = text.trim();
         if text.is_empty() {
@@ -748,9 +801,13 @@ impl Bots {
         }
         let t = self
             .db
-            .add_bot_task(bot_id, text, source, project_id, None)
+            .add_bot_task(bot_id, text, source, project_id, parent_id)
             .map_err(|e| e.to_string())?;
         self.publish_task(&t);
+        // The parent's count of handed-on tasks changed.
+        if let Some(p) = parent_id.and_then(|p| self.db.bot_task(p).ok().flatten()) {
+            self.publish_task(&p);
+        }
         self.pump(bot_id, None);
         self.publish(bot_id);
         self.task(&t.id)
@@ -775,6 +832,12 @@ impl Bots {
             return Err("This task has already ended".into());
         };
         self.publish_task(&done);
+        // What it handed to other bots and hasn't started yet goes too.
+        for child in self.db.bot_task_children(task_id).unwrap_or_default() {
+            if child.status == "queued" {
+                let _ = self.cancel(&child.id);
+            }
+        }
         if was_running {
             self.set_needs(&t.bot_id, false);
             match t.session_id.as_deref() {
@@ -987,16 +1050,26 @@ impl Bots {
             .set_bot_task_session(&task.id, &session.id)
             .map_err(|e| e.to_string())?;
         let memory = memory.to_string_lossy();
-        let header = task_header(task, &project.path, crate::db::now_ms());
+        let from = source_label(&self.db, &task.source);
+        // The bot that handed it over, by name, for the conversation's label.
+        let from_name = task
+            .source
+            .strip_prefix("bot:")
+            .and_then(|id| self.db.bot(id).ok().flatten())
+            .map(|b| b.name);
+        let header = task_header(task, &from, &project.path, crate::db::now_ms());
         let prompt = if briefed {
             format!("{header}\n\n(Your memory file: {memory}. Read it first and keep it current.)")
         } else {
-            format!("{}\n\n{header}", brief(bot, &ws.path, &memory))
+            format!(
+                "{}\n\n{header}",
+                brief(bot, &ws.path, &memory, self.can_delegate(bot))
+            )
         };
         self.record(
             &session.id,
             "bot_task",
-            &json!({ "botId": bot.id, "taskId": task.id, "source": task.source, "projectId": place, "text": task.text, "prompt": prompt.trim() }),
+            &json!({ "botId": bot.id, "taskId": task.id, "source": task.source, "fromName": from_name, "projectId": place, "text": task.text, "prompt": prompt.trim() }),
         );
         self.agents.send(&session.id, &prompt)?;
         if !briefed {
@@ -1069,7 +1142,12 @@ impl Bots {
         let (Some(task_id), true) = (bot.running_task_id.clone(), mine) else {
             return;
         };
-        let Some(v) = unattended::verdict_with(&self.db, ev, &[bot.workspace.as_str()]) else {
+        // Its own agentdeck tools (handing work to other bots) never wait for the user.
+        let v = match crate::mcp::requested_tool(ev) {
+            Some(_) => unattended::request_id(ev).map(|request_id| Verdict::Allow { request_id }),
+            None => unattended::verdict_with(&self.db, ev, &[bot.workspace.as_str()]),
+        };
+        let Some(v) = v else {
             return;
         };
         match v {

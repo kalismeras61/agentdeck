@@ -30,7 +30,7 @@ import { AgentMark, cx, IconButton, Kbd, Switch, Tip } from "../components/ui";
 import { demoBotMemory } from "../data/demo";
 import { useResolvedTheme } from "../hooks/useTheme";
 import { agentLabel } from "../lib/agentName";
-import { botState, elapsed, orderTasks, placeSession, scheduleSummary, whenText } from "../lib/bots";
+import { botState, elapsed, fromBotId, orderTasks, placeSession, scheduleSummary, whenText } from "../lib/bots";
 import { ago } from "../lib/format";
 import { t, tn } from "../lib/i18n";
 import { errorText, liveApi, type Bot, type BotMemory, type BotSchedule, type BotTask } from "../lib/live";
@@ -529,14 +529,20 @@ function QueueTab({ bot, tasks }: { bot: Bot; tasks: BotTask[] | undefined }) {
             <p dir="auto" className="line-clamp-4 whitespace-pre-wrap break-words text-[13px] leading-[1.5] text-fg">
               {running.text}
             </p>
+            {fromBotId(running.source) && (
+              <p className="mt-1 flex text-[11.5px] text-fg-3">
+                <FromBot botId={fromBotId(running.source)!} link />
+              </p>
+            )}
             <div className="mt-1.5 flex items-center gap-2 text-[11.5px] text-fg-3">
               <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-violet breathe" aria-hidden />
               <span className="tabular-nums">{elapsed(running.startedAt ?? running.createdAt, now)}</span>
-              <TaskPlace task={running} />
+              <TaskPlace task={running} from={false} />
               <button type="button" onClick={() => cancel(running.id)} className="ms-auto rounded px-1.5 py-0.5 text-fg-2 hover:bg-elevated hover:text-fg">
                 {t("Cancel")}
               </button>
             </div>
+            <TaskChildren task={running} />
           </div>
         </section>
       )}
@@ -552,7 +558,7 @@ function QueueTab({ bot, tasks }: { bot: Bot; tasks: BotTask[] | undefined }) {
                     {x.text}
                   </span>
                   <span className="mt-0.5 flex text-[11px] text-fg-3">
-                    <TaskPlace task={x} />
+                    <TaskPlace task={x} link />
                   </span>
                 </span>
                 <IconButton label={t("Remove from the queue")} size="sm" onClick={() => cancel(x.id)} className="-my-1 h-6 w-6 opacity-0 focus-visible:opacity-100 group-hover:opacity-100">
@@ -580,9 +586,11 @@ function QueueTab({ bot, tasks }: { bot: Bot; tasks: BotTask[] | undefined }) {
   );
 }
 
-/** Where a task works, and whether a schedule added it. */
-function TaskPlace({ task }: { task: BotTask }) {
+/** Where a task works, whether a schedule added it, and which bot handed it over ("from Lead",
+ * a link to that bot when `link`). */
+function TaskPlace({ task, link = false, from: showFrom = true }: { task: BotTask; link?: boolean; from?: boolean }) {
   const placeName = usePlaceName();
+  const from = showFrom ? fromBotId(task.source) : null;
   return (
     <span className="inline-flex min-w-0 items-center gap-1">
       {task.source === "schedule" && (
@@ -590,16 +598,120 @@ function TaskPlace({ task }: { task: BotTask }) {
           <Repeat size={11} className="shrink-0" aria-label={t("Added by a schedule")} />
         </Tip>
       )}
+      {from && (
+        <>
+          <FromBot botId={from} link={link} />
+          <span className="shrink-0">·</span>
+        </>
+      )}
       <span className="truncate">{task.projectId ? placeName(task.projectId) : t("Workspace")}</span>
     </span>
   );
 }
 
-const STATUS_TEXT: Record<"done" | "failed" | "cancelled", string> = /* i18n */ {
+/** "from Lead": the bot that handed a task over, with its mark; a link to its page when `link`. */
+function FromBot({ botId, link }: { botId: string; link: boolean }) {
+  const from = useStore((s) => s.bots[botId]);
+  const openBot = useStore((s) => s.openBot);
+  const body = (
+    <>
+      {from && <BotMark name={from.name} color={from.color} size={13} />}
+      <span className="truncate">{from ? t("from {name}", { name: from.name }) : t("from a deleted bot")}</span>
+    </>
+  );
+  if (!link || !from) return <span className="inline-flex min-w-0 shrink items-center gap-1">{body}</span>;
+  return (
+    <button
+      type="button"
+      onClick={() => openBot(from.id)}
+      title={t("Open {name}", { name: from.name })}
+      className="inline-flex min-w-0 shrink items-center gap-1 rounded text-fg-2 hover:text-fg hover:underline"
+    >
+      {body}
+    </button>
+  );
+}
+
+const STATUS_TEXT: Record<BotTask["status"], string> = /* i18n */ {
+  queued: "Queued",
+  running: "Working",
   done: "Done",
   failed: "Failed",
   cancelled: "Cancelled",
 };
+
+const STATUS_TONE: Record<BotTask["status"], string> = {
+  queued: "text-fg-3",
+  running: "text-violet-text",
+  done: "text-success",
+  failed: "text-error",
+  cancelled: "text-fg-3",
+};
+
+/** The tasks a task handed to other bots: each bot, what it was asked, its status; a link to it. */
+function TaskChildren({ task }: { task: BotTask }) {
+  const kids = useStore((s) => s.taskChildren[task.id]);
+  const load = useStore((s) => s.loadTaskChildren);
+  const known = kids?.length ?? -1;
+  useEffect(() => {
+    if (task.children > 0 && known !== task.children) void load(task.id);
+  }, [task.id, task.children, known, load]);
+  if (task.children === 0 || !kids || kids.length === 0) return null;
+  const done = kids.filter((k) => k.status === "done").length;
+  return (
+    <div className="mt-2 border-t border-line-soft pt-2">
+      <p className="mb-1 flex items-center gap-1.5 px-0.5 text-[11px] text-fg-3">
+        <span>{tn(kids.length, "Handed {n} task to other bots", "Handed {n} tasks to other bots")}</span>
+        <span className="ms-auto tabular-nums">{t("{done} of {all} done", { done, all: kids.length })}</span>
+      </p>
+      <ul aria-label={t("Handed to other bots")} className="space-y-0.5">
+        {kids.map((k) => (
+          <ChildTask key={k.id} task={k} />
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function ChildTask({ task }: { task: BotTask }) {
+  const bot = useStore((s) => s.bots[task.botId]);
+  const openBot = useStore((s) => s.openBot);
+  const setPlace = useStore((s) => s.setBotPlace);
+  const inner = (
+    <>
+      {bot ? <BotMark name={bot.name} color={bot.color} size={16} className="mt-px shrink-0" /> : <span className="mt-px h-4 w-4 shrink-0 rounded bg-elevated" />}
+      <span className="min-w-0 flex-1">
+        <span className="flex items-center gap-1.5 text-[12px]">
+          <span className="truncate font-medium text-fg">{bot ? bot.name : t("A deleted bot")}</span>
+          <span className={cx("inline-flex shrink-0 items-center gap-1 text-[11px]", STATUS_TONE[task.status])}>
+            {task.status === "running" && <span className="h-1.5 w-1.5 rounded-full bg-violet breathe" aria-hidden />}
+            {t(STATUS_TEXT[task.status])}
+          </span>
+        </span>
+        <span dir="auto" className="line-clamp-1 break-words text-[11.5px] leading-[1.45] text-fg-2">
+          {task.text}
+        </span>
+      </span>
+    </>
+  );
+  if (!bot) return <li className="flex items-start gap-2 px-1.5 py-1">{inner}</li>;
+  return (
+    <li>
+      <button
+        type="button"
+        onClick={() => {
+          setPlace(bot.id, task.projectId);
+          openBot(bot.id);
+        }}
+        title={t("Open {name}", { name: bot.name })}
+        className="group flex w-full items-start gap-2 rounded-md px-1.5 py-1 text-start hover:bg-elevated"
+      >
+        {inner}
+        <ChevronRight size={12} className="mt-1 shrink-0 text-fg-3 opacity-0 transition-opacity group-hover:opacity-100 rtl:-scale-x-100" aria-hidden />
+      </button>
+    </li>
+  );
+}
 
 function RecentTask({ task }: { task: BotTask }) {
   const retry = useStore((s) => s.retryBotTask);
@@ -614,11 +726,16 @@ function RecentTask({ task }: { task: BotTask }) {
           <span dir="auto" className={cx("block break-words text-[12.5px] leading-[1.5]", open ? "text-fg" : "line-clamp-1 text-fg/90")}>
             {task.text}
           </span>
-          <span className="mt-0.5 flex items-center gap-1.5 text-[11px]">
-            <span className={cx(status === "done" ? "text-success" : status === "failed" ? "text-error" : "text-fg-3")}>{t(STATUS_TEXT[status] ?? "Done")}</span>
+          <span className="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-[11px]">
+            <span className={STATUS_TONE[status]}>{t(STATUS_TEXT[status] ?? "Done")}</span>
             <span className="text-fg-3">· {ago(task.finishedAt ?? task.createdAt)}</span>
-            <span className="min-w-0 text-fg-3">
-              · <TaskPlace task={task} />
+            {fromBotId(task.source) && (
+              <span className="inline-flex min-w-0 items-center gap-1.5 text-fg-3">
+                · <FromBot botId={fromBotId(task.source)!} link={false} />
+              </span>
+            )}
+            <span className="inline-flex min-w-0 items-center gap-1 text-fg-3">
+              · <TaskPlace task={task} from={false} />
             </span>
           </span>
         </span>
@@ -636,6 +753,12 @@ function RecentTask({ task }: { task: BotTask }) {
           ) : (
             <p className="text-[12px] text-fg-3">{task.status === "done" ? t("Finished without a report.") : t("No reason given.")}</p>
           )}
+          {fromBotId(task.source) && (
+            <p className="mt-1.5 flex text-[11.5px] text-fg-3">
+              <FromBot botId={fromBotId(task.source)!} link />
+            </p>
+          )}
+          <TaskChildren task={task} />
           {task.status !== "done" && (
             <button
               type="button"

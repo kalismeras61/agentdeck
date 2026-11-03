@@ -1,3 +1,4 @@
+import { agentdeckItem, agentdeckTool } from "./agentdeckTools";
 import { screenshotPath } from "./images";
 /**
  * Codex App Server notifications → AgentDeck's normalized events.
@@ -104,7 +105,10 @@ export function normalizeCodex(events: StoredEvent[], ctx: NormalizeContext): un
       const paths = arr(raw.changes).map((c) => relPath(str(obj(c).path), root) ?? str(obj(c).path) ?? "");
       item = { id, kind: "edit", label: t("Edited"), target: paths.join(", "), status: "running" };
     } else if (type === "mcpToolCall" || type === "dynamicToolCall") {
-      item = { id, kind: "analyze", label: str(raw.tool) ? t("Used {name}", { name: str(raw.tool)! }) : t("Used a tool"), target: str(raw.server), status: "running" };
+      const ad = agentdeckTool(str(raw.tool), str(raw.server) ?? "");
+      item = ad
+        ? { id, kind: "analyze", ...agentdeckItem(ad, obj(raw.arguments)), status: "running" }
+        : { id, kind: "analyze", label: str(raw.tool) ? t("Used {name}", { name: str(raw.tool)! }) : t("Used a tool"), target: str(raw.server), status: "running" };
     } else if (type === "webSearch") {
       item = { id, kind: "search", label: t("Searched the web for"), target: str(raw.query), status: "running" };
     } else return undefined;

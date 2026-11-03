@@ -113,6 +113,9 @@ struct Proc {
     last_text: Mutex<String>,
     stopping: AtomicBool,
     gen: String,
+    /// The `mcpServers` list for `session/new` and `session/load`: the agentdeck tools for a
+    /// bot session, else none.
+    mcp_servers: Value,
 }
 
 impl Proc {
@@ -167,6 +170,8 @@ pub struct AcpManager {
     /// Test hooks: explicit binary per provider and extra environment.
     pub binary_override: HashMap<String, PathBuf>,
     pub extra_env: Vec<(String, String)>,
+    /// The `agentdeck` MCP server for bot sessions (`mcp::Hub::launcher`).
+    pub mcp: Option<crate::mcp::Launcher>,
 }
 
 impl AcpManager {
@@ -177,6 +182,7 @@ impl AcpManager {
             procs: Mutex::new(HashMap::new()),
             binary_override: HashMap::new(),
             extra_env: Vec::new(),
+            mcp: None,
         }
     }
 
@@ -254,6 +260,13 @@ impl AcpManager {
         for (k, v) in &self.extra_env {
             cmd.env(k, v);
         }
+        // A bot session gets the agentdeck tools (in `session/new`). Gemini CLI starts a stdio MCP
+        // server only in a folder it trusts: a bot's own workspace (made by AgentDeck) is trusted
+        // for it; in a project, the user's own Gemini CLI trust settings decide.
+        let mcp = self.mcp.as_ref().and_then(|f| f(session));
+        if spec.provider == "gemini-cli" && mcp.as_ref().is_some_and(|l| l.own_folder) {
+            cmd.env("GEMINI_CLI_TRUST_WORKSPACE", "true");
+        }
         let mut child = cmd
             .spawn()
             .map_err(|e| format!("Couldn't start {} ({}): {e}", spec.label, bin.display()))?;
@@ -280,6 +293,7 @@ impl AcpManager {
             stopping: AtomicBool::new(false),
             use_key: AtomicBool::new(key.is_some()),
             gen: uuid::Uuid::new_v4().simple().to_string()[..8].to_string(),
+            mcp_servers: json!(mcp.map(|l| vec![l.acp_server()]).unwrap_or_default()),
         });
         proc.request(
             "initialize",
@@ -324,13 +338,13 @@ impl AcpManager {
                 proc.replaying.store(true, Ordering::SeqCst);
                 proc.request(
                     "session/load",
-                    json!({ "sessionId": old, "cwd": cwd, "mcpServers": [] }),
+                    json!({ "sessionId": old, "cwd": cwd, "mcpServers": proc.mcp_servers }),
                     Pending::OpenSession,
                 )
             }
             _ => proc.request(
                 "session/new",
-                json!({ "cwd": cwd, "mcpServers": [] }),
+                json!({ "cwd": cwd, "mcpServers": proc.mcp_servers }),
                 Pending::OpenSession,
             ),
         };

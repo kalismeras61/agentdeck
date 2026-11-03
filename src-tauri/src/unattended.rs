@@ -105,6 +105,14 @@ pub fn claude_tool(ev: &StoredEvent) -> Option<&str> {
     }
 }
 
+/// The agent's id for an approval request.
+pub fn request_id(ev: &StoredEvent) -> Option<String> {
+    ev.payload["request_id"]
+        .as_str()
+        .or_else(|| ev.payload["requestId"].as_str())
+        .map(str::to_owned)
+}
+
 /// Reads an event as a request to the user. None: the event asks nothing.
 pub fn verdict(db: &Db, ev: &StoredEvent) -> Option<Verdict> {
     verdict_with(db, ev, &[])
@@ -122,10 +130,7 @@ pub fn verdict_with(db: &Db, ev: &StoredEvent, also: &[&str]) -> Option<Verdict>
     if !claude && !(ev.kind == "approval" && ev.source != "agentdeck") {
         return None;
     }
-    let request_id = ev.payload["request_id"]
-        .as_str()
-        .or_else(|| ev.payload["requestId"].as_str())?
-        .to_string();
+    let request_id = request_id(ev)?;
     let s = db.session(&ev.session_id).ok().flatten()?;
     let dir = db.session_dir(&s).ok().flatten().unwrap_or_default();
     let request = if claude {

@@ -110,6 +110,8 @@ pub struct CodexManager {
     pub extra_env: Vec<(String, String)>,
     /// Extra `codex app-server` arguments (tests point Codex at a mock provider with `-c`).
     pub extra_args: Vec<String>,
+    /// The `agentdeck` MCP server for bot sessions (`mcp::Hub::launcher`).
+    pub mcp: Option<crate::mcp::Launcher>,
 }
 
 fn user_input(text: &str) -> Value {
@@ -168,6 +170,7 @@ impl CodexManager {
             binary_override: None,
             extra_env: Vec::new(),
             extra_args: Vec::new(),
+            mcp: None,
         }
     }
 
@@ -229,6 +232,14 @@ impl CodexManager {
         cmd.env("PATH", augmented_path());
         for (k, v) in &self.extra_env {
             cmd.env(k, v);
+        }
+        // A bot session: its agentdeck tools. The token and socket go in Codex's environment,
+        // which passes them on to that server only (`env_vars`).
+        if let Some(l) = self.mcp.as_ref().and_then(|f| f(session)) {
+            cmd.args(l.codex_args());
+            for (k, v) in &l.env {
+                cmd.env(k, v);
+            }
         }
         let mut child = cmd
             .spawn()

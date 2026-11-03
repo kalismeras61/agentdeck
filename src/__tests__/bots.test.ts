@@ -1,7 +1,11 @@
 import { beforeEach, describe, expect, it } from "vitest";
+import { agentdeckItem, agentdeckTool } from "../lib/agentdeckTools";
 import {
   botInitials,
   botSessionIds,
+  canDelegate,
+  childrenOf,
+  fromBotId,
   botState,
   botStatusLine,
   elapsed,
@@ -17,6 +21,7 @@ import {
 } from "../lib/bots";
 import type { BotSchedule } from "../lib/live";
 import type { Bot, BotTask } from "../lib/live";
+import { normalizeClaude, type StoredEvent } from "../lib/claude";
 import { normalizeFor } from "../lib/normalize";
 import { parseEvents } from "../lib/events";
 import { listed, useStore } from "../state/store";
@@ -64,6 +69,7 @@ const task = (id: string, status: BotTask["status"], over: Partial<BotTask> = {}
   parentId: null,
   projectId: null,
   sessionId: null,
+  children: 0,
   ...over,
 });
 
@@ -277,5 +283,67 @@ describe("bot store (demo)", () => {
     st.upsertBotTask(task("t1", "running", { botId: "b-live" }));
     st.upsertBotTask(task("t2", "queued", { botId: "b-live" }));
     expect(useStore.getState().botTasks["b-live"]!.map((x) => `${x.id}:${x.status}`)).toEqual(["t1:running", "t2:queued"]);
+  });
+
+  it("shows what a task handed to other bots, and keeps it current", async () => {
+    const st = useStore.getState();
+    st.upsertBotTask(task("p1", "running", { botId: "b-boss", children: 2 }));
+    st.upsertBotTask(task("c2", "queued", { botId: "b-b", parentId: "p1", source: "bot:b-boss", createdAt: 3 }));
+    st.upsertBotTask(task("c1", "running", { botId: "b-a", parentId: "p1", source: "bot:b-boss", createdAt: 2 }));
+    expect(childrenOf("p1", useStore.getState().botTasks).map((x) => x.id)).toEqual(["c1", "c2"]);
+    // Not in the desktop app: loaded from the lists the page has.
+    await st.loadTaskChildren("p1");
+    expect(useStore.getState().taskChildren["p1"]!.map((x) => x.id)).toEqual(["c1", "c2"]);
+    st.upsertBotTask(task("c1", "done", { botId: "b-a", parentId: "p1", source: "bot:b-boss", createdAt: 2, result: "ok" }));
+    expect(useStore.getState().taskChildren["p1"]!.find((x) => x.id === "c1")!.status).toBe("done");
+    expect(fromBotId("bot:b-boss")).toBe("b-boss");
+    expect(fromBotId("you")).toBeNull();
+    expect(fromBotId("schedule")).toBeNull();
+  });
+
+  it("says which agents can hand work to other bots", () => {
+    for (const p of ["claude-code", "codex", "gemini-cli", "grok-build", "kimi-code"]) expect(canDelegate(p)).toBe(true);
+    for (const p of ["antigravity", "api"]) expect(canDelegate(p)).toBe(false);
+  });
+
+  it("names the agentdeck tools in the conversation, whatever the agent calls them", () => {
+    expect(agentdeckTool("mcp__agentdeck__delegate_task")).toBe("delegate_task");
+    expect(agentdeckTool("mcp__agentdeck__nope")).toBeNull();
+    expect(agentdeckTool("mcp__other__delegate_task")).toBeNull();
+    expect(agentdeckTool("wait_for_tasks (agentdeck MCP Server)")).toBe("wait_for_tasks");
+    expect(agentdeckTool("list_bots", "agentdeck")).toBe("list_bots");
+    expect(agentdeckTool("list_bots", "github")).toBeNull();
+    expect(agentdeckItem("delegate_task", { bot: "Docs Writer", task: "Update the changelog\nfor v2.3" })).toEqual({
+      label: "Delegated to Docs Writer",
+      target: "Update the changelog",
+    });
+    expect(agentdeckItem("delegate_task").label).toBe("Delegated a task");
+    expect(agentdeckItem("wait_for_tasks", { task_ids: ["a", "b"] }).label).toBe("Waited for 2 tasks");
+    expect(agentdeckItem("task_status", { task_ids: ["a"] }).label).toBe("Checked 1 task");
+    expect(agentdeckItem("list_bots").label).toBe("Listed the bots");
+    // Claude Code's tool calls, as stored.
+    const events: StoredEvent[] = [
+      {
+        sessionId: "s",
+        seq: 1,
+        ts: 1,
+        source: "claude",
+        kind: "assistant",
+        payload: {
+          message: {
+            content: [
+              { type: "tool_use", id: "tu1", name: "mcp__agentdeck__delegate_task", input: { bot: "greeter", task: "Say hello" } },
+              { type: "tool_use", id: "tu2", name: "mcp__agentdeck__wait_for_tasks", input: { task_ids: ["t-1"] } },
+            ],
+          },
+        },
+      },
+    ];
+    const out = normalizeClaude(events, { sessionId: "s", projectPath: "/p" }) as { type: string; payload: { items: { label: string; target?: string }[] } }[];
+    const items = out.find((e) => e.type === "tool_group")!.payload.items;
+    expect(items.map((i) => [i.label, i.target])).toEqual([
+      ["Delegated to greeter", "Say hello"],
+      ["Waited for 1 task", undefined],
+    ]);
   });
 });

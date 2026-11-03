@@ -3,6 +3,8 @@
 The real `gemini` CLI is pointed at it with GOOGLE_GEMINI_BASE_URL. It answers:
 - a prompt containing "write" with a write_file call (hello.txt),
 - a prompt containing "run" with a run_shell_command call (`echo agentdeck-ok`),
+- a prompt containing "list the bots" with a call to the agentdeck MCP server's list_bots tool
+  (whatever name Gemini CLI gives it), then a reply quoting the tool's answer,
 - a turn whose last part is a function response with a short text reply,
 - a relay prompt with an "implemented it" reply,
 - anything else with plain text.
@@ -32,12 +34,19 @@ def tool_names(body):
 def plan(body):
     parts = last_user_parts(body)
     responses = [p["functionResponse"] for p in parts if "functionResponse" in p]
+    if responses and "list_bots" in (responses[-1].get("name") or ""):
+        return [{"text": "The agentdeck tools answered: " + json.dumps(responses[-1].get("response", {}))[:2000]}]
     if responses:
         text = json.dumps(responses[-1].get("response", {})).lower()
         denied = any(w in text for w in ("cancel", "denied", "rejected", "declined", "not approved"))
         return [{"text": "The action was not approved, so I stopped." if denied else "Done. The command printed agentdeck-ok and the file is in place."}]
     text = " ".join(p.get("text", "") for p in parts).lower()
     names = tool_names(body)
+    if "list the bots" in text:
+        found = [n for n in names if n and "list_bots" in n]
+        if found:
+            return [{"functionCall": {"name": found[0], "args": {}}}]
+        return [{"text": "There's no list_bots tool here: " + ", ".join(sorted(n for n in names if n))}]
     if "agentdeck relay" in text or "(round " in text:
         return [{"text": "Implemented it: invoice.py now applies the discount before tax, and test_invoice.py has a case for it. All tests pass. Over to you for review."}]
     if "write" in text and "write_file" in names:

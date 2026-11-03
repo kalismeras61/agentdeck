@@ -1,3 +1,4 @@
+import { agentdeckItem, agentdeckTool } from "./agentdeckTools";
 import { imageFromBlock, screenshotPath } from "./images";
 import { attachmentsOf, addedFileDiff, diffFromStrings, groupTitle, relPath, type NormalizeContext, type StoredEvent } from "./claude";
 import type { ProviderId, ToolItem } from "./events";
@@ -21,6 +22,12 @@ const HIGH_RISK =
   /(\brm\s+-[a-z]*[rf]|\bsudo\b|\bchmod\b|\bchown\b|\bmkfs\b|\bdd\s+if=|curl[^|]*\|\s*(ba)?sh|wget[^|]*\|\s*(ba)?sh|git\s+push|git\s+reset\s+--hard|git\s+clean\s+-[a-z]*f|>\s*\/dev\/)/;
 
 const LABEL: Record<string, string> = { "gemini-cli": "Gemini CLI", "grok-build": "Grok Build", "kimi-code": "Kimi Code", antigravity: "Antigravity" };
+
+/** A tool call's title; the agentdeck tools (bots handing work on) get a readable one. */
+function titleOf(title: string | undefined, input: Json): string | undefined {
+  const ad = agentdeckTool(title);
+  return ad ? agentdeckItem(ad, input).label : title;
+}
 
 function kindOf(acpKind: string | undefined, created: boolean): Item["kind"] {
   switch (acpKind) {
@@ -107,7 +114,7 @@ export function normalizeAcp(provider: ProviderId, events: StoredEvent[], ctx: N
       const item: Item = {
         id,
         kind: kindOf(str(u.kind), created),
-        label: str(u.title) ?? t("Used a tool"),
+        label: titleOf(str(u.title), raw) ?? t("Used a tool"),
         target: target && target !== str(u.title) ? target : undefined,
         status: statusOf(str(u.status)),
       };
@@ -120,7 +127,7 @@ export function normalizeAcp(provider: ProviderId, events: StoredEvent[], ctx: N
       items.set(id, { item, raw: u, changed: false, shown: false });
     }
     const ref = items.get(id)!;
-    if (str(u.title)) ref.item.label = str(u.title)!;
+    if (str(u.title)) ref.item.label = titleOf(str(u.title), obj(u.rawInput))!;
     if (u.status) ref.item.status = statusOf(str(u.status));
     const text = textOf(content);
     if (text) ref.item.output = text.length > MAX_OUTPUT ? `${text.slice(0, MAX_OUTPUT)}\n… ${t("output truncated")}` : text;

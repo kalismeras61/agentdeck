@@ -271,7 +271,7 @@ pub struct BotTask {
     pub id: String,
     pub bot_id: String,
     pub text: String,
-    /// "you", "schedule" (later "bot:<id>", "web", "telegram").
+    /// "you", "schedule", "bot:<id>" (another bot handed it over; later "web", "telegram").
     pub source: String,
     /// "queued", "running", "done", "failed" or "cancelled".
     pub status: String,
@@ -287,6 +287,8 @@ pub struct BotTask {
     pub project_id: Option<String>,
     /// The session it ran in, once started.
     pub session_id: Option<String>,
+    /// How many tasks it handed to other bots.
+    pub children: i64,
 }
 
 /// A task that repeats: daily at times on chosen weekdays, or every N minutes.
@@ -380,7 +382,8 @@ fn row_to_bot(r: &rusqlite::Row<'_>) -> rusqlite::Result<Bot> {
     })
 }
 
-const TASK_COLS: &str = "id, bot_id, text, source, status, result, error, created_at, started_at, finished_at, parent_id, project_id, session_id";
+const TASK_COLS: &str = "id, bot_id, text, source, status, result, error, created_at, started_at, finished_at, parent_id, project_id, session_id,
+  (SELECT COUNT(*) FROM bot_tasks c WHERE c.parent_id = bot_tasks.id)";
 
 fn row_to_task(r: &rusqlite::Row<'_>) -> rusqlite::Result<BotTask> {
     Ok(BotTask {
@@ -397,6 +400,7 @@ fn row_to_task(r: &rusqlite::Row<'_>) -> rusqlite::Result<BotTask> {
         parent_id: r.get(10)?,
         project_id: r.get(11)?,
         session_id: r.get(12)?,
+        children: r.get(13)?,
     })
 }
 
@@ -671,7 +675,8 @@ impl Db {
                times TEXT NOT NULL DEFAULT '[]', weekdays TEXT NOT NULL DEFAULT '[]', every_minutes INTEGER,
                enabled INTEGER NOT NULL DEFAULT 1, last_run_at INTEGER, next_run_at INTEGER,
                last_task_id TEXT, skipped_at INTEGER, created_at INTEGER NOT NULL);
-             CREATE INDEX IF NOT EXISTS bot_schedules_due ON bot_schedules(enabled, next_run_at);",
+             CREATE INDEX IF NOT EXISTS bot_schedules_due ON bot_schedules(enabled, next_run_at);
+             CREATE INDEX IF NOT EXISTS bot_tasks_parent ON bot_tasks(parent_id);",
         )
     }
 
@@ -1424,6 +1429,16 @@ impl Db {
             return Ok(None);
         }
         self.bot_task(id)
+    }
+
+    /// The tasks a task handed to other bots, oldest first.
+    pub fn bot_task_children(&self, parent_id: &str) -> rusqlite::Result<Vec<BotTask>> {
+        let c = self.conn();
+        let mut st = c.prepare(&format!(
+            "SELECT {TASK_COLS} FROM bot_tasks WHERE parent_id = ?1 ORDER BY created_at, rowid"
+        ))?;
+        let rows = st.query_map(params![parent_id], row_to_task)?;
+        rows.collect()
     }
 
     /// Puts a failed or cancelled task back at the end of the queue.

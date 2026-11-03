@@ -1531,8 +1531,7 @@ mod tests {
             .events(&s.id)
             .unwrap()
             .into_iter()
-            .filter(|e| e.kind == "session/opened")
-            .last()
+            .rfind(|e| e.kind == "session/opened")
             .unwrap();
         assert_eq!(reopened.payload["sessionId"], conv.as_str());
         assert_eq!(reopened.payload["resumed"], true);

@@ -40,7 +40,7 @@ Bots are built from what AgentDeck already has: each bot owns one ongoing sessio
 | `created_at`, `started_at`, `finished_at` INTEGER | |
 | `parent_id` TEXT NULL | for delegated tasks (milestone 2) |
 
-Deleting a bot deletes its tasks; its session stays as an ordinary session (renamed "<name> (deleted bot)").
+Deleting a bot deletes its tasks; its session stays as an ordinary session (renamed "<name> (deleted bot)"). (Since milestone 2 the bot's `project_id` is an optional default project and its sessions are in `bot_sessions`; see "Milestone 2 as built" below.)
 
 ### Runner (`src-tauri/src/bots.rs`)
 
@@ -113,7 +113,7 @@ Bots no longer belong to one project (OpenBot works the same way: each agent has
 `bot_schedules`: `id`, `bot_id`, `text`, `project_id` NULL, `kind` (`daily` | `interval`), `times` (for daily: "HH:MM" list, local time), `weekdays` (for daily: set of 1–7, empty = every day), `every_minutes` (for interval, at least 15), `enabled`, `last_run_at`, `next_run_at`, `created_at`.
 
 - A scheduler thread wakes every 30 s and enqueues each due schedule as a task (`source = "schedule"`, same project), then computes the next run. Runs missed while AgentDeck or the Mac was off aren't made up; the next run is computed from now.
-- A schedule whose bot is paused still adds its task (it waits in the queue); a schedule never adds a second task while its previous one is still queued or running (it skips that run and says so in the bot's activity).
+- A schedule whose bot is paused still adds its task (it waits in the queue); a schedule never adds a second task while its previous one is still queued or running (it skips that run and says so on the schedule's row: `last_task_id`, `skipped_at`).
 - Local time needs a time zone: use the `chrono` crate (`Local`) or equivalent; daylight-saving changes must not double-run or skip a day.
 - Interface: a **Schedules** tab on the bot page (list with next run time, on/off switch, edit, delete; "Run now" adds the task immediately) and a small editor: what to do, where (project picker), when (daily at times on chosen weekdays, or every N hours/minutes). The sidebar status mentions the next run when the bot is idle ("Next: 09:00").
 
@@ -135,6 +135,52 @@ Agents can't call AgentDeck directly, so AgentDeck gives every bot session an MC
 - **The manager's brief** gets one more paragraph when other bots exist: "You can hand tasks to other bots with the agentdeck tools: list_bots, delegate_task, then wait_for_tasks to get their results. Use them when another bot's job fits a part of the work better."
 - **Interface**: a delegated task shows "from <bot>" in the target's queue; the parent task shows its children with their status (and links to them) in the queue; the conversation shows the tool calls like any other tool call.
 
+## Milestone 2 as built
+
+What the code does now (`bots.rs`, `schedule.rs`, `mcp.rs`, `unattended.rs`, `db.rs` schema 9, `lib.rs`; frontend `src/lib/bots.ts`, `src/lib/agentdeckTools.ts`, `src/views/BotPage.tsx`, `src/components/bots/*`).
+
+### 2a. Workspaces and places
+
+- Every bot has `~/AgentDeck/Bots/<Name>/` (registered as a hidden project), with `MEMORY.md` in it. Renaming the bot renames the folder (refused while a task works in the workspace, or when a folder of that name is already there); Claude Code conversations there are copied to the new folder so they resume, Codex resumes anywhere, the other agents start over with the brief. A name whose folder would clash with another bot's ("PR/ Reviewer" vs "PR: Reviewer" is fine, "PR/ Reviewer" vs "PR- Reviewer" isn't) is refused.
+- A task works in a project (`bot_tasks.project_id`) or in the workspace (NULL). The bot keeps one session per place (`bot_sessions`); the bot page has a place switcher (its workspace, each project it has worked in, and earlier sessions it let go of), and each queued task shows its place.
+- Milestone 1 bots: their project becomes their default project, their memory file is copied to `MEMORY.md` and the old one removed (with the empty `.agentdeck/bots` folders), and their session becomes their session for that project (no second brief).
+- **Design changes from the plan above:**
+  - **Deleting a bot** deletes its tasks and schedules; its sessions stay as ordinary sessions ("<name> (deleted bot)"), and its workspace folder stays. If the bot has any sessions, its workspace becomes an ordinary (visible) project so those sessions can still be found in the sidebar; a bot that never worked leaves no project behind.
+  - **Removing a project no longer deletes bots.** Tasks running there fail ("Its project was removed"), queued ones fail when they come up, schedules for it are turned off, and bots that had it as their default project work in their workspace by default.
+  - Changing a bot's agent lets its old sessions go (renamed "<name> (earlier)"); changing its name, model or effort carries over to its sessions.
+
+### 2b. Schedules
+
+- `schedule.rs` works out the next run with `chrono` in local time (daily at "HH:MM" times on chosen weekdays, or every N minutes, at least 15); a time that falls in the gap when clocks go forward runs an hour later that day instead of being skipped, and a time that happens twice (clocks going back) runs once, at its first occurrence.
+- The scheduler ticks every 30 s. A run missed by more than two minutes (AgentDeck or the Mac was off) isn't made up; the next run is counted from now. A run whose previous task is still queued or running is skipped and the schedule row says so ("Skipped the 09:00 run: the one before was still queued or working"). "Run now" adds the task at once without moving the next run, and is refused while the last run is still going.
+- The sidebar's status line for an idle bot shows its next run ("Next: Tue 09:00").
+
+### 2c. The manager bot (`mcp.rs`)
+
+- **Bridge**: `main.rs` checks for `--mcp-bridge` before anything else and runs `mcp::bridge_main`: MCP over stdio (JSON-RPC 2.0, one message per line): `initialize` (answers with the client's protocol version when it's one of 2025-11-25, 2025-06-18, 2025-03-26, 2024-11-05, else the newest), `ping`, `tools/list` (static, so the tools list even when the app can't be reached), `tools/call` (each call on its own thread, so a long wait doesn't block other calls); notifications are ignored, other methods get -32601, unknown tools -32602. A tool call is one line to the app's socket (`{"token","tool","args"}`) and one line back; it runs nothing itself. Errors from the app (refusals, unknown token, app not running) come back as tool results with `isError: true` and a plain sentence the model can act on ("AgentDeck isn't running (or was restarted), so the agentdeck tools can't reach it…").
+- **App side (`Hub`)**: listens on `<app data>/mcp/agentdeck.sock` (folder 0700, socket 0600; a private folder in the temp folder when that path is too long for a Unix socket). Each start of a bot session's agent process gets a new 256-bit token (two OS-random UUIDs) mapped in memory to (bot, session, agent); the previous token of that session stops working, and a token whose session no longer belongs to its bot is refused. Tokens are never written to SQLite or the log. The executable is the app's own (`current_exe`; debug builds can point `AGENTDECK_BRIDGE_BIN` elsewhere).
+- **Wiring** (only bot sessions, and only while the hub is up):
+  - Claude Code: `--mcp-config <app data>/mcp/sessions/<session>.json` (0600; the server with its token and socket in `env`; files from a previous run are removed at start) and `--allowedTools mcp__agentdeck__list_bots,…` so the bot is never asked about its own tools. The user's own MCP servers stay.
+  - Codex: `-c mcp_servers.agentdeck.command=… args=["--mcp-bridge"] env_vars=["AGENTDECK_MCP_TOKEN","AGENTDECK_MCP_SOCKET"] default_tools_approval_mode="approve" tool_timeout_sec=1920 startup_timeout_sec=20`. The token and socket are set in Codex's own environment and passed on to the server through `env_vars`, so they never appear in a process list.
+  - Gemini CLI, Grok Build, Kimi Code (ACP): a stdio entry in `mcpServers` of `session/new` and `session/load` (with the token in its `env`). Gemini CLI only starts stdio MCP servers in folders it trusts, so AgentDeck sets `GEMINI_CLI_TRUST_WORKSPACE=true` for a Gemini bot working in its own workspace (a folder AgentDeck made); in a project, the user's own Gemini CLI trust settings decide. Gemini CLI asks before each MCP call; the bot runner allows the agentdeck ones.
+  - Antigravity and the API agent: no server (agy's headless mode has no way to add one; the API agent has no MCP client). The bot editor says "Antigravity can't hand work to other bots. Other bots can still hand work to it."
+- **Tools**: `list_bots` (name, id, job, agent, status, default project, `you` for the caller), `list_projects` (projects you added; bots' workspaces aren't listed), `delegate_task(bot, task, project?)` (bot and project by name, case-insensitive, or id; `project` may also be a folder path or "workspace"; without it the target's default project), `wait_for_tasks(task_ids, timeout_seconds?)` (default 600, at most 1800; ACP agents at most 540, since Gemini CLI gives an MCP call 10 minutes), `task_status(task_ids)`. At most 20 ids per call. Results are compact JSON text (`{"task_id","bot","status","works_in","note"?}`, `{"tasks":[{"id","bot","status","result"|"error"}],"all_finished","note"?}`).
+- **Rules**: a delegated task gets `source = "bot:<caller bot id>"` and `parent_id` = the caller's running task (none when the call comes from a message you wrote to the bot yourself). A bot can't delegate to itself, nor to any bot that owns a task above it in the chain (that bot would end up waiting on itself: A → B → A deadlocks while A's task waits). A task at depth 3 (handed on three times) can't hand on further. `wait_for_tasks` refuses waiting on your own task, on a task above yours, or on one that is (directly or through other waits) waiting on yours, and returns early, with a note, when the caller's task is cancelled or ends. Cancelling a task cancels its children that haven't started; children already working go on.
+- **Brief**: when other bots exist, the hub is up and the bot's agent takes the server, the brief ends with the paragraph above. A delegated task's header says who it's from: `Task from Lead (another bot) in /path (…)`.
+- **Approvals**: requests for the agentdeck tools (Claude Code `mcp__agentdeck__*`, Codex `mcpToolCall` on server `agentdeck`, ACP calls titled "<tool> (agentdeck MCP Server)") are allowed for a bot's running task without the risky/outside checks, so a task text that mentions `git push` isn't held.
+- **Interface**: the parent task (running card, or a finished one when opened) lists the tasks it handed on: each bot's mark and name, its status, what it was asked; clicking one opens that bot's page at the task's place. A delegated task shows "from <bot>" (with the bot's mark; a link in the running card and the queue); its conversation label is "Task from <bot>". Tool calls show as "Listed the bots", "Delegated to Docs Writer" (with the task's first line), "Waited for 2 tasks", "Checked 1 task" in Claude Code, Codex and ACP sessions (`src/lib/agentdeckTools.ts`). `bot_tasks` rows carry a `children` count; `bot_task_children(task_id)` lists them.
+
 ### Tests (milestone 2)
 
 Workspace creation, rename and migration of existing bots; per-place sessions; the unattended rule with workspace and task folder; schedule next-run computation (daily with weekdays, interval, DST change, missed runs), no double-enqueue; the MCP bridge (handshake, token check, each tool, refusal of self-delegation, depth and cycles), and an integration test with the real `claude` and the mock API in which a manager bot delegates a task to a second bot and uses its result.
+
+As built: `mcp::tests` (11: handshake and version negotiation, tools/list, unknown tool and method, parse errors, bad/missing token and app not running, tokens per session and file/socket permissions, each tool, names and ids, default project, self-delegation, depth 3, cycles up the chain and through waits, wait timeout/results/early return on cancel, cancel cascade, the brief paragraph, per-agent argument shapes, approval detection) and three integration tests run against the real CLIs (`cargo build` first: the bridge is the app binary):
+
+```bash
+python3 scripts/mock_anthropic.py 8787 & python3 scripts/mock_openai.py 8788 & python3 scripts/mock_gemini.py 8789 &
+(cd src-tauri && CARGO_INCREMENTAL=0 cargo build && AGENTDECK_IT=1 cargo test --lib mcp::integration -- --ignored --test-threads=1)
+```
+
+- `a_manager_bot_hands_a_task_to_another_bot_and_uses_its_result`: real Claude Code 2.1.316; the manager loads the tools with ToolSearch, calls `delegate_task` and `wait_for_tasks` without being asked, the second bot does the task, the manager's result quotes it; the config file is 0600 and the token isn't in the database.
+- `a_codex_bot_reaches_the_agentdeck_tools`: real Codex 0.166.0 starts the bridge from the `-c` keys, gets the token through `env_vars`, calls `list_bots` and `delegate_task` with no approval request.
+- `a_gemini_bot_reaches_the_agentdeck_tools`: real Gemini CLI 0.66 over ACP starts it from `mcpServers`, asks before `list_bots`, the bot runner allows it.

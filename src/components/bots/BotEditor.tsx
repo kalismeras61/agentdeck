@@ -3,7 +3,7 @@ import * as Dropdown from "@radix-ui/react-dropdown-menu";
 import { Bot as BotIcon, Check, ChevronDown, FolderGit2, FolderPlus, House } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { liveProviders, providerLabel } from "../../data/demo";
-import { BOT_COLORS, BOT_MARK, COLOR_NAMES, nameTaken, workspaceFolder } from "../../lib/bots";
+import { BOT_COLORS, BOT_MARK, canDelegate, COLOR_NAMES, nameTaken, workspaceFolder } from "../../lib/bots";
 import { t } from "../../lib/i18n";
 import { errorText, liveApi, pickFolder, type BotColor, type LiveProvider } from "../../lib/live";
 import { detectProviders } from "../../lib/native";
@@ -263,6 +263,11 @@ function EditorForm({ botId, projectId, onDone }: { botId: string | null; projec
             </div>
           </div>
         </div>
+        {!canDelegate(provider) && (
+          <p className="-mt-1.5 text-[11.5px] leading-[1.5] text-fg-3">
+            {t("{agent} can't hand work to other bots. Other bots can still hand work to it.", { agent: agentName })}
+          </p>
+        )}
         <div className="text-[12px] text-fg-2">
           {t("Default project")} <span className="text-fg-3">{t("(optional)")}</span>
           <Dropdown.Root>

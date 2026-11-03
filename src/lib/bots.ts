@@ -124,6 +124,25 @@ export function workspaceFolder(name: string): string {
   return out === "" || out === "-" ? "Bot" : out;
 }
 
+/** Agents that can take the agentdeck MCP server, so their bots can hand work to other bots
+ * (mcp.rs `supports`). Antigravity and the API agent can't; other bots can still hand them work. */
+export function canDelegate(provider: string): boolean {
+  return provider === "claude-code" || provider === "codex" || provider === "gemini-cli" || provider === "grok-build" || provider === "kimi-code";
+}
+
+/** The bot that handed a task over ("bot:<id>"), or null. */
+export function fromBotId(source: string): string | null {
+  return source.startsWith("bot:") ? source.slice(4) || null : null;
+}
+
+/** Tasks handed over by a task, from every bot's list we have, oldest first. */
+export function childrenOf(parentId: string, lists: Record<string, BotTask[]>): BotTask[] {
+  return Object.values(lists)
+    .flat()
+    .filter((x) => x.parentId === parentId)
+    .sort((a, b) => a.createdAt - b.createdAt);
+}
+
 export function firstLine(text: string, max = 80): string {
   const line = text.trim().split("\n")[0]!.replace(/\s+/g, " ");
   return line.length > max ? `${line.slice(0, max - 1).trimEnd()}…` : line;

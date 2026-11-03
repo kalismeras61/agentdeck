@@ -142,6 +142,8 @@ pub struct Manager {
     /// Test hooks: explicit binary and extra environment.
     pub binary_override: Option<PathBuf>,
     pub extra_env: Vec<(String, String)>,
+    /// The `agentdeck` MCP server for bot sessions (`mcp::Hub::launcher`).
+    pub mcp: Option<crate::mcp::Launcher>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -339,6 +341,7 @@ impl Manager {
             procs: Mutex::new(HashMap::new()),
             binary_override: None,
             extra_env: Vec::new(),
+            mcp: None,
         }
     }
 
@@ -392,6 +395,10 @@ impl Manager {
         let bin = self.binary()?;
         let mut cmd = Command::new(&bin);
         cmd.args(args(session));
+        // A bot session: its agentdeck tools, allowed without asking.
+        if let Some(l) = self.mcp.as_ref().and_then(|f| f(session)) {
+            cmd.args(l.claude_args());
+        }
         cmd.current_dir(cwd)
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())

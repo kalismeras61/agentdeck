@@ -18,6 +18,7 @@ mod db;
 mod flow;
 mod git;
 mod import;
+mod mcp;
 mod models;
 mod providers;
 mod pty;
@@ -1621,6 +1622,12 @@ fn bot_tasks(
     state.bots.tasks(&bot_id, limit.unwrap_or(50))
 }
 
+/// The tasks a bot's task handed to other bots (with the agentdeck tools), oldest first.
+#[tauri::command]
+fn bot_task_children(state: State<'_, AppState>, task_id: String) -> CmdResult<Vec<BotTask>> {
+    state.bots.children(&task_id)
+}
+
 /// Queues a task from you; it starts at once when the bot is free. `project_id`: the project
 /// it works in; None: the bot's own workspace.
 #[tauri::command]
@@ -2120,6 +2127,14 @@ fn session_runtime(state: State<'_, AppState>, session_id: String) -> CmdResult<
     }))
 }
 
+/// `agentdeck --mcp-bridge`: the `agentdeck` MCP server a bot's agent starts (see `mcp`).
+/// Runs before anything of the app does, and returns the exit code.
+pub fn mcp_bridge() -> i32 {
+    mcp::bridge_main()
+}
+
+pub use mcp::BRIDGE_FLAG;
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     shellenv::start();
@@ -2173,11 +2188,32 @@ pub fn run() {
                     Outbound::BotSchedule(s) => handle.emit("agentdeck://bot-schedule", s),
                 };
             });
+            // The agentdeck MCP server bots hand work to each other with: a socket in the data
+            // folder; bot sessions' agents start this app with --mcp-bridge to reach it.
+            let hub = Arc::new(mcp::Hub::new(
+                db.clone(),
+                dir.join("mcp"),
+                mcp::bridge_command(),
+            ));
+            let hub_up = match hub.listen() {
+                Ok(_) => true,
+                Err(e) => {
+                    eprintln!("agentdeck: bots can't hand work to each other: {e}");
+                    false
+                }
+            };
+            let launcher = hub_up.then(|| hub.launcher());
+            let mut claude_m = Manager::new(db.clone(), sink.clone());
+            claude_m.mcp = launcher.clone();
+            let mut codex_m = CodexManager::new(db.clone(), sink.clone());
+            codex_m.mcp = launcher.clone();
+            let mut acp_m = AcpManager::new(db.clone(), sink.clone());
+            acp_m.mcp = launcher;
             let agents = Arc::new(Agents {
                 db: db.clone(),
-                claude: Arc::new(Manager::new(db.clone(), sink.clone())),
-                codex: Arc::new(CodexManager::new(db.clone(), sink.clone())),
-                acp: Arc::new(AcpManager::new(db.clone(), sink.clone())),
+                claude: Arc::new(claude_m),
+                codex: Arc::new(codex_m),
+                acp: Arc::new(acp_m),
                 agy: Arc::new(crate::agy::AgyManager::new(db.clone(), sink.clone())),
                 api: Arc::new(api::ApiManager::new(db.clone(), sink.clone())),
             });
@@ -2193,6 +2229,9 @@ pub fn run() {
             let flow = Arc::new(Flow::new(db.clone(), sink.clone(), agents.clone()));
             let home = app.path().home_dir()?;
             let bots = Arc::new(Bots::new(db.clone(), sink.clone(), agents.clone(), home));
+            hub.set_bots(&bots);
+            bots.delegation
+                .store(hub_up, std::sync::atomic::Ordering::SeqCst);
             let _ = relay_cell.set((relay.clone(), flow.clone(), bots.clone()));
             // Every bot gets its workspace (bots from before get theirs and their memory moved
             // in), then tasks that were queued (or running when AgentDeck closed) carry on, and
@@ -2291,6 +2330,7 @@ pub fn run() {
             save_bot,
             delete_bot,
             bot_tasks,
+            bot_task_children,
             add_bot_task,
             cancel_bot_task,
             retry_bot_task,

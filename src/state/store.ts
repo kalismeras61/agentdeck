@@ -5,7 +5,7 @@ import { demoBots, demoBotSchedules, demoBotTasks, demoProjects, demoSessions, p
 import type { StoredEvent } from "../lib/claude";
 import { normalizeFor } from "../lib/normalize";
 import type { Bot, BotInput, BotSchedule, BotScheduleInput, BotTask, FlowRow, ModelProfile, RelayRow, StartFlow, StartRelay, Workflow } from "../lib/live";
-import { mergeSchedule, mergeTask, soonest } from "../lib/bots";
+import { childrenOf, mergeSchedule, mergeTask, soonest } from "../lib/bots";
 import type { ProviderId } from "../lib/events";
 import { errorText, liveApi, pickFolder, type LiveProject, type LiveProvider, type LiveSessionRow } from "../lib/live";
 
@@ -194,6 +194,9 @@ interface Actions {
   bots: Record<string, Bot>;
   /** Each bot's queued, running and recent tasks. */
   botTasks: Record<string, BotTask[]>;
+  /** Tasks a task handed to other bots, by the handing task's id (loaded when shown). */
+  taskChildren: Record<string, BotTask[]>;
+  loadTaskChildren: (parentId: string) => Promise<void>;
   /** The bot whose page is open. */
   selectedBotId: string | null;
   /** The bot editor: a bot to edit (null: a new one), and a default project to start with. */
@@ -994,6 +997,22 @@ export const useStore = create<UiState & Actions>()(
 
         bots: Object.fromEntries(demoBots.map((b) => [b.id, b])),
         botTasks: { ...demoBotTasks },
+        taskChildren: {},
+        loadTaskChildren: async (parentId) => {
+          const parent = Object.values(get().botTasks)
+            .flat()
+            .find((x) => x.id === parentId);
+          if (!liveApi.available || (parent && isDemoBot(parent.botId))) {
+            set((s) => ({ taskChildren: { ...s.taskChildren, [parentId]: childrenOf(parentId, s.botTasks) } }));
+            return;
+          }
+          try {
+            const list = await liveApi.botTaskChildren(parentId);
+            set((s) => ({ taskChildren: { ...s.taskChildren, [parentId]: list } }));
+          } catch {
+            /* keeps the last list */
+          }
+        },
         selectedBotId: null,
         botEditor: null,
         botErrors: {},
@@ -1102,7 +1121,15 @@ export const useStore = create<UiState & Actions>()(
         closeBotEditor: () => set({ botEditor: null }),
         clearBotError: (botId) => set((s) => ({ botErrors: { ...s.botErrors, [botId]: undefined } })),
         upsertBot: (b) => set((s) => ({ bots: { ...s.bots, [b.id]: b } })),
-        upsertBotTask: (task) => set((s) => ({ botTasks: { ...s.botTasks, [task.botId]: mergeTask(s.botTasks[task.botId] ?? [], task) } })),
+        upsertBotTask: (task) =>
+          set((s) => {
+            const siblings = task.parentId ? s.taskChildren[task.parentId] : undefined;
+            return {
+              botTasks: { ...s.botTasks, [task.botId]: mergeTask(s.botTasks[task.botId] ?? [], task) },
+              // A task handed over by another shows in that task's list as it changes.
+              ...(task.parentId && siblings ? { taskChildren: { ...s.taskChildren, [task.parentId]: mergeTask(siblings, task) } } : {}),
+            };
+          }),
         loadBots: async () => {
           if (!liveApi.available) return;
           try {
@@ -1178,6 +1205,7 @@ export const useStore = create<UiState & Actions>()(
               parentId: null,
               projectId,
               sessionId: null,
+              children: 0,
             });
             const b = get().bots[botId];
             if (b) get().upsertBot({ ...b, queued: b.queued + 1 });

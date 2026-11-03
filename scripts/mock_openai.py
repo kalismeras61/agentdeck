@@ -3,6 +3,9 @@
 Codex is pointed at it through a custom model provider (see the Codex adapter tests). It answers:
 - a prompt containing "run" with a shell tool call (`echo agentdeck-ok`),
 - a prompt containing "write" with an apply_patch call that adds hello.txt,
+- a prompt containing "list the bots" with a call to the agentdeck MCP server's list_bots tool,
+  then a reply quoting what the tool answered; "delegate a hello" with a delegate_task call
+  handing "Say hello" to the Greeter,
 - a turn whose last input is a tool output with a short text reply,
 - a relay prompt with an "implemented it" reply,
 - anything else with plain text.
@@ -25,6 +28,17 @@ def tool_names(body):
     return out
 
 
+def all_tool_names(tools):
+    """Every (namespace, name) of the request's tools; Codex puts MCP tools in a namespace."""
+    out = []
+    for t in tools:
+        if t.get("type") == "namespace":
+            out += [(t.get("name"), x.get("name")) for x in t.get("tools") or []]
+        elif t.get("name"):
+            out.append((None, t["name"]))
+    return out
+
+
 def plan(body):
     if '"input_image"' in json.dumps(body.get("input", [])[-1:]):
         return [{"type": "message", "text": "I can see 1 image."}]
@@ -33,6 +47,8 @@ def plan(body):
     if last.get("type") in ("function_call_output", "custom_tool_call_output"):
         out = last.get("output")
         text = out if isinstance(out, str) else json.dumps(out)
+        if "list_bots" in json.dumps(items[-3:]) and "bots" in text:
+            return [{"type": "message", "text": "The agentdeck tools answered: " + text[:2000]}]
         declined = any(w in text.lower() for w in ("declined", "rejected", "denied", "not approved", "aborted"))
         return [{"type": "message", "text": "The action was not approved, so I stopped." if declined else "Done. The command printed agentdeck-ok and the file is in place."}]
     text = ""
@@ -43,6 +59,13 @@ def plan(body):
             break
     text = text.lower()
     names = tool_names(body)
+    for ask, tool, args in (("list the bots", "list_bots", {}), ("delegate a hello", "delegate_task", {"bot": "greeter", "task": "Say hello"})):
+        if ask not in text:
+            continue
+        found = [ns for ns, n in all_tool_names(body.get("tools") or []) if n == tool and "agentdeck" in (ns or "")]
+        if not found:
+            return [{"type": "message", "text": f"There's no {tool} tool here."}]
+        return [{"type": "function", "namespace": found[0], "name": tool, "arguments": json.dumps(args)}]
     if "asks for these fixes" in text:
         return [{"type": "message", "text": "Added a test for a zero discount in test_invoice.py. All tests pass."}]
     if "agentdeck relay" in text or "(round " in text or "builder in an agentdeck workflow" in text:
@@ -136,6 +159,8 @@ class H(BaseHTTPRequestHandler):
                 ev("response.output_item.done", {"output_index": i, "item": item})
             elif o["type"] == "function":
                 item = {"type": "function_call", "id": f"fc_{rid}_{i}", "call_id": f"call_{rid}_{i}", "name": o["name"], "arguments": o["arguments"], "status": "completed"}
+                if o.get("namespace"):
+                    item["namespace"] = o["namespace"]
                 ev("response.output_item.added", {"output_index": i, "item": {**item, "arguments": ""}})
                 ev("response.output_item.done", {"output_index": i, "item": item})
             else:

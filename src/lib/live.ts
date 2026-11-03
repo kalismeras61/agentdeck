@@ -233,7 +233,7 @@ export interface BotTask {
   id: string;
   botId: string;
   text: string;
-  /** "you", "schedule" (later "bot:<id>", "web", "telegram"). */
+  /** "you", "schedule", "bot:<id>" (another bot handed it over; later "web", "telegram"). */
   source: string;
   status: BotTaskStatus;
   result: string | null;
@@ -246,6 +246,8 @@ export interface BotTask {
   projectId: string | null;
   /** The session it ran in, once started. */
   sessionId: string | null;
+  /** How many tasks it handed to other bots. */
+  children: number;
 }
 
 /** What the bot editor saves; no id makes a new bot. */
@@ -429,6 +431,8 @@ export const liveApi = {
   botTasks: (botId: string, limit = 50) => call<BotTask[]>("bot_tasks", { botId, limit }),
   /** projectId null: the task works in the bot's workspace. */
   addBotTask: (botId: string, text: string, projectId: string | null) => call<BotTask>("add_bot_task", { botId, text, projectId }),
+  /** What a task handed to other bots, oldest first. */
+  botTaskChildren: (taskId: string) => call<BotTask[]>("bot_task_children", { taskId }),
   cancelBotTask: (id: string) => call<BotTask>("cancel_bot_task", { id }),
   retryBotTask: (id: string) => call<BotTask>("retry_bot_task", { id }),
   setBotPaused: (id: string, paused: boolean) => call<Bot>("set_bot_paused", { id, paused }),

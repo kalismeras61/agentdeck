@@ -1,6 +1,6 @@
 # Status
 
-Updated 2026-11-02. All five milestones are built and tested on Linux with the real `claude`, `codex` and `gemini` CLIs against local mock APIs; milestone 3 was also confirmed on a Mac with a real signed-in Claude Code. Grok Build is implemented but untested (its installer isn't reachable from the test environment).
+Updated 2026-11-03. All five milestones are built and tested on Linux with the real `claude`, `codex` and `gemini` CLIs against local mock APIs; milestone 3 was also confirmed on a Mac with a real signed-in Claude Code. Grok Build is implemented but untested (its installer isn't reachable from the test environment).
 
 ## Release: signed, notarized, universal, self-updating (0.2.0)
 
@@ -247,9 +247,23 @@ Confirmed on a Mac with a real signed-in Claude Code.
 
 ## Bots
 
-- Bots (docs/BOTS.md, milestone 1): persistent agents with a job, instructions, agent/model/effort and a folder; a task queue run one at a time (pause, resume, cancel, retry); a memory file per bot in `.agentdeck/bots/` (excluded from git locally); unattended approvals with the workflow's risky/outside holdback (`unattended.rs`); sidebar section and bot page.
-- Verified: Rust unit tests for queue order, turn end → result, restart recovery, cancel, pause/resume, memory and git exclude, approvals; an integration test with the real `claude` CLI against the mock API runs two queued tasks in order.
-- Not yet: schedules, bot-to-bot delegation, phone page and Telegram (milestones 2–3); bots' sessions still appear in All sessions, Permissions and Overview.
+- **Milestone 1** (docs/BOTS.md §1): persistent agents with a job, instructions, agent/model/effort; a task queue run one at a time (pause, resume, cancel, retry); a memory file; unattended approvals with the workflow's risky/outside holdback (`unattended.rs`); sidebar section and bot page.
+- **Milestone 2a, a workspace of its own**: every bot has `~/AgentDeck/Bots/<Name>/` (a hidden project) with `MEMORY.md`; renaming moves it; tasks work in a project or in the workspace, one ongoing session per place, with a place switcher on the bot page; milestone 1 bots are migrated (memory moved, session kept). Deleting a bot keeps its sessions and, if it has any, shows its workspace as an ordinary project; removing a project no longer deletes bots (tasks there fail, its schedules turn off, bots fall back to their workspace).
+- **Milestone 2b, schedules**: daily at times on chosen weekdays or every N minutes (≥ 15), local time with `chrono` (DST gaps and repeats handled), a 30 s scheduler, missed runs not made up, no second task while the last is queued or running (the skipped run is shown on the schedule's row), Run now, "Next: 09:00" in the sidebar.
+- **Milestone 2c, a manager bot** (`mcp.rs`): AgentDeck's own binary with `--mcp-bridge` is a stdio MCP server named `agentdeck` that relays to the app over a Unix socket (0700/0600, per-session random token kept in memory only). Tools `list_bots`, `list_projects`, `delegate_task`, `wait_for_tasks`, `task_status`; no self-delegation, depth ≤ 3, no cycles (up the chain or through waits), waits end early when the caller's task is cancelled, cancelling a task cancels its queued children. Wired for Claude Code (`--mcp-config` file 0600 + `--allowedTools`), Codex (`-c mcp_servers.agentdeck…`, token through `env_vars`), Gemini CLI / Grok Build / Kimi Code (`mcpServers` in `session/new`/`session/load`); Antigravity and API models can't delegate (the editor says so). The parent task lists its children with status and links; a delegated task shows "from <bot>"; the tool calls read "Delegated to Docs Writer", "Waited for 2 tasks".
+
+| What | Evidence |
+|---|---|
+| Queue, turn end → result, restart recovery, cancel, pause/resume, memory, workspaces, rename, migration, per-place sessions, unattended rule with workspace + task folder, schedules (weekdays, interval, DST, missed runs, no double-enqueue) | `bots` tests (13), `schedule` tests, `unattended` tests; `bots.test.ts` (17) |
+| Two queued tasks in order, in the workspace and a project, with the real `claude` | `queued_tasks_run_in_order_in_the_workspace_and_a_project` |
+| MCP bridge: handshake and version negotiation, tools/list, each tool, bad token, app not running, tokens per session, file and socket permissions, self-delegation, depth, cycles, wait results/timeout/early return, cancel cascade, approvals for the agentdeck tools never held | `mcp::tests` (11) |
+| A manager bot (real Claude Code 2.1.316) delegates to a second bot, waits, and reports its result; no approval asked; token not in the database | `a_manager_bot_hands_a_task_to_another_bot_and_uses_its_result` |
+| Codex 0.166.0 starts the server from the `-c` keys, gets the token through `env_vars`, calls `list_bots` and `delegate_task` without an approval | `a_codex_bot_reaches_the_agentdeck_tools` |
+| Gemini CLI 0.66 over ACP starts it from `mcpServers` (bot workspace trusted with `GEMINI_CLI_TRUST_WORKSPACE`), asks before the call, the bot runner allows it | `a_gemini_bot_reaches_the_agentdeck_tools` |
+| Grok Build and Kimi Code get the same `mcpServers` entry | Argument/JSON shape only (`each_agent_gets_the_server_in_its_own_way`); not run against the real CLIs |
+| Interface: manager with two delegated tasks, delegated task "from <bot>", editor note | Web preview screenshots (demo data) |
+
+Known gaps: after an AgentDeck restart a manager's running task goes back to the queue and starts over, so it may hand the same work out again (the children it already made stay); delegated tasks of a deleted bot keep a dangling parent; Gemini CLI bots working in a project only get the tools if the user trusts that folder in Gemini CLI; ACP waits are capped at 9 minutes; the phone page and Telegram (milestone 3) aren't built; bots' sessions still appear in All sessions, Permissions and Overview.
 
 ## Languages
 
