@@ -49,7 +49,25 @@ TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
 P12PASS=$(openssl rand -base64 24)
 echo "macOS will ask for your login password to allow the export. Click Allow (or Always Allow)."
-security export -k login.keychain-db -t identities -f pkcs12 -P "$P12PASS" -o "$TMP/cert.p12"
+umask 077
+# macOS can only export every identity at once; keep just the Developer ID one (its
+# certificate and the private key that matches it), so no other team's keys leave the Mac.
+security export -k login.keychain-db -t identities -f pkcs12 -P "$P12PASS" -o "$TMP/all.p12"
+SSL=/usr/bin/openssl
+security find-certificate -c "$ID" -p login.keychain-db > "$TMP/cert.pem"
+$SSL pkcs12 -in "$TMP/all.p12" -passin "pass:$P12PASS" -nocerts -nodes -out "$TMP/keys.pem" 2>/dev/null
+rm -f "$TMP/all.p12"
+awk -v d="$TMP" '/-----BEGIN .*PRIVATE KEY-----/{n++; f=d "/key" n ".pem"} f{print > f} /-----END .*PRIVATE KEY-----/{close(f); f=""}' "$TMP/keys.pem"
+rm -f "$TMP/keys.pem"
+WANT=$($SSL x509 -in "$TMP/cert.pem" -noout -pubkey | $SSL md5)
+KEY=""
+for k in "$TMP"/key*.pem(N); do
+  [ "$($SSL pkey -in "$k" -pubout 2>/dev/null | $SSL md5)" = "$WANT" ] && KEY="$k"
+done
+[ -n "$KEY" ] || { echo "FAILED: couldn't find the private key of \"$ID\" in the export."; exit 1; }
+$SSL pkcs12 -export -inkey "$KEY" -in "$TMP/cert.pem" -name "$ID" -passout "pass:$P12PASS" -out "$TMP/cert.p12"
+rm -f "$TMP"/key*.pem
+echo "Exporting only: $ID"
 base64 -i "$TMP/cert.p12" | gh secret set APPLE_CERTIFICATE -R "$REPO"
 rm -f "$TMP/cert.p12"
 printf %s "$P12PASS" | gh secret set APPLE_CERTIFICATE_PASSWORD -R "$REPO"
@@ -60,6 +78,11 @@ openssl rand -base64 24 | gh secret set KEYCHAIN_PASSWORD -R "$REPO"
 echo "Certificate saved to GitHub."
 
 echo "-- 3/5 Notarization"
+if gh secret list -R "$REPO" | grep -q '^APPLE_PASSWORD' && gh secret list -R "$REPO" | grep -q '^APPLE_ID'; then
+  read -r "KEEP?Apple ID and app-specific password are already saved. Keep them? [Y/n] "
+  case "$KEEP" in [nN]*) ;; *) SKIP_NOTARY=1 ;; esac
+fi
+if [ -z "$SKIP_NOTARY" ]; then
 echo "Apple needs an app-specific password for the build machine. Make a new one now:"
 echo "  account.apple.com > Sign-In and Security > App-Specific Passwords > +  (name it: AgentDeck GitHub)"
 open "https://account.apple.com/account/manage/section/security" 2>/dev/null || true
@@ -75,6 +98,7 @@ printf %s "$AID" | gh secret set APPLE_ID -R "$REPO"
 printf %s "$APW" | gh secret set APPLE_PASSWORD -R "$REPO"
 unset APW
 echo "Notarization works; saved to GitHub."
+fi
 
 echo "-- 4/5 Update signing key"
 gh secret set TAURI_SIGNING_PRIVATE_KEY -R "$REPO" < "$UPDATE_KEY"
