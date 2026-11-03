@@ -91,6 +91,7 @@ Type `/` in the message box for the agent's own commands in that folder (Claude 
 - **Smart terminal.** Your own shell in the project folder. Ask any agent about the selection or the last 80 lines, with a one-click "Explain this error".
 - **Attach anything.** Drop files or folders, paste a screenshot, or pick files. Images reach the agent as images.
 - **Your own models.** DeepSeek, Kimi, GLM (Z.ai), Ollama, LM Studio, OpenRouter or any OpenAI- or Anthropic-compatible endpoint, with the same approvals, plan mode and workflows.
+- **Plan limits at a glance.** Under the message box, Claude Code and Codex sessions show how much of your 5-hour and weekly limits you've used and when they reset.
 - **Sign in where it fails.** When an agent needs a login, a button runs its own sign-in in a built-in terminal and sends your message again.
 - **Updates itself.** New versions are signed and notarized, and each update is checked against a key built into the app before it installs.
 

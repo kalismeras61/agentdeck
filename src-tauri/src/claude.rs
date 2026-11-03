@@ -67,6 +67,8 @@ pub enum Outbound {
     Flow(crate::db::FlowRow),
     Bot(crate::db::Bot),
     BotTask(crate::db::BotTask),
+    /// An agent's plan usage limits changed.
+    Limits(crate::limits::PlanLimits),
 }
 
 pub type Sink = Arc<dyn Fn(Outbound) + Send + Sync>;
@@ -593,6 +595,11 @@ impl Manager {
                 }
                 return;
             }
+            "rate_limit_event" => {
+                // Not a session event: the numbers are kept as the plan's limits instead.
+                self.capture_limits(sid, &v);
+                return;
+            }
             k if SKIP_KINDS.contains(&k) => return,
             _ => {}
         }
@@ -700,6 +707,26 @@ impl Manager {
             _ => {}
         }
         self.record(sid, "claude", &kind, &v);
+    }
+
+    /// Plan limits from a `rate_limit_event`. Sessions on a model profile talk to another
+    /// endpoint, whose limits aren't the Claude plan's.
+    fn capture_limits(&self, sid: &str, v: &Value) {
+        let on_profile = self
+            .db
+            .session(sid)
+            .ok()
+            .flatten()
+            .map_or(true, |s| s.profile_id.is_some());
+        if on_profile {
+            return;
+        }
+        let Some(info) = v.get("rate_limit_info") else {
+            return;
+        };
+        let prev = crate::limits::previous(&self.db, "claude-code");
+        let windows = crate::limits::from_claude(info, prev.as_deref(), now_ms());
+        crate::limits::record(&self.db, &self.sink, "claude-code", windows);
     }
 
     /* ------------------------------------------------------------ commands */

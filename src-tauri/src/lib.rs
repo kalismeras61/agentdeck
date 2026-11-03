@@ -18,6 +18,7 @@ mod db;
 mod flow;
 mod git;
 mod import;
+mod limits;
 mod models;
 mod providers;
 mod pty;
@@ -1133,6 +1134,12 @@ async fn session_effort(
         .map_err(|e| e.to_string())?
 }
 
+/// The latest plan usage limits each agent reported (Claude Code, Codex), saved ones included.
+#[tauri::command]
+fn plan_limits(state: State<'_, AppState>) -> CmdResult<Vec<limits::PlanLimits>> {
+    Ok(limits::all(&state.db))
+}
+
 /// The models an agent offers, as the agent reports them. Runs off the main thread: asking
 /// the agent can take a few seconds.
 #[tauri::command]
@@ -2085,6 +2092,7 @@ pub fn run() {
                     Outbound::Flow(f) => handle.emit("agentdeck://flow", f),
                     Outbound::Bot(b) => handle.emit("agentdeck://bot", b),
                     Outbound::BotTask(t) => handle.emit("agentdeck://bot-task", t),
+                    Outbound::Limits(l) => handle.emit("agentdeck://limits", l),
                 };
             });
             let agents = Arc::new(Agents {
@@ -2158,6 +2166,7 @@ pub fn run() {
             set_session_effort,
             session_effort,
             list_models,
+            plan_limits,
             git_overview,
             git_log,
             git_commit_files,

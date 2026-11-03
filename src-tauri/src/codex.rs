@@ -47,6 +47,9 @@ enum Pending {
     Initialize,
     ThreadStart,
     TurnStart,
+    /// `account/rateLimits/read`: plan limits before the first turn. Errors are expected
+    /// (API-key logins have none) and aren't shown.
+    RateLimits,
     Other,
 }
 
@@ -70,6 +73,8 @@ struct Proc {
     /// Prefix that keeps request ids unique across restarts of the same session
     /// (Codex numbers its requests from 0 in every process).
     gen: String,
+    /// The usage bucket `account/rateLimits/read` answered for; updates for others are ignored.
+    limit_id: Mutex<Option<String>>,
 }
 
 impl Proc {
@@ -249,6 +254,7 @@ impl CodexManager {
             base_effort: Mutex::new(None),
             effort_sent: AtomicBool::new(false),
             gen: uuid::Uuid::new_v4().simple().to_string()[..8].to_string(),
+            limit_id: Mutex::new(None),
         });
         proc.request(
             "initialize",
@@ -415,6 +421,9 @@ impl CodexManager {
                 .and_then(|mut c| c.remove(&n))
                 .unwrap_or(Pending::Other);
             if let Some(err) = v.get("error") {
+                if purpose == Pending::RateLimits {
+                    return;
+                }
                 let msg = err
                     .get("message")
                     .and_then(Value::as_str)
@@ -423,7 +432,7 @@ impl CodexManager {
                     Pending::Initialize => "Codex didn't start",
                     Pending::ThreadStart => "Codex couldn't open the conversation",
                     Pending::TurnStart => "Codex didn't accept the message",
-                    Pending::Other => "Codex returned an error",
+                    Pending::RateLimits | Pending::Other => "Codex returned an error",
                 };
                 self.record(
                     sid,
@@ -431,7 +440,7 @@ impl CodexManager {
                     "error",
                     &json!({ "title": title, "message": msg }),
                 );
-                if purpose != Pending::Other {
+                if purpose != Pending::Other && purpose != Pending::RateLimits {
                     self.set_status(sid, "error", Some(&first_line(msg, 80)));
                 }
                 return;
@@ -454,6 +463,9 @@ impl CodexManager {
                     if let Err(e) = res {
                         self.record(sid, "agentdeck", "error", &json!({ "title": "Codex couldn't open the conversation", "message": e }));
                     }
+                    // The plan's limits, so they show before the first turn.
+                    let _ =
+                        proc.request("account/rateLimits/read", Value::Null, Pending::RateLimits);
                 }
                 Pending::ThreadStart => {
                     let tid = v
@@ -499,6 +511,19 @@ impl CodexManager {
                         if let Ok(mut t) = proc.turn_id.lock() {
                             *t = Some(turn.to_string());
                         }
+                    }
+                }
+                Pending::RateLimits => {
+                    if let Some(snap) = v.pointer("/result/rateLimits") {
+                        if let Ok(mut l) = proc.limit_id.lock() {
+                            *l = snap
+                                .get("limitId")
+                                .and_then(Value::as_str)
+                                .map(str::to_owned);
+                        }
+                        let windows =
+                            crate::limits::from_codex(snap, None, false, crate::db::now_ms());
+                        crate::limits::record(&self.db, &self.sink, "codex", windows);
                     }
                 }
                 Pending::Other => {}
@@ -582,6 +607,22 @@ impl CodexManager {
 
         // Notifications.
         match method.as_str() {
+            "account/rateLimits/updated" => {
+                if let Some(snap) = params.get("rateLimits") {
+                    let base = proc.limit_id.lock().ok().and_then(|l| l.clone());
+                    if crate::limits::codex_same_bucket(snap, base.as_deref()) {
+                        let prev = crate::limits::previous(&self.db, "codex");
+                        let windows = crate::limits::from_codex(
+                            snap,
+                            prev.as_deref(),
+                            true,
+                            crate::db::now_ms(),
+                        );
+                        crate::limits::record(&self.db, &self.sink, "codex", windows);
+                    }
+                }
+                return;
+            }
             "item/agentMessage/delta" => {
                 if let Some(d) = params.get("delta").and_then(Value::as_str) {
                     (self.sink)(Outbound::Delta(Delta {
