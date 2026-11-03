@@ -60,6 +60,19 @@ Commands and edits that need your OK appear as cards that say what will run, whe
 
 ![A plan, build, review workflow: Codex built, Claude Code reviewed and approved](docs/screenshots/readme/workflow.png)
 
+### Bots that keep working
+
+A bot is an agent that stays. Give it a name, a job, instructions, an agent and model (Claude Code, Codex, Gemini CLI, Grok Build, Kimi Code, Antigravity or your own models) and a folder, then hand it tasks. It works through them in the background while you do something else.
+
+- **A task queue.** Add tasks while the bot is busy; it runs them one at a time. Pause, resume, cancel or retry, and each finished task keeps the bot's report as its result.
+- **Memory.** Every bot keeps a short memory file (left out of git). It reads it at the start of each task and writes down what's worth remembering: conventions, decisions, where things are, what you prefer. You can read and edit it on the bot's page.
+- **Unattended, not unchecked.** While a bot works on a task, ordinary requests are approved for it. Anything risky (deleting, pushing, deploying, credentials, anything outside its folder) and every question waits for you, and the bot shows "Needs you" in the sidebar.
+- **Its own page.** The bot's conversation with diffs and approvals as in any session, a box to give it a task or send a plain message, and its queue and memory side by side.
+
+Coming next: a workspace of its own for every bot (with each task able to name a project), schedules ("weekdays at 9:00"), a manager bot that hands work to other bots and collects their results, and reaching your bots from your phone or Telegram.
+
+![A bot working through its queue, with its memory one tab away](docs/screenshots/readme/bots.png)
+
 ### Isolate work in git worktrees
 
 Start a session in its own worktree and branch, so an agent can't step on your working copy. See the branch graph in the Git view, then merge the worktree back (with a clear warning when both sides changed the same lines) or throw it away.
