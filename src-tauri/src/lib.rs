@@ -22,6 +22,7 @@ mod models;
 mod providers;
 mod pty;
 mod relay;
+mod schedule;
 mod secrets;
 mod setup;
 mod shellenv;
@@ -34,7 +35,8 @@ use bots::Bots;
 use claude::{Decision, Manager, Outbound};
 use codex::CodexManager;
 use db::{
-    Bot, BotFields, BotTask, Db, FlowRow, Project, RelayRow, SessionRow, StoredEvent, Workflow,
+    Bot, BotFields, BotSchedule, BotTask, Db, FlowRow, Project, RelayRow, SessionRow, StoredEvent,
+    Workflow,
 };
 use flow::Flow;
 use relay::Relay;
@@ -230,6 +232,22 @@ fn add_project(state: State<'_, AppState>, path: String) -> CmdResult<Project> {
         .map_err(|e| format!("Can't open that folder: {e}"))?;
     if !canon.is_dir() {
         return Err("That isn't a folder".into());
+    }
+    if state
+        .db
+        .project_by_path(&canon.to_string_lossy())
+        .map_err(err)?
+        .is_some_and(|p| p.hidden)
+        || state
+            .bots
+            .root()
+            .canonicalize()
+            .is_ok_and(|r| canon.starts_with(r))
+    {
+        return Err(
+            "That folder is where AgentDeck keeps bots' workspaces. Choose a project folder."
+                .into(),
+        );
     }
     let name = canon
         .file_name()
@@ -664,6 +682,8 @@ async fn import_sessions(
                 Some(dir) => {
                     let path = dir.to_string_lossy().into_owned();
                     match db.list_projects().map_err(err)?.into_iter().find(|x| x.path == path) {
+                        // A bot's workspace isn't a project to bring sessions into.
+                        Some(x) if x.hidden => ensure_chats(&app2, &db)?,
                         Some(x) => x,
                         None => {
                             let name = dir
@@ -740,6 +760,7 @@ fn create_project(
     }
     if name.starts_with('.')
         || name.eq_ignore_ascii_case("chats")
+        || name.eq_ignore_ascii_case("bots")
         || name
             .chars()
             .any(|c| matches!(c, '/' | '\\' | ':' | '\0') || c.is_control())
@@ -774,6 +795,9 @@ fn move_session(
     if s.project_id == project_id {
         return Ok(s);
     }
+    if state.db.bot_for_session(&s.id).map_err(err)?.is_some() {
+        return Err("This is a bot's session; it stays where the bot works.".into());
+    }
     if state.db.active_relay_for(&s.id).map_err(err)?.is_some()
         || state.db.active_flow_for(&s.id).map_err(err)?.is_some()
     {
@@ -790,6 +814,9 @@ fn move_session(
         .project(&project_id)
         .map_err(err)?
         .ok_or("Project not found")?;
+    if to.hidden {
+        return Err("That folder is a bot's workspace".into());
+    }
     state.stop_any(&s.id);
     // Claude Code only resumes a conversation from the folder it's filed under, so it's copied
     // there; Codex resumes a thread from any folder.
@@ -895,12 +922,24 @@ fn rename_session(
 
 #[tauri::command]
 fn remove_project(state: State<'_, AppState>, project_id: String) -> CmdResult<()> {
+    if state
+        .db
+        .project(&project_id)
+        .map_err(err)?
+        .is_some_and(|p| p.hidden)
+    {
+        return Err("That's a bot's workspace; it goes when the bot is deleted.".into());
+    }
     for s in state.db.list_sessions().map_err(err)? {
         if s.project_id == project_id {
             state.stop_any(&s.id);
         }
     }
-    state.db.remove_project(&project_id).map_err(err)
+    state.db.remove_project(&project_id).map_err(err)?;
+    // Bots working there: their task fails and they work in their workspace by default.
+    let bots = state.bots.clone();
+    std::thread::spawn(move || bots.project_removed(&project_id));
+    Ok(())
 }
 
 #[tauri::command]
@@ -1000,6 +1039,9 @@ fn create_session(
         .project(&project_id)
         .map_err(err)?
         .ok_or("Project not found")?;
+    if project.hidden {
+        return Err("That folder is a bot's workspace; give the bot a task instead.".into());
+    }
     // A worktree first, so a failure (not a repository, no commits) leaves no empty session.
     let wt = if worktree.unwrap_or(false) {
         let name = format!(
@@ -1518,7 +1560,9 @@ struct BotInput {
     effort: Option<String>,
     #[serde(default)]
     profile_id: Option<String>,
-    project_id: String,
+    /// Its default project; None: tasks work in its own workspace unless they name one.
+    #[serde(default)]
+    project_id: Option<String>,
     color: String,
 }
 
@@ -1551,7 +1595,7 @@ async fn save_bot(state: State<'_, AppState>, bot: BotInput) -> CmdResult<Bot> {
                 model: &model,
                 effort: effort.as_deref(),
                 profile_id: profile_id.as_deref(),
-                project_id: &bot.project_id,
+                project_id: bot.project_id.as_deref(),
                 color: &bot.color,
             },
         )
@@ -1577,17 +1621,21 @@ fn bot_tasks(
     state.bots.tasks(&bot_id, limit.unwrap_or(50))
 }
 
-/// Queues a task from you; it starts at once when the bot is free.
+/// Queues a task from you; it starts at once when the bot is free. `project_id`: the project
+/// it works in; None: the bot's own workspace.
 #[tauri::command]
 async fn add_bot_task(
     state: State<'_, AppState>,
     bot_id: String,
     text: String,
+    project_id: Option<String>,
 ) -> CmdResult<BotTask> {
     let bots = state.bots.clone();
-    tauri::async_runtime::spawn_blocking(move || bots.add_task(&bot_id, &text, "you"))
-        .await
-        .map_err(err)?
+    tauri::async_runtime::spawn_blocking(move || {
+        bots.add_task(&bot_id, &text, "you", project_id.as_deref())
+    })
+    .await
+    .map_err(err)?
 }
 
 #[tauri::command]
@@ -1632,6 +1680,43 @@ fn write_bot_memory(
     text: String,
 ) -> CmdResult<bots::Memory> {
     state.bots.write_memory(&id, &text)
+}
+
+#[tauri::command]
+fn bot_schedules(state: State<'_, AppState>, bot_id: String) -> CmdResult<Vec<BotSchedule>> {
+    state.bots.schedules(&bot_id)
+}
+
+/// Makes or changes a schedule (what to do, where, when); its next run is counted from now.
+#[tauri::command]
+fn save_bot_schedule(
+    state: State<'_, AppState>,
+    schedule: bots::ScheduleInput,
+) -> CmdResult<BotSchedule> {
+    state.bots.save_schedule(&schedule)
+}
+
+#[tauri::command]
+fn delete_bot_schedule(state: State<'_, AppState>, id: String) -> CmdResult<()> {
+    state.bots.delete_schedule(&id)
+}
+
+#[tauri::command]
+fn set_bot_schedule_enabled(
+    state: State<'_, AppState>,
+    id: String,
+    enabled: bool,
+) -> CmdResult<BotSchedule> {
+    state.bots.set_schedule_enabled(&id, enabled)
+}
+
+/// Adds a schedule's task now ("Run now").
+#[tauri::command]
+async fn run_bot_schedule(state: State<'_, AppState>, id: String) -> CmdResult<BotTask> {
+    let bots = state.bots.clone();
+    tauri::async_runtime::spawn_blocking(move || bots.run_schedule(&id))
+        .await
+        .map_err(err)?
 }
 
 /// Opens a shell in a project folder AgentDeck already knows; nothing else is reachable.
@@ -2085,6 +2170,7 @@ pub fn run() {
                     Outbound::Flow(f) => handle.emit("agentdeck://flow", f),
                     Outbound::Bot(b) => handle.emit("agentdeck://bot", b),
                     Outbound::BotTask(t) => handle.emit("agentdeck://bot-task", t),
+                    Outbound::BotSchedule(s) => handle.emit("agentdeck://bot-schedule", s),
                 };
             });
             let agents = Arc::new(Agents {
@@ -2105,12 +2191,22 @@ pub fn run() {
                 });
             }
             let flow = Arc::new(Flow::new(db.clone(), sink.clone(), agents.clone()));
-            let bots = Arc::new(Bots::new(db.clone(), sink.clone(), agents.clone()));
+            let home = app.path().home_dir()?;
+            let bots = Arc::new(Bots::new(db.clone(), sink.clone(), agents.clone(), home));
             let _ = relay_cell.set((relay.clone(), flow.clone(), bots.clone()));
-            // Tasks that were queued (or running when AgentDeck closed) carry on.
+            // Every bot gets its workspace (bots from before get theirs and their memory moved
+            // in), then tasks that were queued (or running when AgentDeck closed) carry on, and
+            // schedules are looked at every 30 seconds.
             {
                 let bots = bots.clone();
-                std::thread::spawn(move || bots.resume_all());
+                std::thread::spawn(move || {
+                    bots.ensure_workspaces();
+                    bots.resume_all();
+                    loop {
+                        bots.tick(db::now_ms());
+                        std::thread::sleep(std::time::Duration::from_secs(30));
+                    }
+                });
             }
             let th = app.handle().clone();
             let terms = Arc::new(pty::Terminals::new(Arc::new(move |e| {
@@ -2202,6 +2298,11 @@ pub fn run() {
             restart_bot_session,
             read_bot_memory,
             write_bot_memory,
+            bot_schedules,
+            save_bot_schedule,
+            delete_bot_schedule,
+            set_bot_schedule_enabled,
+            run_bot_schedule,
             list_profiles,
             save_profile,
             delete_profile,
@@ -2260,7 +2361,12 @@ mod handoff_tests {
             db: db.clone(),
             relay: Arc::new(Relay::new(db.clone(), sink.clone(), agents.clone())),
             flow: Arc::new(Flow::new(db.clone(), sink.clone(), agents.clone())),
-            bots: Arc::new(Bots::new(db.clone(), sink.clone(), agents.clone())),
+            bots: Arc::new(Bots::new(
+                db.clone(),
+                sink.clone(),
+                agents.clone(),
+                std::env::temp_dir().join("agentdeck-handoff-test-home"),
+            )),
             agents,
             sink,
             terms: Arc::new(pty::Terminals::new(Arc::new(|_| {}))),

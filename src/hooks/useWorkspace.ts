@@ -1,11 +1,12 @@
 import { useMemo } from "react";
 import type { Project, Session } from "../data/demo";
-import { inWorkspace, useStore } from "../state/store";
+import { inWorkspace, listed, useStore } from "../state/store";
 
+/** The workspace's projects as lists show them: bots' own workspaces are never listed. */
 export function useWorkspaceProjects(): Project[] {
   const projects = useStore((s) => s.projects);
   const ws = useStore((s) => s.workspaceId);
-  return useMemo(() => projects.filter((p) => p.workspaceId === ws), [projects, ws]);
+  return useMemo(() => projects.filter((p) => p.workspaceId === ws && listed(p)), [projects, ws]);
 }
 
 export function useWorkspaceSessions(): Session[] {

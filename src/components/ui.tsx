@@ -150,3 +150,19 @@ export function DemoBadge({ className }: { className?: string }) {
     </Tip>
   );
 }
+
+/** An on/off switch. */
+export function Switch({ checked, onChange, label }: { checked: boolean; onChange: (v: boolean) => void; label: string }) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      aria-label={label}
+      onClick={() => onChange(!checked)}
+      className={cx("relative h-[22px] w-[38px] shrink-0 rounded-full transition-colors", checked ? "bg-violet-strong" : "bg-elevated ring-1 ring-line")}
+    >
+      <span className={cx("absolute top-[3px] h-4 w-4 rounded-full bg-white shadow transition-[left] duration-150", checked ? "start-[19px]" : "start-[3px]")} />
+    </button>
+  );
+}

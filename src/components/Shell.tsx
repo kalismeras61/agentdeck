@@ -55,7 +55,7 @@ export function SessionHeader({ session }: { session: Session }) {
   const project = useProject(session.projectId);
   const projects = useStore((s) => s.projects);
   const moveSession = useStore((s) => s.moveSession);
-  const moveTargets = projects.filter((p) => p.workspaceId === "local" && p.id !== session.projectId);
+  const moveTargets = projects.filter((p) => p.workspaceId === "local" && !p.hidden && p.id !== session.projectId);
   const renaming = useStore((s) => s.renaming?.id === session.id && s.renaming.at === "header");
   const setRenaming = useStore((s) => s.setRenaming);
 

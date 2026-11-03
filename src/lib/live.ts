@@ -13,6 +13,8 @@ export interface LiveProject {
   /** "chats": where sessions without a project go. */
   kind: "folder" | "chats";
   createdAt: number;
+  /** A bot's own workspace: its sessions work there, but it's never listed as a project. */
+  hidden?: boolean;
 }
 
 export interface LiveSessionRow {
@@ -185,7 +187,7 @@ export interface StartFlow {
 /** Accent names a bot's mark can have. */
 export type BotColor = "violet" | "blue" | "green" | "amber" | "rose" | "teal";
 
-/** A bot: an agent that stays, with a job, a folder, a memory file and a queue of tasks. */
+/** A bot: an agent that stays, with a job, its own workspace, a memory file and a queue of tasks. */
 export interface Bot {
   id: string;
   name: string;
@@ -195,9 +197,13 @@ export interface Bot {
   model: string;
   effort: string | null;
   profileId: string | null;
-  projectId: string;
-  /** Its session (made on the first task); null after "Start fresh". */
-  sessionId: string | null;
+  /** Where a task works when it names no place; null: its workspace. */
+  projectId: string | null;
+  /** The hidden project that is its workspace, and that folder (~/AgentDeck/Bots/<Name>). */
+  workspaceId: string | null;
+  workspace: string;
+  /** Its ongoing session in each place it has worked (projectId null: the workspace). */
+  places: BotPlace[];
   color: BotColor;
   paused: boolean;
   createdAt: number;
@@ -206,8 +212,19 @@ export interface Bot {
   queued: number;
   runningTaskId: string | null;
   runningText: string | null;
+  /** Where the running task works (null: the workspace) and its session. */
+  runningProjectId: string | null;
+  runningSessionId: string | null;
+  /** The soonest run of its schedules that are on. */
+  nextRunAt: number | null;
   /** A request or a question is waiting for you. */
   needsYou: boolean;
+}
+
+export interface BotPlace {
+  /** null: the bot's workspace. */
+  projectId: string | null;
+  sessionId: string;
 }
 
 export type BotTaskStatus = "queued" | "running" | "done" | "failed" | "cancelled";
@@ -216,7 +233,7 @@ export interface BotTask {
   id: string;
   botId: string;
   text: string;
-  /** "you" (later "schedule", "bot:<id>", "web", "telegram"). */
+  /** "you", "schedule" (later "bot:<id>", "web", "telegram"). */
   source: string;
   status: BotTaskStatus;
   result: string | null;
@@ -225,6 +242,10 @@ export interface BotTask {
   startedAt: number | null;
   finishedAt: number | null;
   parentId: string | null;
+  /** The project it works in; null: the bot's workspace. */
+  projectId: string | null;
+  /** The session it ran in, once started. */
+  sessionId: string | null;
 }
 
 /** What the bot editor saves; no id makes a new bot. */
@@ -237,13 +258,48 @@ export interface BotInput {
   model: string;
   effort: string | null;
   profileId: string | null;
-  projectId: string;
+  /** Its default project; null: tasks work in its workspace unless they name a project. */
+  projectId: string | null;
   color: BotColor;
 }
 
 export interface BotMemory {
   path: string;
   text: string;
+}
+
+/** A task that repeats: daily at times (local "HH:MM") on chosen weekdays, or every N minutes. */
+export interface BotSchedule {
+  id: string;
+  botId: string;
+  text: string;
+  /** null: the bot's workspace. */
+  projectId: string | null;
+  kind: "daily" | "interval";
+  times: string[];
+  /** 1 (Monday) to 7 (Sunday); empty: every day. */
+  weekdays: number[];
+  everyMinutes: number | null;
+  enabled: boolean;
+  lastRunAt: number | null;
+  nextRunAt: number | null;
+  lastTaskId: string | null;
+  /** When it last skipped a run because its previous task hadn't finished. */
+  skippedAt: number | null;
+  createdAt: number;
+}
+
+/** What the schedule editor saves; no id makes a new one. */
+export interface BotScheduleInput {
+  id?: string;
+  botId: string;
+  text: string;
+  projectId: string | null;
+  kind: "daily" | "interval";
+  times: string[];
+  weekdays: number[];
+  everyMinutes: number | null;
+  enabled: boolean;
 }
 
 /** A session an agent saved on its own, found by scanning its history folder. */
@@ -371,7 +427,8 @@ export const liveApi = {
   deleteBot: (id: string) => call<void>("delete_bot", { id }),
   /** Queued and running tasks, then up to `limit` finished ones (newest first). */
   botTasks: (botId: string, limit = 50) => call<BotTask[]>("bot_tasks", { botId, limit }),
-  addBotTask: (botId: string, text: string) => call<BotTask>("add_bot_task", { botId, text }),
+  /** projectId null: the task works in the bot's workspace. */
+  addBotTask: (botId: string, text: string, projectId: string | null) => call<BotTask>("add_bot_task", { botId, text, projectId }),
   cancelBotTask: (id: string) => call<BotTask>("cancel_bot_task", { id }),
   retryBotTask: (id: string) => call<BotTask>("retry_bot_task", { id }),
   setBotPaused: (id: string, paused: boolean) => call<Bot>("set_bot_paused", { id, paused }),
@@ -379,6 +436,13 @@ export const liveApi = {
   restartBotSession: (id: string) => call<Bot>("restart_bot_session", { id }),
   readBotMemory: (id: string) => call<BotMemory>("read_bot_memory", { id }),
   writeBotMemory: (id: string, text: string) => call<BotMemory>("write_bot_memory", { id, text }),
+  botSchedules: (botId: string) => call<BotSchedule[]>("bot_schedules", { botId }),
+  /** Its next run is counted from now. */
+  saveBotSchedule: (schedule: BotScheduleInput) => call<BotSchedule>("save_bot_schedule", { schedule }),
+  deleteBotSchedule: (id: string) => call<void>("delete_bot_schedule", { id }),
+  setBotScheduleEnabled: (id: string, enabled: boolean) => call<BotSchedule>("set_bot_schedule_enabled", { id, enabled }),
+  /** Adds the schedule's task now; its next run stays. */
+  runBotSchedule: (id: string) => call<BotTask>("run_bot_schedule", { id }),
   listRelays: () => call<RelayRow[]>("list_relays"),
   setMode: (sessionId: string, mode: SessionMode) => call<LiveSessionRow>("set_session_mode", { sessionId, mode }),
   handOff: (fromSessionId: string, provider: LiveProvider, plan: string, planRequestId?: string, profileId?: string) =>
@@ -451,6 +515,7 @@ export async function subscribeLive(handlers: {
   onFlow: (f: FlowRow) => void;
   onBot: (b: Bot) => void;
   onBotTask: (t: BotTask) => void;
+  onBotSchedule: (s: BotSchedule) => void;
 }): Promise<() => void> {
   const { listen } = await import("@tauri-apps/api/event");
   const offs = await Promise.all([
@@ -461,6 +526,7 @@ export async function subscribeLive(handlers: {
     listen<FlowRow>("agentdeck://flow", (e) => handlers.onFlow(e.payload)),
     listen<Bot>("agentdeck://bot", (e) => handlers.onBot(e.payload)),
     listen<BotTask>("agentdeck://bot-task", (e) => handlers.onBotTask(e.payload)),
+    listen<BotSchedule>("agentdeck://bot-schedule", (e) => handlers.onBotSchedule(e.payload)),
   ]);
   return () => offs.forEach((off) => off());
 }

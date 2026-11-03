@@ -8,7 +8,7 @@ const VIEW_KEYS: Record<string, AppView> = { s: "overview", d: "review", a: "per
 /** Ordered as the sidebar shows them, so ⌥↑/↓ moves visually. */
 function orderedIds(): string[] {
   const { sessions: all, search, projects: allProjects, workspaceId } = useStore.getState();
-  const projects = allProjects.filter((p) => p.workspaceId === workspaceId);
+  const projects = allProjects.filter((p) => p.workspaceId === workspaceId && !p.hidden);
   const sessions = inWorkspace(all, allProjects, workspaceId);
   const q = search.trim().toLowerCase();
   return projects.flatMap((p) =>
@@ -48,7 +48,8 @@ export function useShortcuts() {
         e.preventDefault();
         return;
       }
-      if (e.key === "Escape" && !typing && st.view !== "workspace") {
+      // A menu or popover closed by this Escape (Radix marks it handled) keeps the view open.
+      if (e.key === "Escape" && !typing && st.view !== "workspace" && !e.defaultPrevented) {
         st.setView("workspace");
         e.preventDefault();
         return;

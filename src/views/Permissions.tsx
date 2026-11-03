@@ -91,7 +91,12 @@ export function Permissions() {
                                 {providerLabel[focus.session.provider]} {focus.session.model}
                               </span>
                             ) : part === "{project}" ? (
-                              <span key={i}>{projects.find((p) => p.id === focus.session.projectId)?.name}</span>
+                              <span key={i}>
+                                {(() => {
+                                  const p = projects.find((x) => x.id === focus.session.projectId);
+                                  return p?.hidden ? t("{name}'s workspace", { name: p.name }) : p?.name;
+                                })()}
+                              </span>
                             ) : part.trim() ? (
                               <span key={i} className="text-fg-3">
                                 {part.trim()}

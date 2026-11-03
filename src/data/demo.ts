@@ -3,7 +3,7 @@
  * Events are written in the normalized format and go through the same validation as live output.
  */
 import type { ProviderId } from "../lib/events";
-import type { Bot, BotTask } from "../lib/live";
+import type { Bot, BotSchedule, BotTask } from "../lib/live";
 import { loginPreviewSrc } from "./loginPreview";
 
 export type SessionStatus = "running" | "waiting" | "idle" | "error" | "done";
@@ -15,6 +15,8 @@ export interface Project {
   workspaceId: WorkspaceId;
   /** "chats": sessions without a project. */
   kind?: "folder" | "chats";
+  /** A bot's own workspace: never listed as a project (sidebar, pickers, imports, Overview). */
+  hidden?: boolean;
 }
 
 export type WorkspaceId = "local" | "demo";
@@ -58,6 +60,9 @@ export const demoProjects: Project[] = [
   { id: "p-app", name: "harbor_app", path: "~/code/harbor/harbor_app", workspaceId: "demo" },
   { id: "p-api", name: "harbor_api", path: "~/code/harbor/harbor_api", workspaceId: "demo" },
   { id: "p-docs", name: "harbor_docs", path: "~/code/harbor/harbor_docs", workspaceId: "demo" },
+  // Bots' own workspaces.
+  { id: "p-ws-reviewer", name: "API Reviewer", path: "~/AgentDeck/Bots/API Reviewer", workspaceId: "demo", hidden: true },
+  { id: "p-ws-docs", name: "Docs Writer", path: "~/AgentDeck/Bots/Docs Writer", workspaceId: "demo", hidden: true },
 ];
 
 const NOW = Date.now();
@@ -540,6 +545,7 @@ const s5Events = [
 /* ---------------------------------------------------------------- bots */
 
 const SB = "s-bot-reviewer";
+const SBW = "s-bot-reviewer-ws";
 const sbEvents = [
   ev(SB, "claude-code", at(42), "user_message", { text: "Review the rate limit change in auth/login.ts", label: "Task" }),
   ev(SB, "claude-code", at(38), "assistant_text", {
@@ -549,11 +555,18 @@ const sbEvents = [
   ev(SB, "claude-code", at(3), "user_message", { text: "Check the new /auth/refresh route for missing tests", label: "Task" }),
   ev(SB, "claude-code", at(2), "assistant_text", { markdown: "Reading `routes/auth/refresh.ts` and its tests." }),
 ];
+const sbwEvents = [
+  ev(SBW, "claude-code", at(300), "user_message", { text: "Sum up this week's reviews in reviews/week-45.md", label: "Task" }),
+  ev(SBW, "claude-code", at(296), "assistant_text", {
+    markdown:
+      "Wrote `reviews/week-45.md` in my workspace: 6 reviews, 2 blocking issues (both in auth), and the rate limit follow-ups.\n\nLeft: nothing.",
+  }),
+];
 
 export const demoBotSession: Session = {
   id: SB,
   projectId: "p-api",
-  title: "API Reviewer",
+  title: "API Reviewer · harbor_api",
   provider: "claude-code",
   model: "Sonnet 5.5",
   status: "running",
@@ -563,6 +576,28 @@ export const demoBotSession: Session = {
   raw: sbEvents,
   demo: true,
 };
+
+export const demoBotWorkspaceSession: Session = {
+  id: SBW,
+  projectId: "p-ws-reviewer",
+  title: "API Reviewer",
+  provider: "claude-code",
+  model: "Sonnet 5.5",
+  status: "idle",
+  snippet: "Wrote reviews/week-45.md",
+  startedAt: at(300),
+  updatedAt: at(296),
+  raw: sbwEvents,
+  demo: true,
+};
+
+/** The next weekday (Monday to Friday) at hh:mm local time, from now. */
+function nextWeekdayAt(h: number, m: number): number {
+  const d = new Date(NOW);
+  d.setHours(h, m, 0, 0);
+  while (d.getTime() <= NOW || d.getDay() === 0 || d.getDay() === 6) d.setDate(d.getDate() + 1);
+  return d.getTime();
+}
 
 export const demoBots: Bot[] = [
   {
@@ -575,7 +610,12 @@ export const demoBots: Bot[] = [
     effort: null,
     profileId: null,
     projectId: "p-api",
-    sessionId: SB,
+    workspaceId: "p-ws-reviewer",
+    workspace: "~/AgentDeck/Bots/API Reviewer",
+    places: [
+      { projectId: null, sessionId: SBW },
+      { projectId: "p-api", sessionId: SB },
+    ],
     color: "blue",
     paused: false,
     createdAt: at(600),
@@ -583,6 +623,9 @@ export const demoBots: Bot[] = [
     queued: 2,
     runningTaskId: "t-demo-3",
     runningText: "Check the new /auth/refresh route for missing tests",
+    runningProjectId: "p-api",
+    runningSessionId: SB,
+    nextRunAt: nextWeekdayAt(9, 0),
     needsYou: false,
   },
   {
@@ -595,14 +638,19 @@ export const demoBots: Bot[] = [
     effort: null,
     profileId: null,
     projectId: "p-docs",
-    sessionId: null,
+    workspaceId: "p-ws-docs",
+    workspace: "~/AgentDeck/Bots/Docs Writer",
+    places: [],
     color: "green",
-    paused: true,
+    paused: false,
     createdAt: at(900),
     updatedAt: at(120),
-    queued: 1,
+    queued: 0,
     runningTaskId: null,
     runningText: null,
+    runningProjectId: null,
+    runningSessionId: null,
+    nextRunAt: nextWeekdayAt(18, 0),
     needsYou: false,
   },
 ];
@@ -619,32 +667,96 @@ const task = (id: string, botId: string, text: string, status: BotTask["status"]
   startedAt: null,
   finishedAt: null,
   parentId: null,
+  projectId: "p-api",
+  sessionId: null,
   ...extra,
 });
 
 export const demoBotTasks: Record<string, BotTask[]> = {
   "b-demo-reviewer": [
-    task("t-demo-3", "b-demo-reviewer", "Check the new /auth/refresh route for missing tests", "running", at(5), { startedAt: at(3) }),
+    task("t-demo-3", "b-demo-reviewer", "Check the new /auth/refresh route for missing tests", "running", at(5), { startedAt: at(3), sessionId: SB }),
     task("t-demo-4", "b-demo-reviewer", "Review the CORS settings in server.ts", "queued", at(4)),
-    task("t-demo-5", "b-demo-reviewer", "Look for N+1 queries in the orders endpoints", "queued", at(1)),
+    task("t-demo-5", "b-demo-reviewer", "Sum up today's reviews for the team", "queued", at(1), { projectId: null }),
     task("t-demo-1", "b-demo-reviewer", "Review the rate limit change in auth/login.ts", "done", at(44), {
       startedAt: at(42),
       finishedAt: at(38),
+      sessionId: SB,
       result:
         "Reviewed the rate limit on `/auth/login`.\n\n- The limiter keys on IP only, so one office behind NAT shares a budget. Suggest IP + account.\n- `429` responses don't set `Retry-After`.\n\nLeft: no test for the reset window.",
     }),
-    task("t-demo-2", "b-demo-reviewer", "Review the migration that adds sessions.expires_at", "failed", at(80), {
+    task("t-demo-2", "b-demo-reviewer", "Review yesterday's merged pull requests", "failed", at(80), {
+      source: "schedule",
       startedAt: at(79),
       finishedAt: at(77),
+      sessionId: SB,
       error: "the turn ended with an error",
     }),
+    task("t-demo-0", "b-demo-reviewer", "Sum up this week's reviews in reviews/week-45.md", "done", at(301), {
+      projectId: null,
+      startedAt: at(300),
+      finishedAt: at(296),
+      sessionId: SBW,
+      result: "Wrote `reviews/week-45.md` in my workspace: 6 reviews, 2 blocking issues (both in auth), and the rate limit follow-ups.",
+    }),
   ],
-  "b-demo-docs": [task("t-demo-6", "b-demo-docs", "Document the /auth/refresh route", "queued", at(120))],
+  "b-demo-docs": [
+    task("t-demo-6", "b-demo-docs", "Document the /auth/refresh route", "done", at(130), {
+      projectId: "p-docs",
+      startedAt: at(129),
+      finishedAt: at(120),
+      result: "Added `docs/auth/refresh.md` and linked it from the auth index.",
+    }),
+  ],
+};
+
+const schedule = (id: string, botId: string, text: string, extra: Partial<BotSchedule>): BotSchedule => ({
+  id,
+  botId,
+  text,
+  projectId: null,
+  kind: "daily",
+  times: ["09:00"],
+  weekdays: [],
+  everyMinutes: null,
+  enabled: true,
+  lastRunAt: null,
+  nextRunAt: null,
+  lastTaskId: null,
+  skippedAt: null,
+  createdAt: at(2000),
+  ...extra,
+});
+
+export const demoBotSchedules: Record<string, BotSchedule[]> = {
+  "b-demo-reviewer": [
+    schedule("sc-demo-1", "b-demo-reviewer", "Review yesterday's merged pull requests", {
+      projectId: "p-api",
+      weekdays: [1, 2, 3, 4, 5],
+      lastRunAt: at(80),
+      nextRunAt: nextWeekdayAt(9, 0),
+      lastTaskId: "t-demo-2",
+    }),
+    schedule("sc-demo-2", "b-demo-reviewer", "Look for open pull requests nobody has reviewed", {
+      projectId: "p-api",
+      kind: "interval",
+      times: [],
+      everyMinutes: 360,
+      enabled: false,
+    }),
+  ],
+  "b-demo-docs": [
+    schedule("sc-demo-3", "b-demo-docs", "Update the changelog from today's merged pull requests", {
+      projectId: "p-docs",
+      times: ["18:00"],
+      weekdays: [1, 2, 3, 4, 5],
+      nextRunAt: nextWeekdayAt(18, 0),
+    }),
+  ],
 };
 
 export const demoBotMemory: Record<string, string> = {
   "b-demo-reviewer":
-    "# API Reviewer memory\n\n- Tests: `npm test`; integration tests need `docker compose up db`.\n- Rate limits live in `src/limits.ts`; the team wants IP + account keys.\n- The user prefers short reviews: bugs first, style last.\n",
+    "# API Reviewer memory\n\n- Tests: `npm test`; integration tests need `docker compose up db`.\n- Rate limits live in `src/limits.ts`; the team wants IP + account keys.\n- The user prefers short reviews: bugs first, style last.\n- Weekly summaries go in `reviews/` in my workspace.\n",
   "b-demo-docs": "# Docs Writer memory\n\nWhat Docs Writer keeps for later tasks.\n",
 };
 
@@ -715,6 +827,7 @@ export const demoSessions: Session[] = [
     demo: true,
   },
   demoBotSession,
+  demoBotWorkspaceSession,
 ];
 
 export const providerModels: Record<ProviderId, string[]> = {

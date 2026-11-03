@@ -90,7 +90,7 @@ export function GitView() {
   const select = useStore((s) => s.select);
   const dark = useResolvedTheme() === "dark";
 
-  const folders = projects.filter((p) => p.workspaceId === "local" && p.kind !== "chats");
+  const folders = projects.filter((p) => p.workspaceId === "local" && p.kind !== "chats" && !p.hidden);
   const fallback = sessions.find((s) => s.id === selectedId)?.projectId;
   const projectId = target.projectId ?? (folders.some((p) => p.id === fallback) ? fallback! : (folders[0]?.id ?? null));
   const project = folders.find((p) => p.id === projectId);

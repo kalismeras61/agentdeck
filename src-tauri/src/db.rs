@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 use std::path::Path;
 use std::sync::{LazyLock, Mutex};
 
-pub const SCHEMA_VERSION: i64 = 8;
+pub const SCHEMA_VERSION: i64 = 9;
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -23,6 +23,8 @@ pub struct Project {
     /// "folder" for a project folder, "chats" for the place sessions go when they have no project.
     pub kind: String,
     pub created_at: i64,
+    /// A bot's own workspace: sessions work there as anywhere, but it's never listed as a project.
+    pub hidden: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -86,7 +88,7 @@ pub struct RelayRow {
 
 const RELAY_COLS: &str = "id, a_session, b_session, a_role, b_role, max_rounds, rounds, status, reason, created_at, updated_at";
 
-const PROJECT_COLS: &str = "id, name, path, kind, created_at";
+const PROJECT_COLS: &str = "id, name, path, kind, created_at, hidden";
 
 fn row_to_project(r: &rusqlite::Row<'_>) -> rusqlite::Result<Project> {
     Ok(Project {
@@ -95,6 +97,7 @@ fn row_to_project(r: &rusqlite::Row<'_>) -> rusqlite::Result<Project> {
         path: r.get(2)?,
         kind: r.get(3)?,
         created_at: r.get(4)?,
+        hidden: r.get::<_, i64>(5)? != 0,
     })
 }
 
@@ -198,7 +201,7 @@ pub struct FlowUpdate<'a> {
     pub captured: Option<Option<&'a str>>,
 }
 
-/// A bot: an agent that stays, with a job, a folder, a memory file and a queue of tasks.
+/// A bot: an agent that stays, with a job, its own workspace, a memory file and a queue of tasks.
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Bot {
@@ -212,10 +215,14 @@ pub struct Bot {
     pub effort: Option<String>,
     /// Custom model profile it runs on, if any.
     pub profile_id: Option<String>,
-    /// The project folder it works in.
-    pub project_id: String,
-    /// Its session: made on the first task and kept; None after "Start fresh".
-    pub session_id: Option<String>,
+    /// The project a task works in when it names none (None: the bot's workspace).
+    pub project_id: Option<String>,
+    /// The hidden project that is the bot's workspace (made when the bot is saved).
+    pub workspace_id: Option<String>,
+    /// The workspace folder, `~/AgentDeck/Bots/<Name>`.
+    pub workspace: String,
+    /// Its ongoing session in each place it has worked (None: the workspace).
+    pub places: Vec<BotPlace>,
     pub color: String,
     /// Keeps its queue but starts nothing new.
     pub paused: bool,
@@ -223,12 +230,23 @@ pub struct Bot {
     pub updated_at: i64,
     /// Tasks waiting to start.
     pub queued: i64,
-    /// The task it's working on.
+    /// The task it's working on, its text (for the sidebar), place and session.
     pub running_task_id: Option<String>,
-    /// That task's text, for the sidebar.
     pub running_text: Option<String>,
+    pub running_project_id: Option<String>,
+    pub running_session_id: Option<String>,
+    /// The soonest run of its schedules that are on.
+    pub next_run_at: Option<i64>,
     /// A request or a question is waiting for the user (set by the runner, not stored).
     pub needs_you: bool,
+}
+
+/// A bot's session in one place: a project, or its workspace (`project_id` None).
+#[derive(Debug, Clone, Serialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct BotPlace {
+    pub project_id: Option<String>,
+    pub session_id: String,
 }
 
 /// What can be set on a bot when it's made or edited.
@@ -241,7 +259,8 @@ pub struct BotFields<'a> {
     pub model: &'a str,
     pub effort: Option<&'a str>,
     pub profile_id: Option<&'a str>,
-    pub project_id: &'a str,
+    /// Its default project, if any.
+    pub project_id: Option<&'a str>,
     pub color: &'a str,
 }
 
@@ -252,7 +271,7 @@ pub struct BotTask {
     pub id: String,
     pub bot_id: String,
     pub text: String,
-    /// "you" (later "schedule", "bot:<id>", "web", "telegram").
+    /// "you", "schedule" (later "bot:<id>", "web", "telegram").
     pub source: String,
     /// "queued", "running", "done", "failed" or "cancelled".
     pub status: String,
@@ -264,12 +283,74 @@ pub struct BotTask {
     pub finished_at: Option<i64>,
     /// A delegated task's parent (milestone 2).
     pub parent_id: Option<String>,
+    /// The project it works in (None: the bot's workspace).
+    pub project_id: Option<String>,
+    /// The session it ran in, once started.
+    pub session_id: Option<String>,
 }
 
-const BOT_COLS: &str = "b.id, b.name, b.role, b.instructions, b.provider, b.model, b.effort, b.profile_id, b.project_id, b.session_id, b.color, b.paused, b.created_at, b.updated_at,
+/// A task that repeats: daily at times on chosen weekdays, or every N minutes.
+#[derive(Debug, Clone, Serialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct BotSchedule {
+    pub id: String,
+    pub bot_id: String,
+    pub text: String,
+    /// Where its tasks work (None: the bot's workspace).
+    pub project_id: Option<String>,
+    /// "daily" or "interval".
+    pub kind: String,
+    /// Daily: "HH:MM" in local time, sorted.
+    pub times: Vec<String>,
+    /// Daily: 1 (Monday) to 7 (Sunday); empty: every day.
+    pub weekdays: Vec<u8>,
+    /// Interval: minutes between runs (at least 15).
+    pub every_minutes: Option<i64>,
+    pub enabled: bool,
+    pub last_run_at: Option<i64>,
+    pub next_run_at: Option<i64>,
+    /// The task its last run added, so it never adds a second one while that one waits or runs.
+    pub last_task_id: Option<String>,
+    /// When it last skipped a run because its previous task hadn't finished.
+    pub skipped_at: Option<i64>,
+    pub created_at: i64,
+}
+
+const SCHEDULE_COLS: &str = "id, bot_id, text, project_id, kind, times, weekdays, every_minutes, enabled, last_run_at, next_run_at, last_task_id, skipped_at, created_at";
+
+fn row_to_schedule(r: &rusqlite::Row<'_>) -> rusqlite::Result<BotSchedule> {
+    let times: String = r.get(5)?;
+    let weekdays: String = r.get(6)?;
+    Ok(BotSchedule {
+        id: r.get(0)?,
+        bot_id: r.get(1)?,
+        text: r.get(2)?,
+        project_id: r.get(3)?,
+        kind: r.get(4)?,
+        times: serde_json::from_str(&times).unwrap_or_default(),
+        weekdays: serde_json::from_str(&weekdays).unwrap_or_default(),
+        every_minutes: r.get(7)?,
+        enabled: r.get::<_, i64>(8)? != 0,
+        last_run_at: r.get(9)?,
+        next_run_at: r.get(10)?,
+        last_task_id: r.get(11)?,
+        skipped_at: r.get(12)?,
+        created_at: r.get(13)?,
+    })
+}
+
+const RUNNING: &str = "FROM bot_tasks t WHERE t.bot_id = b.id AND t.status = 'running' LIMIT 1";
+
+static BOT_COLS: LazyLock<String> = LazyLock::new(|| {
+    format!(
+        "b.id, b.name, b.role, b.instructions, b.provider, b.model, b.effort, b.profile_id, b.project_id, b.workspace_id,
+  COALESCE((SELECT p.path FROM projects p WHERE p.id = b.workspace_id), ''),
+  b.color, b.paused, b.created_at, b.updated_at,
   (SELECT COUNT(*) FROM bot_tasks t WHERE t.bot_id = b.id AND t.status = 'queued'),
-  (SELECT t.id FROM bot_tasks t WHERE t.bot_id = b.id AND t.status = 'running' LIMIT 1),
-  (SELECT substr(t.text, 1, 200) FROM bot_tasks t WHERE t.bot_id = b.id AND t.status = 'running' LIMIT 1)";
+  (SELECT t.id {RUNNING}), (SELECT substr(t.text, 1, 200) {RUNNING}), (SELECT t.project_id {RUNNING}), (SELECT t.session_id {RUNNING}),
+  (SELECT MIN(s.next_run_at) FROM bot_schedules s WHERE s.bot_id = b.id AND s.enabled = 1)"
+    )
+});
 
 fn row_to_bot(r: &rusqlite::Row<'_>) -> rusqlite::Result<Bot> {
     Ok(Bot {
@@ -282,19 +363,24 @@ fn row_to_bot(r: &rusqlite::Row<'_>) -> rusqlite::Result<Bot> {
         effort: r.get(6)?,
         profile_id: r.get(7)?,
         project_id: r.get(8)?,
-        session_id: r.get(9)?,
-        color: r.get(10)?,
-        paused: r.get::<_, i64>(11)? != 0,
-        created_at: r.get(12)?,
-        updated_at: r.get(13)?,
-        queued: r.get(14)?,
-        running_task_id: r.get(15)?,
-        running_text: r.get(16)?,
+        workspace_id: r.get(9)?,
+        workspace: r.get(10)?,
+        places: Vec::new(),
+        color: r.get(11)?,
+        paused: r.get::<_, i64>(12)? != 0,
+        created_at: r.get(13)?,
+        updated_at: r.get(14)?,
+        queued: r.get(15)?,
+        running_task_id: r.get(16)?,
+        running_text: r.get(17)?,
+        running_project_id: r.get(18)?,
+        running_session_id: r.get(19)?,
+        next_run_at: r.get(20)?,
         needs_you: false,
     })
 }
 
-const TASK_COLS: &str = "id, bot_id, text, source, status, result, error, created_at, started_at, finished_at, parent_id";
+const TASK_COLS: &str = "id, bot_id, text, source, status, result, error, created_at, started_at, finished_at, parent_id, project_id, session_id";
 
 fn row_to_task(r: &rusqlite::Row<'_>) -> rusqlite::Result<BotTask> {
     Ok(BotTask {
@@ -309,6 +395,8 @@ fn row_to_task(r: &rusqlite::Row<'_>) -> rusqlite::Result<BotTask> {
         started_at: r.get(8)?,
         finished_at: r.get(9)?,
         parent_id: r.get(10)?,
+        project_id: r.get(11)?,
+        session_id: r.get(12)?,
     })
 }
 
@@ -500,6 +588,7 @@ impl Db {
                queued_at INTEGER NOT NULL);
              CREATE INDEX IF NOT EXISTS bot_tasks_queue ON bot_tasks(bot_id, status, queued_at);",
         )?;
+        Self::migrate_v9(&conn)?;
         conn.execute(
             "UPDATE meta SET value = ?1 WHERE key = 'schema_version'",
             params![SCHEMA_VERSION.to_string()],
@@ -511,6 +600,79 @@ impl Db {
         Ok(Self {
             conn: Mutex::new(conn),
         })
+    }
+
+    /// v9: a bot gets a workspace of its own (a hidden project), its folder becomes an optional
+    /// default project, it keeps one session per place (`bot_sessions`), each task can name a
+    /// project, and tasks can repeat (`bot_schedules`). The workspace folders themselves are made
+    /// by the bot runner (`Bots::ensure_workspaces`), which knows where the home folder is.
+    fn migrate_v9(conn: &Connection) -> rusqlite::Result<()> {
+        let has = |table: &str, col: &str| -> rusqlite::Result<bool> {
+            conn.prepare(&format!(
+                "SELECT 1 FROM pragma_table_info('{table}') WHERE name = '{col}'"
+            ))?
+            .exists([])
+        };
+        if !has("projects", "hidden")? {
+            conn.execute(
+                "ALTER TABLE projects ADD COLUMN hidden INTEGER NOT NULL DEFAULT 0",
+                [],
+            )?;
+        }
+        for col in ["project_id", "session_id"] {
+            if !has("bot_tasks", col)? {
+                conn.execute(&format!("ALTER TABLE bot_tasks ADD COLUMN {col} TEXT"), [])?;
+            }
+        }
+        if has("bots", "session_id")? {
+            // SQLite can't loosen a column, so `bots` is rebuilt (foreign keys off, so its tasks
+            // stay). Its project is now its default project, kept as NULL when that project goes;
+            // its session becomes its session for that project.
+            conn.execute_batch("PRAGMA foreign_keys = OFF;")?;
+            let done = conn.execute_batch(
+                "BEGIN;
+                 CREATE TABLE bots_v9 (
+                   id TEXT PRIMARY KEY, name TEXT NOT NULL, role TEXT NOT NULL DEFAULT '', instructions TEXT NOT NULL DEFAULT '',
+                   provider TEXT NOT NULL, model TEXT NOT NULL, effort TEXT, profile_id TEXT,
+                   project_id TEXT REFERENCES projects(id) ON DELETE SET NULL,
+                   workspace_id TEXT REFERENCES projects(id) ON DELETE SET NULL,
+                   color TEXT NOT NULL, paused INTEGER NOT NULL DEFAULT 0,
+                   created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL);
+                 INSERT INTO bots_v9(id, name, role, instructions, provider, model, effort, profile_id, project_id, workspace_id, color, paused, created_at, updated_at)
+                   SELECT id, name, role, instructions, provider, model, effort, profile_id, project_id, NULL, color, paused, created_at, updated_at FROM bots;
+                 CREATE TABLE IF NOT EXISTS bot_sessions (
+                   bot_id TEXT NOT NULL REFERENCES bots(id) ON DELETE CASCADE, project_id TEXT, session_id TEXT NOT NULL,
+                   briefed INTEGER NOT NULL DEFAULT 0, created_at INTEGER NOT NULL);
+                 INSERT INTO bot_sessions(bot_id, project_id, session_id, briefed, created_at)
+                   SELECT b.id, b.project_id, b.session_id, 1, b.updated_at FROM bots b
+                   WHERE b.session_id IS NOT NULL AND EXISTS (SELECT 1 FROM sessions s WHERE s.id = b.session_id);
+                 UPDATE bot_tasks SET
+                   project_id = (SELECT b.project_id FROM bots b WHERE b.id = bot_tasks.bot_id),
+                   session_id = CASE WHEN status = 'queued' THEN NULL ELSE (SELECT b.session_id FROM bots b WHERE b.id = bot_tasks.bot_id) END;
+                 DROP TABLE bots;
+                 ALTER TABLE bots_v9 RENAME TO bots;
+                 COMMIT;",
+            );
+            if done.is_err() {
+                let _ = conn.execute_batch("ROLLBACK;");
+            }
+            conn.execute_batch("PRAGMA foreign_keys = ON;")?;
+            done?;
+        }
+        conn.execute_batch(
+            "CREATE TABLE IF NOT EXISTS bot_sessions (
+               bot_id TEXT NOT NULL REFERENCES bots(id) ON DELETE CASCADE, project_id TEXT, session_id TEXT NOT NULL,
+               briefed INTEGER NOT NULL DEFAULT 0, created_at INTEGER NOT NULL);
+             CREATE UNIQUE INDEX IF NOT EXISTS bot_sessions_place ON bot_sessions(bot_id, COALESCE(project_id, ''));
+             CREATE INDEX IF NOT EXISTS bot_sessions_session ON bot_sessions(session_id);
+             CREATE TABLE IF NOT EXISTS bot_schedules (
+               id TEXT PRIMARY KEY, bot_id TEXT NOT NULL REFERENCES bots(id) ON DELETE CASCADE,
+               text TEXT NOT NULL, project_id TEXT, kind TEXT NOT NULL,
+               times TEXT NOT NULL DEFAULT '[]', weekdays TEXT NOT NULL DEFAULT '[]', every_minutes INTEGER,
+               enabled INTEGER NOT NULL DEFAULT 1, last_run_at INTEGER, next_run_at INTEGER,
+               last_task_id TEXT, skipped_at INTEGER, created_at INTEGER NOT NULL);
+             CREATE INDEX IF NOT EXISTS bot_schedules_due ON bot_schedules(enabled, next_run_at);",
+        )
     }
 
     fn conn(&self) -> std::sync::MutexGuard<'_, Connection> {
@@ -547,12 +709,55 @@ impl Db {
             path: path.into(),
             kind: kind.into(),
             created_at: now_ms(),
+            hidden: false,
         };
         c.execute(
-            "INSERT INTO projects(id, name, path, kind, created_at) VALUES (?1, ?2, ?3, ?4, ?5)",
+            "INSERT INTO projects(id, name, path, kind, created_at, hidden) VALUES (?1, ?2, ?3, ?4, ?5, 0)",
             params![p.id, p.name, p.path, p.kind, p.created_at],
         )?;
         Ok(p)
+    }
+
+    /// A bot's workspace: a project row (so sessions, diffs and approvals work as anywhere) that
+    /// is never listed. Returns the row already at `path` if there is one, hidden or not.
+    pub fn add_hidden_project(&self, name: &str, path: &str) -> rusqlite::Result<Project> {
+        if let Some(p) = self.project_by_path(path)? {
+            return Ok(p);
+        }
+        let id = format!("p-{}", uuid::Uuid::new_v4());
+        self.conn().execute(
+            "INSERT INTO projects(id, name, path, kind, created_at, hidden) VALUES (?1, ?2, ?3, 'folder', ?4, 1)",
+            params![id, name, path, now_ms()],
+        )?;
+        self.project(&id)?
+            .ok_or(rusqlite::Error::QueryReturnedNoRows)
+    }
+
+    pub fn project_by_path(&self, path: &str) -> rusqlite::Result<Option<Project>> {
+        self.conn()
+            .query_row(
+                &format!("SELECT {PROJECT_COLS} FROM projects WHERE path = ?1"),
+                params![path],
+                row_to_project,
+            )
+            .optional()
+    }
+
+    pub fn set_project_hidden(&self, id: &str, hidden: bool) -> rusqlite::Result<()> {
+        self.conn().execute(
+            "UPDATE projects SET hidden = ?2 WHERE id = ?1",
+            params![id, hidden as i64],
+        )?;
+        Ok(())
+    }
+
+    /// Renames a project and points it at another folder (a bot's workspace after a rename).
+    pub fn move_project(&self, id: &str, name: &str, path: &str) -> rusqlite::Result<()> {
+        self.conn().execute(
+            "UPDATE projects SET name = ?2, path = ?3 WHERE id = ?1",
+            params![id, name, path],
+        )?;
+        Ok(())
     }
 
     pub fn list_projects(&self) -> rusqlite::Result<Vec<Project>> {
@@ -915,38 +1120,76 @@ impl Db {
 
     /* ------------------------------------------------------------ bots */
 
-    pub fn list_bots(&self) -> rusqlite::Result<Vec<Bot>> {
+    fn places_of(&self, bots: &mut [Bot]) -> rusqlite::Result<()> {
         let c = self.conn();
-        let mut st = c.prepare(&format!(
-            "SELECT {BOT_COLS} FROM bots b ORDER BY b.created_at"
-        ))?;
-        let rows = st.query_map([], row_to_bot)?;
-        rows.collect()
+        let mut st = c.prepare(
+            "SELECT bot_id, project_id, session_id FROM bot_sessions ORDER BY created_at, rowid",
+        )?;
+        let rows = st.query_map([], |r| {
+            Ok((
+                r.get::<_, String>(0)?,
+                BotPlace {
+                    project_id: r.get(1)?,
+                    session_id: r.get(2)?,
+                },
+            ))
+        })?;
+        for row in rows {
+            let (bot_id, place) = row?;
+            if let Some(b) = bots.iter_mut().find(|b| b.id == bot_id) {
+                b.places.push(place);
+            }
+        }
+        Ok(())
+    }
+
+    pub fn list_bots(&self) -> rusqlite::Result<Vec<Bot>> {
+        let mut bots: Vec<Bot> = {
+            let c = self.conn();
+            let mut st = c.prepare(&format!(
+                "SELECT {} FROM bots b ORDER BY b.created_at",
+                *BOT_COLS
+            ))?;
+            let rows = st.query_map([], row_to_bot)?;
+            rows.collect::<rusqlite::Result<_>>()?
+        };
+        self.places_of(&mut bots)?;
+        Ok(bots)
     }
 
     pub fn bot(&self, id: &str) -> rusqlite::Result<Option<Bot>> {
-        self.conn()
+        let bot = self
+            .conn()
             .query_row(
-                &format!("SELECT {BOT_COLS} FROM bots b WHERE b.id = ?1"),
+                &format!("SELECT {} FROM bots b WHERE b.id = ?1", *BOT_COLS),
                 params![id],
                 row_to_bot,
             )
-            .optional()
+            .optional()?;
+        let Some(bot) = bot else { return Ok(None) };
+        let mut one = [bot];
+        self.places_of(&mut one)?;
+        let [bot] = one;
+        Ok(Some(bot))
     }
 
-    /// The bot whose session this is.
+    /// The bot whose session this is (in any of its places).
     pub fn bot_for_session(&self, session_id: &str) -> rusqlite::Result<Option<Bot>> {
-        self.conn()
+        let id: Option<String> = self
+            .conn()
             .query_row(
-                &format!("SELECT {BOT_COLS} FROM bots b WHERE b.session_id = ?1 LIMIT 1"),
+                "SELECT bot_id FROM bot_sessions WHERE session_id = ?1 LIMIT 1",
                 params![session_id],
-                row_to_bot,
+                |r| r.get(0),
             )
-            .optional()
+            .optional()?;
+        match id {
+            Some(id) => self.bot(&id),
+            None => Ok(None),
+        }
     }
 
-    /// Makes a bot (empty `id`) or changes one. Changing its agent or folder lets go of its
-    /// session: the next task starts a new one.
+    /// Makes a bot (empty `id`) or changes one. Its sessions are the runner's to keep or let go.
     pub fn save_bot(&self, id: &str, f: &BotFields<'_>) -> rusqlite::Result<Bot> {
         let now = now_ms();
         let (role, instructions) = (redact(f.role), redact(f.instructions));
@@ -958,16 +1201,15 @@ impl Db {
         let id = if id.is_empty() {
             let id = format!("b-{}", uuid::Uuid::new_v4());
             self.conn().execute(
-                "INSERT INTO bots(id, name, role, instructions, provider, model, effort, profile_id, project_id, session_id, color, paused, created_at, updated_at)
+                "INSERT INTO bots(id, name, role, instructions, provider, model, effort, profile_id, project_id, workspace_id, color, paused, created_at, updated_at)
                  VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, NULL, ?10, 0, ?11, ?11)",
                 params![id, f.name, f.role, f.instructions, f.provider, f.model, f.effort, f.profile_id, f.project_id, f.color, now],
             )?;
             id
         } else {
             self.conn().execute(
-                "UPDATE bots SET name = ?2, role = ?3, instructions = ?4,
-                   session_id = CASE WHEN provider IS NOT ?5 OR profile_id IS NOT ?8 OR project_id IS NOT ?9 THEN NULL ELSE session_id END,
-                   provider = ?5, model = ?6, effort = ?7, profile_id = ?8, project_id = ?9, color = ?10, updated_at = ?11
+                "UPDATE bots SET name = ?2, role = ?3, instructions = ?4, provider = ?5, model = ?6, effort = ?7,
+                   profile_id = ?8, project_id = ?9, color = ?10, updated_at = ?11
                  WHERE id = ?1",
                 params![id, f.name, f.role, f.instructions, f.provider, f.model, f.effort, f.profile_id, f.project_id, f.color, now],
             )?;
@@ -976,12 +1218,80 @@ impl Db {
         self.bot(&id)?.ok_or(rusqlite::Error::QueryReturnedNoRows)
     }
 
-    pub fn set_bot_session(&self, id: &str, session_id: Option<&str>) -> rusqlite::Result<()> {
+    pub fn set_bot_workspace(&self, id: &str, workspace_id: &str) -> rusqlite::Result<()> {
         self.conn().execute(
-            "UPDATE bots SET session_id = ?2, updated_at = ?3 WHERE id = ?1",
-            params![id, session_id, now_ms()],
+            "UPDATE bots SET workspace_id = ?2 WHERE id = ?1",
+            params![id, workspace_id],
         )?;
         Ok(())
+    }
+
+    /// The bot's session in a place (None: its workspace), and whether it has had the brief.
+    pub fn bot_session(
+        &self,
+        bot_id: &str,
+        project_id: Option<&str>,
+    ) -> rusqlite::Result<Option<(String, bool)>> {
+        self.conn()
+            .query_row(
+                "SELECT session_id, briefed FROM bot_sessions WHERE bot_id = ?1 AND COALESCE(project_id, '') = COALESCE(?2, '')",
+                params![bot_id, project_id],
+                |r| Ok((r.get(0)?, r.get::<_, i64>(1)? != 0)),
+            )
+            .optional()
+    }
+
+    /// Makes `session_id` the bot's session in a place; it gets the brief with its first task.
+    pub fn set_bot_session(
+        &self,
+        bot_id: &str,
+        project_id: Option<&str>,
+        session_id: &str,
+    ) -> rusqlite::Result<()> {
+        let c = self.conn();
+        c.execute(
+            "DELETE FROM bot_sessions WHERE bot_id = ?1 AND COALESCE(project_id, '') = COALESCE(?2, '')",
+            params![bot_id, project_id],
+        )?;
+        c.execute(
+            "INSERT INTO bot_sessions(bot_id, project_id, session_id, briefed, created_at) VALUES (?1, ?2, ?3, 0, ?4)",
+            params![bot_id, project_id, session_id, now_ms()],
+        )?;
+        Ok(())
+    }
+
+    /// Whether the session has had the bot's brief (cleared when the agent has to start over).
+    pub fn set_bot_briefed(&self, session_id: &str, briefed: bool) -> rusqlite::Result<()> {
+        self.conn().execute(
+            "UPDATE bot_sessions SET briefed = ?2 WHERE session_id = ?1",
+            params![session_id, briefed as i64],
+        )?;
+        Ok(())
+    }
+
+    /// Forgets a session as a bot's (it stays as an ordinary session).
+    pub fn drop_bot_session(&self, session_id: &str) -> rusqlite::Result<()> {
+        self.conn().execute(
+            "DELETE FROM bot_sessions WHERE session_id = ?1",
+            params![session_id],
+        )?;
+        Ok(())
+    }
+
+    /// Forgets the bot's sessions whose session or project is gone. Returns the bots affected.
+    pub fn prune_bot_sessions(&self) -> rusqlite::Result<Vec<String>> {
+        let c = self.conn();
+        let gone = "NOT EXISTS (SELECT 1 FROM sessions s WHERE s.id = bot_sessions.session_id)
+              OR (project_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM projects p WHERE p.id = bot_sessions.project_id))";
+        let ids: Vec<String> = {
+            let mut st = c.prepare(&format!(
+                "SELECT DISTINCT bot_id FROM bot_sessions WHERE {gone}"
+            ))?;
+            let rows = st.query_map([], |r| r.get(0))?;
+            rows.collect::<rusqlite::Result<_>>()?
+        };
+        c.execute(&format!("DELETE FROM bot_sessions WHERE {gone}"), [])?;
+        Ok(ids)
     }
 
     pub fn set_bot_paused(&self, id: &str, paused: bool) -> rusqlite::Result<Option<Bot>> {
@@ -992,7 +1302,7 @@ impl Db {
         self.bot(id)
     }
 
-    /// Deletes a bot and its tasks. Its session stays as an ordinary one.
+    /// Deletes a bot, its tasks and schedules. Its sessions stay as ordinary ones.
     pub fn delete_bot(&self, id: &str) -> rusqlite::Result<()> {
         self.conn()
             .execute("DELETE FROM bots WHERE id = ?1", params![id])?;
@@ -1004,16 +1314,26 @@ impl Db {
         bot_id: &str,
         text: &str,
         source: &str,
+        project_id: Option<&str>,
         parent_id: Option<&str>,
     ) -> rusqlite::Result<BotTask> {
         let id = format!("t-{}", uuid::Uuid::new_v4());
         let now = now_ms();
         self.conn().execute(
-            "INSERT INTO bot_tasks(id, bot_id, text, source, status, created_at, parent_id, queued_at) VALUES (?1, ?2, ?3, ?4, 'queued', ?5, ?6, ?5)",
-            params![id, bot_id, redact(text), source, now, parent_id],
+            "INSERT INTO bot_tasks(id, bot_id, text, source, status, created_at, parent_id, queued_at, project_id) VALUES (?1, ?2, ?3, ?4, 'queued', ?5, ?6, ?5, ?7)",
+            params![id, bot_id, redact(text), source, now, parent_id, project_id],
         )?;
         self.bot_task(&id)?
             .ok_or(rusqlite::Error::QueryReturnedNoRows)
+    }
+
+    /// The session a task runs in (set when it starts).
+    pub fn set_bot_task_session(&self, id: &str, session_id: &str) -> rusqlite::Result<()> {
+        self.conn().execute(
+            "UPDATE bot_tasks SET session_id = ?2 WHERE id = ?1",
+            params![id, session_id],
+        )?;
+        Ok(())
     }
 
     pub fn bot_task(&self, id: &str) -> rusqlite::Result<Option<BotTask>> {
@@ -1024,6 +1344,16 @@ impl Db {
                 row_to_task,
             )
             .optional()
+    }
+
+    /// Running tasks working in a project.
+    pub fn running_bot_tasks_in(&self, project_id: &str) -> rusqlite::Result<Vec<BotTask>> {
+        let c = self.conn();
+        let mut st = c.prepare(&format!(
+            "SELECT {TASK_COLS} FROM bot_tasks WHERE status = 'running' AND project_id = ?1"
+        ))?;
+        let rows = st.query_map(params![project_id], row_to_task)?;
+        rows.collect()
     }
 
     /// A bot's queued and running tasks in queue order, then up to `limit` finished ones,
@@ -1046,13 +1376,6 @@ impl Db {
             out.push(t?);
         }
         Ok(out)
-    }
-
-    /// Whether anything was ever sent to the session (a bot's first message carries its brief).
-    pub fn has_user_message(&self, session_id: &str) -> rusqlite::Result<bool> {
-        self.conn()
-            .prepare("SELECT 1 FROM events WHERE session_id = ?1 AND kind IN ('user_message', 'imported_message') LIMIT 1")?
-            .exists(params![session_id])
     }
 
     /// The task that starts next: the oldest in the queue.
@@ -1106,7 +1429,7 @@ impl Db {
     /// Puts a failed or cancelled task back at the end of the queue.
     pub fn requeue_bot_task(&self, id: &str) -> rusqlite::Result<Option<BotTask>> {
         let n = self.conn().execute(
-            "UPDATE bot_tasks SET status = 'queued', result = NULL, error = NULL, started_at = NULL, finished_at = NULL, queued_at = ?2
+            "UPDATE bot_tasks SET status = 'queued', result = NULL, error = NULL, started_at = NULL, finished_at = NULL, session_id = NULL, queued_at = ?2
              WHERE id = ?1 AND status IN ('failed', 'cancelled')",
             params![id, now_ms()],
         )?;
@@ -1114,6 +1437,96 @@ impl Db {
             return Ok(None);
         }
         self.bot_task(id)
+    }
+
+    /* ------------------------------------------------------------ schedules */
+
+    pub fn bot_schedules(&self, bot_id: &str) -> rusqlite::Result<Vec<BotSchedule>> {
+        let c = self.conn();
+        let mut st = c.prepare(&format!(
+            "SELECT {SCHEDULE_COLS} FROM bot_schedules WHERE bot_id = ?1 ORDER BY created_at, rowid"
+        ))?;
+        let rows = st.query_map(params![bot_id], row_to_schedule)?;
+        rows.collect()
+    }
+
+    pub fn bot_schedule(&self, id: &str) -> rusqlite::Result<Option<BotSchedule>> {
+        self.conn()
+            .query_row(
+                &format!("SELECT {SCHEDULE_COLS} FROM bot_schedules WHERE id = ?1"),
+                params![id],
+                row_to_schedule,
+            )
+            .optional()
+    }
+
+    /// Schedules that are on and due at `now`.
+    pub fn due_bot_schedules(&self, now: i64) -> rusqlite::Result<Vec<BotSchedule>> {
+        let c = self.conn();
+        let mut st = c.prepare(&format!(
+            "SELECT {SCHEDULE_COLS} FROM bot_schedules WHERE enabled = 1 AND next_run_at IS NOT NULL AND next_run_at <= ?1 ORDER BY next_run_at, rowid"
+        ))?;
+        let rows = st.query_map(params![now], row_to_schedule)?;
+        rows.collect()
+    }
+
+    /// Inserts a schedule (empty id) or replaces what can be edited of one.
+    pub fn save_bot_schedule(&self, s: &BotSchedule) -> rusqlite::Result<BotSchedule> {
+        let times = serde_json::to_string(&s.times).unwrap_or_else(|_| "[]".into());
+        let weekdays = serde_json::to_string(&s.weekdays).unwrap_or_else(|_| "[]".into());
+        let id = if s.id.is_empty() {
+            let id = format!("sc-{}", uuid::Uuid::new_v4());
+            self.conn().execute(
+                &format!("INSERT INTO bot_schedules({SCHEDULE_COLS}) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, NULL, ?10, NULL, NULL, ?11)"),
+                params![id, s.bot_id, redact(&s.text), s.project_id, s.kind, times, weekdays, s.every_minutes, s.enabled as i64, s.next_run_at, now_ms()],
+            )?;
+            id
+        } else {
+            self.conn().execute(
+                "UPDATE bot_schedules SET text = ?2, project_id = ?3, kind = ?4, times = ?5, weekdays = ?6, every_minutes = ?7, enabled = ?8, next_run_at = ?9, skipped_at = NULL WHERE id = ?1",
+                params![s.id, redact(&s.text), s.project_id, s.kind, times, weekdays, s.every_minutes, s.enabled as i64, s.next_run_at],
+            )?;
+            s.id.clone()
+        };
+        self.bot_schedule(&id)?
+            .ok_or(rusqlite::Error::QueryReturnedNoRows)
+    }
+
+    pub fn set_bot_schedule_enabled(
+        &self,
+        id: &str,
+        enabled: bool,
+        next_run_at: Option<i64>,
+    ) -> rusqlite::Result<Option<BotSchedule>> {
+        self.conn().execute(
+            "UPDATE bot_schedules SET enabled = ?2, next_run_at = ?3 WHERE id = ?1",
+            params![id, enabled as i64, next_run_at],
+        )?;
+        self.bot_schedule(id)
+    }
+
+    /// After a run: when it ran, the task it added (if any), and when it runs next.
+    /// `skipped`: the run was skipped because the previous task hadn't finished.
+    pub fn set_bot_schedule_run(
+        &self,
+        id: &str,
+        ran_at: Option<i64>,
+        task_id: Option<&str>,
+        next_run_at: Option<i64>,
+        skipped: Option<i64>,
+    ) -> rusqlite::Result<Option<BotSchedule>> {
+        self.conn().execute(
+            "UPDATE bot_schedules SET last_run_at = COALESCE(?2, last_run_at), last_task_id = COALESCE(?3, last_task_id),
+               next_run_at = ?4, skipped_at = CASE WHEN ?5 IS NULL THEN skipped_at ELSE ?5 END WHERE id = ?1",
+            params![id, ran_at, task_id, next_run_at, skipped],
+        )?;
+        self.bot_schedule(id)
+    }
+
+    pub fn delete_bot_schedule(&self, id: &str) -> rusqlite::Result<()> {
+        self.conn()
+            .execute("DELETE FROM bot_schedules WHERE id = ?1", params![id])?;
+        Ok(())
     }
 
     /* ------------------------------------------------------------ relays */
@@ -1599,7 +2012,7 @@ mod tests {
             conn.execute_batch("CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT NOT NULL); INSERT INTO meta VALUES ('schema_version', '7');").unwrap();
         }
         let db = Db::open(&path).unwrap();
-        assert_eq!(db.meta("schema_version").unwrap().as_deref(), Some("8"));
+        assert_eq!(db.meta("schema_version").unwrap().as_deref(), Some("9"));
         let p = db.add_project("shop", "/tmp/shop").unwrap();
         let f = BotFields {
             name: "Reviewer",
@@ -1607,7 +2020,7 @@ mod tests {
             instructions: "key sk-ant-api03-abcdefghijklmnop",
             provider: "claude-code",
             model: "default",
-            project_id: &p.id,
+            project_id: Some(&p.id),
             color: "blue",
             ..Default::default()
         };
@@ -1616,8 +2029,14 @@ mod tests {
             !b.instructions.contains("sk-ant"),
             "secrets never reach the store"
         );
-        let t1 = db.add_bot_task(&b.id, "one", "you", None).unwrap();
-        let t2 = db.add_bot_task(&b.id, "two", "you", None).unwrap();
+        let t1 = db.add_bot_task(&b.id, "one", "you", None, None).unwrap();
+        let t2 = db
+            .add_bot_task(&b.id, "two", "you", Some(&p.id), None)
+            .unwrap();
+        assert_eq!(
+            (t1.project_id.as_deref(), t2.project_id.as_deref()),
+            (None, Some(p.id.as_str()))
+        );
         assert_eq!(db.next_bot_task(&b.id).unwrap().unwrap().id, t1.id);
         assert!(db.start_bot_task(&t1.id).unwrap());
         assert!(
@@ -1646,34 +2065,194 @@ mod tests {
             t2.id,
             "a retried task goes last"
         );
-        // Changing the agent lets go of the session.
-        let s = db
+        // One session per place: the workspace (None) and each project.
+        let ws = db
+            .add_hidden_project("Reviewer", "/tmp/AgentDeck/Bots/Reviewer")
+            .unwrap();
+        assert!(ws.hidden);
+        db.set_bot_workspace(&b.id, &ws.id).unwrap();
+        let s1 = db
+            .create_session(&ws.id, "claude-code", "default", "Reviewer")
+            .unwrap();
+        let s2 = db
             .create_session(&p.id, "claude-code", "default", "Reviewer")
             .unwrap();
-        db.set_bot_session(&b.id, Some(&s.id)).unwrap();
-        assert_eq!(db.bot_for_session(&s.id).unwrap().unwrap().id, b.id);
-        let same = db
+        db.set_bot_session(&b.id, None, &s1.id).unwrap();
+        db.set_bot_session(&b.id, Some(&p.id), &s2.id).unwrap();
+        assert_eq!(
+            db.bot_session(&b.id, None).unwrap(),
+            Some((s1.id.clone(), false))
+        );
+        db.set_bot_briefed(&s2.id, true).unwrap();
+        assert_eq!(
+            db.bot_session(&b.id, Some(&p.id)).unwrap(),
+            Some((s2.id.clone(), true))
+        );
+        assert_eq!(db.bot_for_session(&s2.id).unwrap().unwrap().id, b.id);
+        let bot = db.bot(&b.id).unwrap().unwrap();
+        assert_eq!(bot.workspace, "/tmp/AgentDeck/Bots/Reviewer");
+        assert_eq!(bot.places.len(), 2);
+        // Replacing a place's session keeps one row per place.
+        let s3 = db
+            .create_session(&ws.id, "claude-code", "default", "Reviewer")
+            .unwrap();
+        db.set_bot_session(&b.id, None, &s3.id).unwrap();
+        assert_eq!(db.bot(&b.id).unwrap().unwrap().places.len(), 2);
+        // The default project is optional, and goes back to none when the project is removed.
+        let none = db
             .save_bot(
                 &b.id,
                 &BotFields {
-                    model: "opus",
+                    project_id: None,
                     ..f.clone()
                 },
             )
             .unwrap();
-        assert_eq!(same.session_id.as_deref(), Some(s.id.as_str()));
-        let other = db
-            .save_bot(
-                &b.id,
-                &BotFields {
-                    provider: "codex",
-                    ..f.clone()
-                },
-            )
-            .unwrap();
-        assert_eq!(other.session_id, None);
+        assert_eq!(none.project_id, None);
+        db.save_bot(&b.id, &f).unwrap();
+        db.remove_project(&p.id).unwrap();
+        let after = db.bot(&b.id).unwrap().unwrap();
+        assert_eq!(after.project_id, None, "the bot stays");
+        assert_eq!(db.prune_bot_sessions().unwrap(), vec![b.id.clone()]);
+        assert_eq!(db.bot(&b.id).unwrap().unwrap().places.len(), 1);
         db.delete_bot(&b.id).unwrap();
         assert!(db.bot_task(&t2.id).unwrap().is_none());
-        assert!(db.session(&s.id).unwrap().is_some(), "the session stays");
+        assert!(db.session(&s3.id).unwrap().is_some(), "the session stays");
+        assert!(db.bot_session(&b.id, None).unwrap().is_none());
+    }
+
+    #[test]
+    fn a_v8_database_keeps_its_bots_tasks_and_sessions() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("t.db");
+        {
+            let conn = Connection::open(&path).unwrap();
+            conn.execute_batch(
+                "PRAGMA foreign_keys = ON;
+                 CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT NOT NULL); INSERT INTO meta VALUES ('schema_version', '8');
+                 CREATE TABLE projects (id TEXT PRIMARY KEY, name TEXT NOT NULL, path TEXT NOT NULL UNIQUE, created_at INTEGER NOT NULL, kind TEXT NOT NULL DEFAULT 'folder');
+                 CREATE TABLE sessions (id TEXT PRIMARY KEY, project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE, provider TEXT NOT NULL, model TEXT NOT NULL, title TEXT NOT NULL, status TEXT NOT NULL, snippet TEXT NOT NULL DEFAULT '', provider_session_id TEXT, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL);
+                 CREATE TABLE bots (
+                   id TEXT PRIMARY KEY, name TEXT NOT NULL, role TEXT NOT NULL DEFAULT '', instructions TEXT NOT NULL DEFAULT '',
+                   provider TEXT NOT NULL, model TEXT NOT NULL, effort TEXT, profile_id TEXT,
+                   project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+                   session_id TEXT, color TEXT NOT NULL, paused INTEGER NOT NULL DEFAULT 0,
+                   created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL);
+                 CREATE TABLE bot_tasks (
+                   id TEXT PRIMARY KEY, bot_id TEXT NOT NULL REFERENCES bots(id) ON DELETE CASCADE,
+                   text TEXT NOT NULL, source TEXT NOT NULL, status TEXT NOT NULL, result TEXT, error TEXT,
+                   created_at INTEGER NOT NULL, started_at INTEGER, finished_at INTEGER, parent_id TEXT,
+                   queued_at INTEGER NOT NULL);
+                 INSERT INTO projects VALUES ('p1', 'shop', '/tmp/shop', 1, 'folder');
+                 INSERT INTO sessions VALUES ('s1', 'p1', 'claude-code', 'default', 'Reviewer', 'idle', '', 'abc', 1, 1);
+                 INSERT INTO bots VALUES ('b1', 'Reviewer', 'Reviews PRs', '', 'claude-code', 'default', NULL, NULL, 'p1', 's1', 'blue', 0, 1, 1);
+                 INSERT INTO bot_tasks VALUES ('t1', 'b1', 'one', 'you', 'done', 'ok', NULL, 1, 1, 2, NULL, 1);
+                 INSERT INTO bot_tasks VALUES ('t2', 'b1', 'two', 'you', 'queued', NULL, NULL, 3, NULL, NULL, NULL, 3);",
+            )
+            .unwrap();
+        }
+        let db = Db::open(&path).unwrap();
+        assert_eq!(db.meta("schema_version").unwrap().as_deref(), Some("9"));
+        let b = db.bot("b1").unwrap().unwrap();
+        assert_eq!(
+            b.project_id.as_deref(),
+            Some("p1"),
+            "its folder is its default project"
+        );
+        assert_eq!(b.workspace_id, None, "the runner makes the workspace");
+        assert_eq!(
+            b.places,
+            vec![BotPlace {
+                project_id: Some("p1".into()),
+                session_id: "s1".into()
+            }],
+            "its session is its session for that project"
+        );
+        assert_eq!(
+            db.bot_session("b1", Some("p1")).unwrap(),
+            Some(("s1".into(), true)),
+            "and has had the brief"
+        );
+        let tasks = db.bot_tasks("b1", 10).unwrap();
+        assert_eq!(tasks.len(), 2, "tasks survive the rebuild");
+        let t1 = tasks.iter().find(|t| t.id == "t1").unwrap();
+        let t2 = tasks.iter().find(|t| t.id == "t2").unwrap();
+        assert_eq!(
+            (t1.project_id.as_deref(), t1.session_id.as_deref()),
+            (Some("p1"), Some("s1"))
+        );
+        assert_eq!(
+            (t2.project_id.as_deref(), t2.session_id.as_deref()),
+            (Some("p1"), None)
+        );
+        assert!(!db.project("p1").unwrap().unwrap().hidden);
+        // Opening again changes nothing, and foreign keys still hold.
+        drop(db);
+        let db = Db::open(&path).unwrap();
+        assert_eq!(db.bot_tasks("b1", 10).unwrap().len(), 2);
+        db.delete_bot("b1").unwrap();
+        assert!(
+            db.bot_tasks("b1", 10).unwrap().is_empty(),
+            "tasks still go with their bot"
+        );
+        assert!(db.bot_session("b1", Some("p1")).unwrap().is_none());
+    }
+
+    #[test]
+    fn schedules_are_stored_and_found_when_due() {
+        let db = Db::open_in_memory().unwrap();
+        let b = db
+            .save_bot(
+                "",
+                &BotFields {
+                    name: "R",
+                    provider: "claude-code",
+                    model: "default",
+                    color: "blue",
+                    ..Default::default()
+                },
+            )
+            .unwrap();
+        let s = db
+            .save_bot_schedule(&BotSchedule {
+                id: String::new(),
+                bot_id: b.id.clone(),
+                text: "Check the build".into(),
+                project_id: None,
+                kind: "daily".into(),
+                times: vec!["09:00".into(), "17:30".into()],
+                weekdays: vec![1, 2, 3, 4, 5],
+                every_minutes: None,
+                enabled: true,
+                last_run_at: None,
+                next_run_at: Some(1_000),
+                last_task_id: None,
+                skipped_at: None,
+                created_at: 0,
+            })
+            .unwrap();
+        assert_eq!(s.times, vec!["09:00", "17:30"]);
+        assert_eq!(s.weekdays, vec![1, 2, 3, 4, 5]);
+        assert_eq!(db.bot(&b.id).unwrap().unwrap().next_run_at, Some(1_000));
+        assert!(db.due_bot_schedules(999).unwrap().is_empty());
+        assert_eq!(db.due_bot_schedules(1_000).unwrap().len(), 1);
+        db.set_bot_schedule_run(&s.id, Some(1_000), Some("t-1"), Some(2_000), None)
+            .unwrap();
+        let s2 = db.bot_schedule(&s.id).unwrap().unwrap();
+        assert_eq!(
+            (s2.last_run_at, s2.last_task_id.as_deref(), s2.next_run_at),
+            (Some(1_000), Some("t-1"), Some(2_000))
+        );
+        db.set_bot_schedule_enabled(&s.id, false, None).unwrap();
+        assert_eq!(
+            db.bot(&b.id).unwrap().unwrap().next_run_at,
+            None,
+            "only schedules that are on count"
+        );
+        db.delete_bot(&b.id).unwrap();
+        assert!(
+            db.bot_schedule(&s.id).unwrap().is_none(),
+            "schedules go with their bot"
+        );
     }
 }

@@ -80,7 +80,7 @@ export function AgentSetup() {
   const setupProjectId = useStore((s) => s.setupProjectId);
   const dark = useResolvedTheme() === "dark";
 
-  const folders = projects.filter((p) => p.workspaceId === "local" && p.kind !== "chats");
+  const folders = projects.filter((p) => p.workspaceId === "local" && p.kind !== "chats" && !p.hidden);
 
   /** Items per scope: "global" or a project id. Undefined = not loaded, null = loading. */
   const [scopes, setScopes] = useState<Record<string, ContextItem[] | null>>({});

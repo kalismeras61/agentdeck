@@ -1,9 +1,9 @@
 import * as Dialog from "@radix-ui/react-dialog";
 import * as Dropdown from "@radix-ui/react-dropdown-menu";
-import { Bot as BotIcon, Check, ChevronDown, FolderGit2, FolderPlus } from "lucide-react";
+import { Bot as BotIcon, Check, ChevronDown, FolderGit2, FolderPlus, House } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { liveProviders, providerLabel } from "../../data/demo";
-import { BOT_COLORS, BOT_MARK, COLOR_NAMES, nameTaken } from "../../lib/bots";
+import { BOT_COLORS, BOT_MARK, COLOR_NAMES, nameTaken, workspaceFolder } from "../../lib/bots";
 import { t } from "../../lib/i18n";
 import { errorText, liveApi, pickFolder, type BotColor, type LiveProvider } from "../../lib/live";
 import { detectProviders } from "../../lib/native";
@@ -37,7 +37,7 @@ function useInstalled(): LiveProvider[] | null {
   return found;
 }
 
-/** Make or change a bot: name, job, instructions, agent, model and effort, folder, color. */
+/** Make or change a bot: name, job, instructions, agent, model and effort, default project, color. */
 export function BotEditor() {
   const editor = useStore((s) => s.botEditor);
   const close = useStore((s) => s.closeBotEditor);
@@ -67,7 +67,7 @@ function EditorForm({ botId, projectId, onDone }: { botId: string | null; projec
   };
   const saveBot = useStore((s) => s.saveBot);
   const installed = useInstalled();
-  const folders = projects.filter((p) => p.workspaceId === workspaceId && p.kind !== "chats");
+  const folders = projects.filter((p) => p.workspaceId === workspaceId && p.kind !== "chats" && !p.hidden);
   const used = new Set(Object.values(bots).map((b) => b.color));
 
   const [name, setName] = useState(bot?.name ?? "");
@@ -77,7 +77,8 @@ function EditorForm({ botId, projectId, onDone }: { botId: string | null; projec
   const [profileId, setProfileId] = useState<string | null>(bot?.profileId ?? null);
   const [model, setModel] = useState(bot?.model ?? defaults.models[defaults.provider] ?? "default");
   const [effort, setEffort] = useState<string | null>(bot ? bot.effort : (defaults.efforts[defaults.provider] ?? null));
-  const [project, setProject] = useState<string>(bot?.projectId ?? projectId ?? folders[0]?.id ?? "");
+  // The default project: where tasks work unless they say otherwise ("": its own workspace).
+  const [project, setProject] = useState<string>(bot ? (bot.projectId ?? "") : (projectId ?? ""));
   const [color, setColor] = useState<BotColor>(bot?.color ?? BOT_COLORS.find((c) => !used.has(c)) ?? "violet");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -88,7 +89,9 @@ function EditorForm({ botId, projectId, onDone }: { botId: string | null; projec
   const folder = projects.find((p) => p.id === project);
   const clean = name.trim();
   const taken = clean.length > 0 && nameTaken(Object.values(bots), clean, botId ?? undefined);
-  const movesSession = Boolean(bot?.sessionId) && (bot!.provider !== provider || (bot!.profileId ?? null) !== profileId || bot!.projectId !== project);
+  const movesSession = Boolean(bot?.places.length) && (bot!.provider !== provider || (bot!.profileId ?? null) !== profileId);
+  const renames = Boolean(bot) && clean.length > 0 && workspaceFolder(bot!.name) !== workspaceFolder(clean);
+  const wsPath = `~/AgentDeck/Bots/${workspaceFolder(clean || t("New bot"))}`;
 
   const pickAgent = (p: LiveProvider, pid: string | null) => {
     setProvider(p);
@@ -118,13 +121,13 @@ function EditorForm({ botId, projectId, onDone }: { botId: string | null; projec
         <BotIcon size={16} className="text-violet-text" /> {bot ? t("Edit {name}", { name: bot.name }) : t("New bot")}
       </Dialog.Title>
       <Dialog.Description className="mt-1.5 text-[13px] leading-[1.6] text-fg-2">
-        {t("A bot is an agent that stays: give it a job and a folder, then hand it tasks. It works through them one at a time.")}
+        {t("A bot is an agent that stays: give it a job, then hand it tasks. It works through them one at a time, in its own workspace or in a project you pick.")}
       </Dialog.Description>
       <form
         className="mt-4 space-y-3.5"
         onSubmit={async (e) => {
           e.preventDefault();
-          if (!clean || taken || !project) return;
+          if (!clean || taken) return;
           setBusy(true);
           const err = await saveBot({
             ...(bot ? { id: bot.id } : {}),
@@ -135,7 +138,7 @@ function EditorForm({ botId, projectId, onDone }: { botId: string | null; projec
             model,
             effort: profileId ? null : effort,
             profileId,
-            projectId: project,
+            projectId: project || null,
             color,
           });
           setBusy(false);
@@ -261,20 +264,23 @@ function EditorForm({ botId, projectId, onDone }: { botId: string | null; projec
           </div>
         </div>
         <div className="text-[12px] text-fg-2">
-          {t("Folder")}
+          {t("Default project")} <span className="text-fg-3">{t("(optional)")}</span>
           <Dropdown.Root>
             <Dropdown.Trigger className={trigger}>
-              <FolderGit2 size={14} className="shrink-0 text-fg-3" />
-              {folder ? <span className="truncate">{folder.name}</span> : <span className="text-fg-3">{t("Choose a folder")}</span>}
-              {folder && (
-                <span dir="ltr" className="ms-2 min-w-0 truncate font-mono text-[11px] text-fg-3">
-                  {folder.path}
-                </span>
-              )}
+              {folder ? <FolderGit2 size={14} className="shrink-0 text-fg-3" /> : <House size={14} className="shrink-0 text-fg-3" />}
+              {folder ? <span className="truncate">{folder.name}</span> : <span className="truncate">{t("None: its workspace")}</span>}
+              <span dir="ltr" className="ms-2 min-w-0 truncate font-mono text-[11px] text-fg-3">
+                {folder ? folder.path : wsPath}
+              </span>
               <ChevronDown size={13} className="ms-auto shrink-0 text-fg-3" />
             </Dropdown.Trigger>
             <Dropdown.Portal>
               <Dropdown.Content align="start" sideOffset={6} className="z-50 max-h-[320px] w-[var(--radix-dropdown-menu-trigger-width)] overflow-y-auto rounded-xl border border-line bg-elevated p-1 shadow-pop">
+                <Dropdown.Item onSelect={() => setProject("")} className={item}>
+                  <House size={14} className="shrink-0 text-fg-3" /> <span className="truncate">{t("None: its workspace")}</span>
+                  {project === "" && <Check size={14} className="ms-auto text-violet-text" />}
+                </Dropdown.Item>
+                {folders.length > 0 && <Dropdown.Separator className="my-1 h-px bg-line" />}
                 {folders.map((p) => (
                   <Dropdown.Item key={p.id} onSelect={() => setProject(p.id)} className={item}>
                     <FolderGit2 size={14} className="shrink-0 text-fg-3" /> <span className="truncate">{p.name}</span>
@@ -292,9 +298,12 @@ function EditorForm({ botId, projectId, onDone }: { botId: string | null; projec
               </Dropdown.Content>
             </Dropdown.Portal>
           </Dropdown.Root>
-          <p className="mt-1 text-[11.5px] leading-[1.5] text-fg-3">{t("It works here and keeps its memory file in .agentdeck/bots, which git ignores.")}</p>
+          <p className="mt-1 text-[11.5px] leading-[1.5] text-fg-3">
+            {t("Tasks work here unless you pick another place for them. Its own workspace, {path}, is where it keeps its memory file and the files it makes.", { path: wsPath })}
+          </p>
         </div>
-        {movesSession && <p className="text-[12px] text-fg-2">{t("A new agent or folder means a new session: the next task starts one. The old session stays.")}</p>}
+        {renames && <p className="text-[12px] text-fg-2">{t("Its workspace folder is renamed to match.")}</p>}
+        {movesSession && <p className="text-[12px] text-fg-2">{t("A new agent means new sessions: the next task in each place starts one. The old sessions stay.")}</p>}
         {error && (
           <p role="alert" className="text-[12.5px] text-error">
             {error}
@@ -304,7 +313,7 @@ function EditorForm({ botId, projectId, onDone }: { botId: string | null; projec
           <Dialog.Close className="h-8 rounded-lg border border-line px-3 text-[13px] hover:bg-elevated">{t("Cancel")}</Dialog.Close>
           <button
             type="submit"
-            disabled={busy || !clean || taken || !project}
+            disabled={busy || !clean || taken}
             className="h-8 rounded-lg bg-violet-strong px-3.5 text-[13px] font-medium text-white hover:brightness-110 disabled:opacity-50"
           >
             {busy ? t("Saving…") : bot ? t("Save") : t("Create bot")}

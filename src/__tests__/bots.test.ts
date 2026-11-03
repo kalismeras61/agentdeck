@@ -1,9 +1,25 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { botInitials, botState, botStatusLine, elapsed, mergeTask, nameTaken, orderTasks } from "../lib/bots";
+import {
+  botInitials,
+  botSessionIds,
+  botState,
+  botStatusLine,
+  elapsed,
+  mergeSchedule,
+  mergeTask,
+  nameTaken,
+  orderTasks,
+  placeSession,
+  scheduleSummary,
+  soonest,
+  whenText,
+  workspaceFolder,
+} from "../lib/bots";
+import type { BotSchedule } from "../lib/live";
 import type { Bot, BotTask } from "../lib/live";
 import { normalizeFor } from "../lib/normalize";
 import { parseEvents } from "../lib/events";
-import { useStore } from "../state/store";
+import { listed, useStore } from "../state/store";
 
 const initial = useStore.getState();
 
@@ -17,7 +33,9 @@ const bot = (over: Partial<Bot> = {}): Bot => ({
   effort: null,
   profileId: null,
   projectId: "p-api",
-  sessionId: null,
+  workspaceId: "p-ws",
+  workspace: "/Users/me/AgentDeck/Bots/Reviewer",
+  places: [],
   color: "violet",
   paused: false,
   createdAt: 1,
@@ -25,6 +43,9 @@ const bot = (over: Partial<Bot> = {}): Bot => ({
   queued: 0,
   runningTaskId: null,
   runningText: null,
+  runningProjectId: null,
+  runningSessionId: null,
+  nextRunAt: null,
   needsYou: false,
   ...over,
 });
@@ -41,6 +62,26 @@ const task = (id: string, status: BotTask["status"], over: Partial<BotTask> = {}
   startedAt: null,
   finishedAt: null,
   parentId: null,
+  projectId: null,
+  sessionId: null,
+  ...over,
+});
+
+const sched = (over: Partial<BotSchedule> = {}): BotSchedule => ({
+  id: "sc-1",
+  botId: "b-1",
+  text: "Check the build",
+  projectId: null,
+  kind: "daily",
+  times: ["09:00"],
+  weekdays: [],
+  everyMinutes: null,
+  enabled: true,
+  lastRunAt: null,
+  nextRunAt: null,
+  lastTaskId: null,
+  skippedAt: null,
+  createdAt: 1,
   ...over,
 });
 
@@ -53,6 +94,46 @@ describe("bot helpers", () => {
     expect(botStatusLine(bot({ paused: true, queued: 2 }))).toBe("Paused, 2 queued");
     expect(botStatusLine(bot({ runningTaskId: "t", runningText: "Review PR 12\nand more", queued: 2 }))).toBe("Working on: Review PR 12");
     expect(botStatusLine(bot({ runningTaskId: "t", runningText: "x", needsYou: true }))).toBe("Needs you");
+  });
+
+  it("mentions the next scheduled run when idle", () => {
+    const today9 = new Date();
+    today9.setHours(23, 59, 0, 0);
+    expect(botStatusLine(bot({ nextRunAt: today9.getTime() }))).toBe("Next: 23:59");
+    expect(botStatusLine(bot({ nextRunAt: today9.getTime(), queued: 1 }))).toBe("1 queued");
+    const later = new Date(2026, 10, 3, 9, 0).getTime();
+    expect(whenText(later, new Date(2026, 10, 1, 12, 0).getTime())).toBe("Tue 09:00");
+    expect(whenText(later, new Date(2026, 9, 20, 12, 0).getTime())).toBe("Nov 3 09:00");
+  });
+
+  it("sums up schedules", () => {
+    expect(scheduleSummary(sched())).toBe("Every day at 09:00");
+    expect(scheduleSummary(sched({ times: ["09:00", "17:30"], weekdays: [1, 2, 3, 4, 5] }))).toBe("Weekdays at 09:00 and 17:30");
+    expect(scheduleSummary(sched({ weekdays: [6, 7] }))).toBe("Weekends at 09:00");
+    expect(scheduleSummary(sched({ weekdays: [1, 4] }))).toBe("Mon, Thu at 09:00");
+    expect(scheduleSummary(sched({ kind: "interval", times: [], everyMinutes: 360 }))).toBe("Every 6 hours");
+    expect(scheduleSummary(sched({ kind: "interval", times: [], everyMinutes: 60 }))).toBe("Every hour");
+    expect(scheduleSummary(sched({ kind: "interval", times: [], everyMinutes: 90 }))).toBe("Every 90 minutes");
+    expect(soonest([sched({ nextRunAt: 5 }), sched({ id: "b", nextRunAt: 3, enabled: false }), sched({ id: "c", nextRunAt: 4 })])).toBe(4);
+    expect(soonest([])).toBeNull();
+    expect(mergeSchedule([sched()], sched({ text: "x" }))[0]!.text).toBe("x");
+    expect(mergeSchedule([sched()], sched({ id: "sc-2" })).length).toBe(2);
+  });
+
+  it("finds a bot's sessions by place and names its workspace folder as the app does", () => {
+    const b = bot({ places: [{ projectId: null, sessionId: "s-ws" }, { projectId: "p-api", sessionId: "s-api" }] });
+    expect(placeSession(b, null)).toBe("s-ws");
+    expect(placeSession(b, "p-api")).toBe("s-api");
+    expect(placeSession(b, "p-other")).toBeNull();
+    expect([...botSessionIds([b])]).toEqual(["s-ws", "s-api"]);
+    // Same cases as bots.rs `folder_name`.
+    expect(workspaceFolder("PR Reviewer")).toBe("PR Reviewer");
+    expect(workspaceFolder("PR / Review: v2")).toBe("PR - Review- v2");
+    expect(workspaceFolder("  ..hidden  ")).toBe("hidden");
+    expect(workspaceFolder("../..")).toBe("Bot");
+    expect(workspaceFolder("/")).toBe("Bot");
+    expect(workspaceFolder("Çiçek   Bot.")).toBe("Çiçek Bot");
+    expect(workspaceFolder("x".repeat(80)).length).toBe(60);
   });
 
   it("orders the queue: running, queued in order, then the newest finished", () => {
@@ -114,10 +195,11 @@ describe("bot store (demo)", () => {
 
   it("queues, cancels, retries and pauses demo tasks locally", async () => {
     const st = useStore.getState();
-    expect(await st.addBotTask("b-demo-reviewer", "   ")).toBeNull();
-    expect(await st.addBotTask("b-demo-reviewer", "Check the logout route")).toBeNull();
+    expect(await st.addBotTask("b-demo-reviewer", "   ", null)).toBeNull();
+    expect(await st.addBotTask("b-demo-reviewer", "Check the logout route", "p-api")).toBeNull();
     const added = useStore.getState().botTasks["b-demo-reviewer"]!.find((x) => x.text === "Check the logout route")!;
     expect(added.status).toBe("queued");
+    expect(added.projectId).toBe("p-api");
     expect(useStore.getState().bots["b-demo-reviewer"]!.queued).toBe(3);
     st.cancelBotTask(added.id);
     expect(useStore.getState().botTasks["b-demo-reviewer"]!.find((x) => x.id === added.id)!.status).toBe("cancelled");
@@ -137,7 +219,7 @@ describe("bot store (demo)", () => {
       model: "default",
       effort: null,
       profileId: null,
-      projectId: "p-api",
+      projectId: null,
       color: "blue",
     });
     expect(err).toMatch(/on this Mac/);
@@ -145,6 +227,47 @@ describe("bot store (demo)", () => {
     expect(await st.deleteBot("b-demo-docs")).toBeNull();
     expect(useStore.getState().bots["b-demo-docs"]).toBeUndefined();
     expect(useStore.getState().view).toBe("workspace");
+  });
+
+  it("has a demo bot with a workspace, two places and schedules", () => {
+    const st = useStore.getState();
+    const b = st.bots["b-demo-reviewer"]!;
+    expect(b.places.map((p) => p.projectId)).toEqual([null, "p-api"]);
+    const ws = st.projects.find((p) => p.id === b.workspaceId)!;
+    expect(ws.hidden).toBe(true);
+    expect(listed(ws)).toBe(false);
+    expect(st.projects.filter(listed).some((p) => p.id === ws.id)).toBe(false);
+    expect(st.sessions.some((s) => s.projectId === ws.id)).toBe(true);
+    expect(st.botSchedules["b-demo-reviewer"]!.length).toBe(2);
+    expect(st.bots["b-demo-docs"]!.nextRunAt).toBeGreaterThan(Date.now());
+  });
+
+  it("makes, switches, runs and deletes demo schedules locally", async () => {
+    const st = useStore.getState();
+    expect(
+      await st.saveBotSchedule({
+        botId: "b-demo-docs",
+        text: "Check broken links",
+        projectId: null,
+        kind: "interval",
+        times: [],
+        weekdays: [],
+        everyMinutes: 120,
+        enabled: true,
+      }),
+    ).toBeNull();
+    const made = useStore.getState().botSchedules["b-demo-docs"]!.find((x) => x.text === "Check broken links")!;
+    expect(made.everyMinutes).toBe(120);
+    expect(await st.setBotScheduleEnabled(made.id, false)).toBeNull();
+    expect(useStore.getState().botSchedules["b-demo-docs"]!.find((x) => x.id === made.id)!.enabled).toBe(false);
+    expect(await st.runBotSchedule(made.id)).toBeNull();
+    const ran = useStore.getState().botTasks["b-demo-docs"]!.find((x) => x.text === "Check broken links")!;
+    expect(ran.projectId).toBeNull();
+    expect(ran.source).toBe("schedule");
+    expect(await st.deleteBotSchedule(made.id)).toBeNull();
+    expect(useStore.getState().botSchedules["b-demo-docs"]!.some((x) => x.id === made.id)).toBe(false);
+    st.setBotPlace("b-demo-reviewer", null);
+    expect(useStore.getState().botPlace["b-demo-reviewer"]).toBeNull();
   });
 
   it("keeps live task updates per bot", () => {

@@ -14,6 +14,7 @@ version = "0.4.0"
 dependencies = [
  "arboard",
  "base64 0.22.1",
+ "chrono",
  "keyring",
  "png 0.17.16",
  "portable-pty",

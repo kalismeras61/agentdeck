@@ -1,19 +1,22 @@
 //! Bots: agents that stay.
 //!
-//! A bot has a name, a job, instructions, an agent and model, a project folder, a memory file it
-//! keeps in that folder, and a queue of tasks. It owns one ongoing session (made on its first
-//! task) and works through its queue one task at a time: a task starts when the bot isn't paused
-//! and nothing else of it is running, and ends when the session's turn ends (the same signal
-//! workflows use). While a task runs, the bot's approval requests get the unattended rule
-//! (`unattended`): ordinary ones are allowed, risky ones and ones outside its folder wait for
-//! the user, and so do questions.
+//! A bot has a name, a job, instructions, an agent and model, a workspace of its own
+//! (`~/AgentDeck/Bots/<Name>`, where its memory file `MEMORY.md` lives), an optional default
+//! project, and a queue of tasks. Each task works in a project or in the workspace, and the bot
+//! keeps one ongoing session per place it works in (made on its first task there). It works
+//! through its queue one task at a time: a task starts when the bot isn't paused and nothing
+//! else of it is running, and ends when that session's turn ends (the same signal workflows
+//! use). While a task runs, the bot's approval requests get the unattended rule (`unattended`):
+//! ordinary ones are allowed, risky ones and ones outside the task's folder and the workspace
+//! wait for the user, and so do questions. Schedules (`schedule`) add tasks that repeat.
 
 use crate::agents::Agents;
 use crate::claude::{Outbound, Sink};
-use crate::db::{Bot, BotFields, BotTask, Db, StoredEvent};
+use crate::db::{Bot, BotFields, BotSchedule, BotTask, Db, Project, StoredEvent};
 use crate::relay::{turn_end, TurnEnd};
+use crate::schedule::{self, When};
 use crate::unattended::{self, Verdict};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
@@ -26,9 +29,11 @@ pub const MAX_ROLE: usize = 200;
 pub const MAX_INSTRUCTIONS: usize = 20_000;
 pub const MAX_TASK: usize = 100_000;
 pub const MAX_MEMORY: usize = 200_000;
+pub const MAX_SCHEDULES: usize = 50;
 const MAX_RESULT: usize = 100_000;
+pub const MEMORY_FILE: &str = "MEMORY.md";
 
-/// The memory file's name: the bot's name in lower case, words joined with dashes.
+/// Milestone 1's memory file name: the bot's name in lower case, words joined with dashes.
 pub fn slug(name: &str) -> String {
     let mut out = String::new();
     for c in name.trim().chars().flat_map(char::to_lowercase) {
@@ -47,60 +52,56 @@ pub fn slug(name: &str) -> String {
     }
 }
 
-/// `{project}/.agentdeck/bots/{slug}.md`: inside the project, so agents can write it without
-/// reaching outside their folder.
-pub fn memory_path(project_dir: &str, name: &str) -> PathBuf {
+/// Where milestone 1 kept a bot's memory: `{project}/.agentdeck/bots/{slug}.md`.
+pub fn old_memory_path(project_dir: &str, name: &str) -> PathBuf {
     Path::new(project_dir)
         .join(".agentdeck")
         .join("bots")
         .join(format!("{}.md", slug(name)))
 }
 
-/// Adds `.agentdeck/` to the repository's own exclude list (never `.gitignore`), so bots'
-/// memory never shows up in diffs or commits. Returns false when the folder isn't a git repo.
-pub fn exclude_in_git(project_dir: &Path) -> std::io::Result<bool> {
-    let git = project_dir.join(".git");
-    if !git.is_dir() {
-        return Ok(false);
+/// The bot's name made safe for a folder: no slashes, colons or other characters Finder or
+/// the shell trip on, no leading dot, at most 60 characters. "PR / Review: v2" → "PR - Review- v2".
+pub fn folder_name(name: &str) -> String {
+    let mut out = String::new();
+    for c in name.trim().chars() {
+        let c = if c.is_control()
+            || matches!(c, '/' | '\\' | ':' | '*' | '?' | '"' | '<' | '>' | '|')
+        {
+            '-'
+        } else if c.is_whitespace() {
+            ' '
+        } else {
+            c
+        };
+        if c == ' ' && out.ends_with(' ') {
+            continue;
+        }
+        out.push(c);
     }
-    let info = git.join("info");
-    std::fs::create_dir_all(&info)?;
-    let file = info.join("exclude");
-    let cur = std::fs::read_to_string(&file).unwrap_or_default();
-    if cur.lines().any(|l| {
-        matches!(
-            l.trim(),
-            ".agentdeck/" | "/.agentdeck/" | ".agentdeck" | "/.agentdeck"
-        )
-    }) {
-        return Ok(true);
+    let out: String = out
+        .trim_start_matches(['.', ' '])
+        .chars()
+        .take(60)
+        .collect();
+    let out = out.trim_end_matches(['.', ' ']).to_string();
+    if out.is_empty() || out == "-" {
+        "Bot".into()
+    } else {
+        out
     }
-    let mut text = cur;
-    if !text.is_empty() && !text.ends_with('\n') {
-        text.push('\n');
-    }
-    text.push_str("# AgentDeck bots' memory\n.agentdeck/\n");
-    std::fs::write(&file, text)?;
-    Ok(true)
 }
 
-/// The memory file, made with a heading if it isn't there yet. Refuses a `.agentdeck` folder
-/// that leads outside the project (a symlink).
-pub fn ensure_memory(project_dir: &str, name: &str) -> Result<PathBuf, String> {
-    let root = Path::new(project_dir);
-    if !root.is_dir() {
-        return Err(format!("The folder {project_dir} doesn't exist anymore"));
+/// The memory file in a workspace, made with a heading if it isn't there yet. A link isn't
+/// followed (it could point anywhere).
+pub fn ensure_memory(workspace: &Path, name: &str) -> Result<PathBuf, String> {
+    if !workspace.is_dir() {
+        return Err(format!(
+            "The folder {} doesn't exist anymore",
+            workspace.display()
+        ));
     }
-    let path = memory_path(project_dir, name);
-    let dir = path.parent().ok_or("Bad memory path")?;
-    std::fs::create_dir_all(dir).map_err(|e| format!("Can't make {}: {e}", dir.display()))?;
-    let (croot, cdir) = (
-        root.canonicalize().map_err(|e| e.to_string())?,
-        dir.canonicalize().map_err(|e| e.to_string())?,
-    );
-    if !cdir.starts_with(&croot) {
-        return Err("The bot's memory folder leads outside the project".into());
-    }
+    let path = workspace.join(MEMORY_FILE);
     if std::fs::symlink_metadata(&path).is_ok_and(|m| m.file_type().is_symlink()) {
         return Err("The bot's memory file is a link; AgentDeck won't follow it".into());
     }
@@ -115,8 +116,37 @@ pub fn ensure_memory(project_dir: &str, name: &str) -> Result<PathBuf, String> {
         )
         .map_err(|e| format!("Can't write {}: {e}", path.display()))?;
     }
-    let _ = exclude_in_git(root);
     Ok(path)
+}
+
+/// Moves milestone 1's memory file into the workspace: copied (unless the workspace has one
+/// already), then the old one removed once the copy is there. Returns whether it moved.
+pub fn move_old_memory(old: &Path, workspace: &Path) -> bool {
+    let regular = std::fs::symlink_metadata(old).is_ok_and(|m| m.file_type().is_file());
+    if !regular {
+        return false;
+    }
+    let new = workspace.join(MEMORY_FILE);
+    if std::fs::symlink_metadata(&new).is_err() && std::fs::copy(old, &new).is_err() {
+        return false;
+    }
+    let same = matches!(
+        (std::fs::read(old), std::fs::read(&new)),
+        (Ok(a), Ok(b)) if a == b
+    );
+    if !same {
+        return false;
+    }
+    let _ = std::fs::remove_file(old);
+    // Empty folders it leaves behind go too (`remove_dir` refuses a folder with anything in it).
+    if let Some(bots) = old.parent() {
+        if std::fs::remove_dir(bots).is_ok() {
+            if let Some(dot) = bots.parent() {
+                let _ = std::fs::remove_dir(dot);
+            }
+        }
+    }
+    true
 }
 
 /// "2026-11-03 14:05 UTC".
@@ -141,8 +171,9 @@ pub fn stamp(ms: i64) -> String {
     )
 }
 
-/// The first message of a bot's session: who it is, how tasks work, and its memory file.
-pub fn brief(bot: &Bot, memory: &str) -> String {
+/// The first message of each of a bot's sessions: who it is, how tasks work, its workspace
+/// and its memory file.
+pub fn brief(bot: &Bot, workspace: &str, memory: &str) -> String {
     let mut s = format!("You're {}, a bot in AgentDeck.", bot.name.trim());
     if !bot.role.trim().is_empty() {
         s.push_str(&format!(
@@ -155,18 +186,27 @@ pub fn brief(bot: &Bot, memory: &str) -> String {
         s.push_str(bot.instructions.trim());
     }
     s.push_str("\n\nYou work through tasks one at a time. Each task arrives as a message starting with \"Task\". When you're done, end with a short report of what you did and what's left; that report is the task's result.");
+    s.push_str(&format!("\n\nYour workspace is {workspace}. Work there when a task names no project, and keep the files you produce there. A task may name a project folder to work in instead; its header says which folder."));
     s.push_str(&format!("\n\nYour memory file is {memory}. Read it at the start of every task. When you learn something worth keeping for later tasks (decisions, conventions, where things are, what the user prefers), add it there in a line or two. Keep it short and current; remove what's no longer true."));
     s
 }
 
-/// "Task from you (2026-11-03 14:05 UTC):\n…".
-pub fn task_header(task: &BotTask, now: i64) -> String {
+/// "Task from you in /Users/me/shop (2026-11-03 14:05 UTC):\n…".
+pub fn task_header(task: &BotTask, folder: &str, now: i64) -> String {
     format!(
-        "Task from {} ({}):\n{}",
+        "Task from {} in {folder} ({}):\n{}",
         task.source,
         stamp(now),
         task.text.trim()
     )
+}
+
+/// A bot's session in a place is titled after it: "Reviewer", or "Reviewer · shop".
+pub fn session_title(name: &str, project: Option<&str>) -> String {
+    match project {
+        Some(p) => format!("{} · {p}", name.trim()),
+        None => name.trim().to_string(),
+    }
 }
 
 fn clip(text: &str) -> String {
@@ -190,10 +230,42 @@ pub struct Memory {
     pub text: String,
 }
 
+/// A schedule as the editor sends it; an empty or missing id makes a new one.
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ScheduleInput {
+    #[serde(default)]
+    pub id: Option<String>,
+    pub bot_id: String,
+    pub text: String,
+    #[serde(default)]
+    pub project_id: Option<String>,
+    pub kind: String,
+    #[serde(default)]
+    pub times: Vec<String>,
+    #[serde(default)]
+    pub weekdays: Vec<u8>,
+    #[serde(default)]
+    pub every_minutes: Option<i64>,
+    #[serde(default = "yes")]
+    pub enabled: bool,
+}
+
+fn yes() -> bool {
+    true
+}
+
+fn rule(s: &BotSchedule) -> Option<When> {
+    schedule::when(&s.kind, &s.times, &s.weekdays, s.every_minutes)
+}
+
 pub struct Bots {
     db: Arc<Db>,
     sink: Sink,
     agents: Arc<Agents>,
+    /// The home folder: workspaces are in `~/AgentDeck/Bots`, and Claude Code files its
+    /// conversations under it (carried along when a workspace is renamed).
+    home: PathBuf,
     /// One pump at a time, so a bot never starts two tasks.
     gate: Mutex<()>,
     /// Bots with a request or question waiting for the user.
@@ -201,14 +273,20 @@ pub struct Bots {
 }
 
 impl Bots {
-    pub fn new(db: Arc<Db>, sink: Sink, agents: Arc<Agents>) -> Self {
+    pub fn new(db: Arc<Db>, sink: Sink, agents: Arc<Agents>, home: PathBuf) -> Self {
         Self {
             db,
             sink,
             agents,
+            home,
             gate: Mutex::new(()),
             needs: Mutex::new(HashSet::new()),
         }
+    }
+
+    /// `~/AgentDeck/Bots`.
+    pub fn root(&self) -> PathBuf {
+        bots_root(&self.home)
     }
 
     fn needs(&self) -> std::sync::MutexGuard<'_, HashSet<String>> {
@@ -248,6 +326,10 @@ impl Bots {
         (self.sink)(Outbound::BotTask(t.clone()));
     }
 
+    fn publish_schedule(&self, s: &BotSchedule) {
+        (self.sink)(Outbound::BotSchedule(s.clone()));
+    }
+
     fn record(&self, sid: &str, kind: &str, payload: &Value) {
         if let Ok(Some(ev)) = self.db.append_event(sid, "agentdeck", kind, payload) {
             (self.sink)(Outbound::Event(ev));
@@ -265,13 +347,95 @@ impl Bots {
         }
     }
 
-    fn project_dir(&self, project_id: &str) -> Result<String, String> {
-        Ok(self
+    /// A project a bot may be pointed at: one you added, not another bot's workspace.
+    fn pick_project(&self, project_id: &str) -> Result<Project, String> {
+        let p = self
             .db
             .project(project_id)
             .map_err(|e| e.to_string())?
-            .ok_or("The bot's project was removed")?
-            .path)
+            .ok_or("That project was removed")?;
+        if p.hidden {
+            return Err("That folder is a bot's workspace, not a project".into());
+        }
+        Ok(p)
+    }
+
+    /// Makes sure the bot has its workspace folder, registered as a hidden project, with its
+    /// memory file in it. A bot from milestone 1 gets its old memory file moved in.
+    pub fn ensure_workspace(&self, bot: &Bot) -> Result<(Project, PathBuf), String> {
+        if let Some(p) = bot
+            .workspace_id
+            .as_deref()
+            .and_then(|w| self.db.project(w).ok().flatten())
+        {
+            std::fs::create_dir_all(&p.path).map_err(|e| format!("Can't make {}: {e}", p.path))?;
+            let memory = ensure_memory(Path::new(&p.path), &bot.name)?;
+            return Ok((p, memory));
+        }
+        let root = self.root();
+        std::fs::create_dir_all(&root)
+            .map_err(|e| format!("Can't make {}: {e}", root.display()))?;
+        let dir = root.join(folder_name(&bot.name));
+        std::fs::create_dir_all(&dir).map_err(|e| format!("Can't make {}: {e}", dir.display()))?;
+        let (croot, cdir) = (
+            root.canonicalize().map_err(|e| e.to_string())?,
+            dir.canonicalize().map_err(|e| e.to_string())?,
+        );
+        if cdir.parent() != Some(croot.as_path()) {
+            return Err(format!(
+                "{} leads outside {}",
+                dir.display(),
+                root.display()
+            ));
+        }
+        let path = cdir.to_string_lossy().into_owned();
+        let p = match self.db.project_by_path(&path).map_err(|e| e.to_string())? {
+            Some(p) if !p.hidden => {
+                return Err(format!(
+                    "{path} is already a project in AgentDeck. Remove that project or pick another name."
+                ))
+            }
+            Some(p) => {
+                let taken = self
+                    .db
+                    .list_bots()
+                    .map_err(|e| e.to_string())?
+                    .into_iter()
+                    .any(|b| b.id != bot.id && b.workspace_id.as_deref() == Some(p.id.as_str()));
+                if taken {
+                    return Err(format!("{path} is another bot's workspace"));
+                }
+                p
+            }
+            None => self
+                .db
+                .add_hidden_project(bot.name.trim(), &path)
+                .map_err(|e| e.to_string())?,
+        };
+        self.db
+            .set_bot_workspace(&bot.id, &p.id)
+            .map_err(|e| e.to_string())?;
+        // Milestone 1 kept the memory in the bot's project.
+        if let Some(proj) = bot
+            .project_id
+            .as_deref()
+            .and_then(|id| self.db.project(id).ok().flatten())
+        {
+            move_old_memory(&old_memory_path(&proj.path, &bot.name), &cdir);
+        }
+        let memory = ensure_memory(&cdir, &bot.name)?;
+        Ok((p, memory))
+    }
+
+    /// Every bot has its workspace (after AgentDeck starts: bots from milestone 1 get theirs,
+    /// and folders removed by hand come back).
+    pub fn ensure_workspaces(&self) {
+        let _ = self.db.prune_bot_sessions();
+        for b in self.db.list_bots().unwrap_or_default() {
+            if let Err(e) = self.ensure_workspace(&b) {
+                eprintln!("agentdeck: no workspace for bot {}: {e}", b.id);
+            }
+        }
     }
 
     /// Makes (empty `id`) or changes a bot. The agent and model were checked by the caller.
@@ -295,130 +459,280 @@ impl Bots {
         if !COLORS.contains(&f.color) {
             return Err(format!("Unknown color: {}", f.color));
         }
-        let dir = self.project_dir(f.project_id)?;
+        let project_id = f.project_id.filter(|p| !p.is_empty());
+        if let Some(pid) = project_id {
+            self.pick_project(pid)?;
+        }
         let old = if id.is_empty() {
             None
         } else {
             Some(self.get(id)?)
         };
-        let all = self.db.list_bots().map_err(|e| e.to_string())?;
-        for b in all.iter().filter(|b| b.id != id) {
+        let folder = folder_name(name);
+        for b in self
+            .db
+            .list_bots()
+            .map_err(|e| e.to_string())?
+            .iter()
+            .filter(|b| b.id != id)
+        {
             if b.name.to_lowercase() == name.to_lowercase() {
                 return Err(format!("There's already a bot called {}", b.name));
             }
-            if b.project_id == f.project_id && slug(&b.name) == slug(name) {
+            if folder_name(&b.name).to_lowercase() == folder.to_lowercase() {
                 return Err(format!(
-                    "{} works in this folder and would share the memory file {}.md. Pick another name.",
-                    b.name,
-                    slug(name)
+                    "{} would share the workspace folder {folder}. Pick another name.",
+                    b.name
                 ));
             }
         }
-        // Bring the memory along when the bot is renamed or moves to another folder.
+        // A new name: the workspace folder follows it.
         if let Some(o) = &old {
-            if let Ok(odir) = self.project_dir(&o.project_id) {
-                let (from, to) = (memory_path(&odir, &o.name), memory_path(&dir, name));
-                if from != to && from.is_file() && !to.exists() {
-                    if let Some(p) = to.parent() {
-                        let _ = std::fs::create_dir_all(p);
-                    }
-                    let moved = if o.project_id == f.project_id {
-                        std::fs::rename(&from, &to)
-                    } else {
-                        std::fs::copy(&from, &to).map(|_| ())
-                    };
-                    if let Err(e) = moved {
-                        return Err(format!("Couldn't move the memory file: {e}"));
-                    }
-                }
+            if folder_name(&o.name) != folder {
+                self.move_workspace(o, name)?;
             }
         }
-        ensure_memory(&dir, name)?;
         let fields = BotFields {
             name,
             role,
+            project_id,
             ..f.clone()
         };
         let bot = self.db.save_bot(id, &fields).map_err(|e| e.to_string())?;
-        if let (Some(o), Some(sid)) = (&old, &bot.session_id) {
-            // Same agent: the session follows the new name, model and effort.
-            let title = (o.name != bot.name).then_some(bot.name.as_str());
-            let model = (o.model != bot.model).then_some(bot.model.as_str());
-            if title.is_some() || model.is_some() {
-                if let Ok(Some(r)) = self.db.update_session(sid, None, None, title, model, None) {
-                    (self.sink)(Outbound::Session(r));
-                }
-                if let (Some(m), true) = (model, self.agents.is_running(sid)) {
-                    let _ = self.agents.set_model(sid, m);
-                }
+        if let Err(e) = self.ensure_workspace(&bot) {
+            if old.is_none() {
+                let _ = self.db.delete_bot(&bot.id);
             }
-            if o.effort != bot.effort {
-                if let Ok(Some(r)) = self.db.set_session_effort(sid, bot.effort.as_deref()) {
-                    (self.sink)(Outbound::Session(r));
-                }
-                if self.agents.is_running(sid) {
-                    let _ = self.agents.set_effort(sid, bot.effort.as_deref());
-                }
-            }
+            return Err(e);
         }
-        // Another agent or folder: the old session stays as an ordinary one.
         if let Some(o) = &old {
-            if let (Some(old_sid), None) = (&o.session_id, &bot.session_id) {
-                self.let_go(old_sid, &format!("{} (earlier)", o.name));
+            let same_agent = o.provider == bot.provider && o.profile_id == bot.profile_id;
+            if same_agent {
+                // The sessions follow the new name, model and effort.
+                for place in &bot.places {
+                    let sid = place.session_id.as_str();
+                    let pname = place
+                        .project_id
+                        .as_deref()
+                        .and_then(|p| self.db.project(p).ok().flatten())
+                        .map(|p| p.name);
+                    let title =
+                        (o.name != bot.name).then(|| session_title(&bot.name, pname.as_deref()));
+                    let model = (o.model != bot.model).then_some(bot.model.as_str());
+                    if title.is_some() || model.is_some() {
+                        if let Ok(Some(r)) =
+                            self.db
+                                .update_session(sid, None, None, title.as_deref(), model, None)
+                        {
+                            (self.sink)(Outbound::Session(r));
+                        }
+                        if let (Some(m), true) = (model, self.agents.is_running(sid)) {
+                            let _ = self.agents.set_model(sid, m);
+                        }
+                    }
+                    if o.effort != bot.effort {
+                        if let Ok(Some(r)) = self.db.set_session_effort(sid, bot.effort.as_deref())
+                        {
+                            (self.sink)(Outbound::Session(r));
+                        }
+                        if self.agents.is_running(sid) {
+                            let _ = self.agents.set_effort(sid, bot.effort.as_deref());
+                        }
+                    }
+                }
+            } else {
+                // Another agent: the old sessions stay as ordinary ones; each place starts anew.
+                for place in &o.places {
+                    self.let_go(&place.session_id, &format!("{} (earlier)", o.name));
+                }
             }
         }
         self.publish(&bot.id);
-        self.pump(&bot.id, false);
+        self.pump(&bot.id, None);
         self.get(&bot.id)
+    }
+
+    /// Renames the bot's workspace folder for its new name, and carries its sessions along.
+    fn move_workspace(&self, old: &Bot, new_name: &str) -> Result<(), String> {
+        let Some(p) = old
+            .workspace_id
+            .as_deref()
+            .and_then(|w| self.db.project(w).ok().flatten())
+        else {
+            return Ok(());
+        };
+        if old.running_task_id.is_some() && old.running_project_id.is_none() {
+            return Err(
+                "Wait for the task in its workspace to end, or cancel it, before renaming".into(),
+            );
+        }
+        let from = PathBuf::from(&p.path);
+        let to = self.root().join(folder_name(new_name));
+        let same = from
+            .canonicalize()
+            .ok()
+            .is_some_and(|f| to.canonicalize().ok() == Some(f));
+        if to.exists() && !same {
+            return Err(format!(
+                "There's already a folder called {} in {}",
+                folder_name(new_name),
+                self.root().display()
+            ));
+        }
+        let sessions: Vec<_> = self
+            .db
+            .list_sessions()
+            .map_err(|e| e.to_string())?
+            .into_iter()
+            .filter(|s| s.project_id == p.id)
+            .collect();
+        for s in &sessions {
+            if self.agents.is_running(&s.id) {
+                self.agents.stop(&s.id);
+            }
+        }
+        if from.is_dir() {
+            std::fs::rename(&from, &to)
+                .map_err(|e| format!("Couldn't rename the workspace folder: {e}"))?;
+        } else {
+            std::fs::create_dir_all(&to)
+                .map_err(|e| format!("Can't make {}: {e}", to.display()))?;
+        }
+        let new_path = to
+            .canonicalize()
+            .map_err(|e| e.to_string())?
+            .to_string_lossy()
+            .into_owned();
+        self.db
+            .move_project(&p.id, new_name.trim(), &new_path)
+            .map_err(|e| e.to_string())?;
+        // Claude Code finds a conversation by its folder, so it's copied to the new one; Codex
+        // resumes from anywhere; the others start over in the new folder, with the brief again.
+        for s in sessions {
+            let Some(agent_id) = s.provider_session_id.as_deref() else {
+                continue;
+            };
+            let kept = match s.provider.as_str() {
+                "claude-code" => {
+                    let projects = crate::context::Homes::from_home(&self.home)
+                        .claude
+                        .join("projects");
+                    crate::import::carry_claude_conversation(
+                        &projects, agent_id, &p.path, &new_path,
+                    )
+                }
+                "codex" => true,
+                _ => false,
+            };
+            if !kept {
+                if let Ok(Some(r)) = self.db.update_session_agent_id_clear(&s.id) {
+                    (self.sink)(Outbound::Session(r));
+                }
+                let _ = self.db.set_bot_briefed(&s.id, false);
+            }
+        }
+        Ok(())
     }
 
     /// A session the bot no longer uses becomes an ordinary one, named so you can tell.
     fn let_go(&self, sid: &str, title: &str) {
+        let _ = self.db.drop_bot_session(sid);
         if let Ok(Some(r)) = self.db.rename_session(sid, title) {
             (self.sink)(Outbound::Session(r));
         }
     }
 
-    /// Deletes a bot and its tasks. A task in progress is stopped; the session stays.
+    /// Deletes a bot, its tasks and schedules. A task in progress is stopped; its sessions
+    /// stay, and its workspace becomes an ordinary project when it has any (the folder stays).
     pub fn delete(&self, id: &str) -> Result<(), String> {
         let bot = self.get(id)?;
-        if let (Some(sid), Some(_)) = (&bot.session_id, &bot.running_task_id) {
+        if let (Some(sid), Some(_)) = (&bot.running_session_id, &bot.running_task_id) {
             if self.agents.interrupt(sid).is_err() {
                 self.agents.stop(sid);
             }
         }
         self.db.delete_bot(id).map_err(|e| e.to_string())?;
         self.needs().remove(id);
-        if let Some(sid) = &bot.session_id {
-            self.let_go(sid, &format!("{} (deleted bot)", bot.name));
+        for place in &bot.places {
+            self.let_go(&place.session_id, &format!("{} (deleted bot)", bot.name));
+        }
+        if let Some(wid) = &bot.workspace_id {
+            let used = self
+                .db
+                .list_sessions()
+                .map_err(|e| e.to_string())?
+                .iter()
+                .any(|s| &s.project_id == wid);
+            if used {
+                self.db
+                    .set_project_hidden(wid, false)
+                    .map_err(|e| e.to_string())?;
+            } else {
+                self.db.remove_project(wid).map_err(|e| e.to_string())?;
+            }
         }
         Ok(())
     }
 
-    /// The bot's session was deleted: a task in it fails, and the next task starts a new one.
+    /// One of the bot's sessions was deleted: a task in it fails, and the next task in that
+    /// place starts a new one.
     pub fn session_deleted(&self, sid: &str) {
         let Ok(Some(bot)) = self.db.bot_for_session(sid) else {
             return;
         };
-        if let Some(tid) = &bot.running_task_id {
+        if let (Some(tid), Some(rs)) = (&bot.running_task_id, &bot.running_session_id) {
+            if rs == sid {
+                if let Ok(Some(t)) =
+                    self.db
+                        .finish_bot_task(tid, "failed", None, Some("Its session was deleted"))
+                {
+                    self.publish_task(&t);
+                }
+                self.needs().remove(&bot.id);
+            }
+        }
+        let _ = self.db.drop_bot_session(sid);
+        self.pump(&bot.id, Some(sid));
+        self.publish(&bot.id);
+    }
+
+    /// A project was removed: tasks working in it fail, schedules for it stop, and bots that
+    /// had it as their default project work in their workspace instead.
+    pub fn project_removed(&self, project_id: &str) {
+        for t in self.db.running_bot_tasks_in(project_id).unwrap_or_default() {
             if let Ok(Some(t)) =
                 self.db
-                    .finish_bot_task(tid, "failed", None, Some("Its session was deleted"))
+                    .finish_bot_task(&t.id, "failed", None, Some("Its project was removed"))
             {
                 self.publish_task(&t);
             }
         }
-        let _ = self.db.set_bot_session(&bot.id, None);
-        self.needs().remove(&bot.id);
-        self.pump(&bot.id, true);
-        self.publish(&bot.id);
+        let _ = self.db.prune_bot_sessions();
+        for b in self.db.list_bots().unwrap_or_default() {
+            for s in self.db.bot_schedules(&b.id).unwrap_or_default() {
+                if s.project_id.as_deref() == Some(project_id) && s.enabled {
+                    if let Ok(Some(s)) = self.db.set_bot_schedule_enabled(&s.id, false, None) {
+                        self.publish_schedule(&s);
+                    }
+                }
+            }
+            self.pump(&b.id, None);
+            self.publish(&b.id);
+        }
     }
 
     pub fn tasks(&self, bot_id: &str, limit: i64) -> Result<Vec<BotTask>, String> {
         self.db.bot_tasks(bot_id, limit).map_err(|e| e.to_string())
     }
 
-    pub fn add_task(&self, bot_id: &str, text: &str, source: &str) -> Result<BotTask, String> {
+    /// Queues a task. `project_id`: the project it works in; None: the bot's workspace.
+    pub fn add_task(
+        &self,
+        bot_id: &str,
+        text: &str,
+        source: &str,
+        project_id: Option<&str>,
+    ) -> Result<BotTask, String> {
         let text = text.trim();
         if text.is_empty() {
             return Err("Write the task first".into());
@@ -426,18 +740,20 @@ impl Bots {
         if text.len() > MAX_TASK {
             return Err("That task is longer than 100,000 characters".into());
         }
-        self.get(bot_id)?;
+        let bot = self.get(bot_id)?;
+        let project_id =
+            project_id.filter(|p| !p.is_empty() && Some(*p) != bot.workspace_id.as_deref());
+        if let Some(pid) = project_id {
+            self.pick_project(pid)?;
+        }
         let t = self
             .db
-            .add_bot_task(bot_id, text, source, None)
+            .add_bot_task(bot_id, text, source, project_id, None)
             .map_err(|e| e.to_string())?;
         self.publish_task(&t);
-        self.pump(bot_id, false);
+        self.pump(bot_id, None);
         self.publish(bot_id);
-        self.db
-            .bot_task(&t.id)
-            .map_err(|e| e.to_string())?
-            .ok_or_else(|| "Task not found".into())
+        self.task(&t.id)
     }
 
     fn task(&self, id: &str) -> Result<BotTask, String> {
@@ -461,17 +777,16 @@ impl Bots {
         self.publish_task(&done);
         if was_running {
             self.set_needs(&t.bot_id, false);
-            let sid = self.get(&t.bot_id).ok().and_then(|b| b.session_id);
-            match sid {
+            match t.session_id.as_deref() {
                 // The interrupted turn's end starts the next task, so it can't be taken for
                 // that task's own end.
-                Some(sid) if self.agents.is_running(&sid) => {
-                    if self.agents.interrupt(&sid).is_err() {
-                        self.agents.stop(&sid);
-                        self.pump(&t.bot_id, true);
+                Some(sid) if self.agents.is_running(sid) => {
+                    if self.agents.interrupt(sid).is_err() {
+                        self.agents.stop(sid);
+                        self.pump(&t.bot_id, Some(sid));
                     }
                 }
-                _ => self.pump(&t.bot_id, true),
+                sid => self.pump(&t.bot_id, sid),
             }
         }
         self.publish(&t.bot_id);
@@ -486,7 +801,7 @@ impl Bots {
             .map_err(|e| e.to_string())?
             .ok_or("Only a failed or cancelled task can be tried again")?;
         self.publish_task(&t);
-        self.pump(&t.bot_id, false);
+        self.pump(&t.bot_id, None);
         self.publish(&t.bot_id);
         self.task(task_id)
     }
@@ -497,23 +812,20 @@ impl Bots {
             .map_err(|e| e.to_string())?
             .ok_or("Bot not found")?;
         if !paused {
-            self.pump(id, false);
+            self.pump(id, None);
         }
         self.publish(id);
         self.get(id)
     }
 
-    /// The next task starts a new session; the old one stays as an ordinary session.
+    /// The next task in each place starts a new session; the old ones stay as ordinary sessions.
     pub fn restart_session(&self, id: &str) -> Result<Bot, String> {
         let bot = self.get(id)?;
         if bot.running_task_id.is_some() {
             return Err("Wait for the task in progress to end, or cancel it, first".into());
         }
-        if let Some(sid) = &bot.session_id {
-            self.db
-                .set_bot_session(id, None)
-                .map_err(|e| e.to_string())?;
-            self.let_go(sid, &format!("{} (earlier)", bot.name));
+        for place in &bot.places {
+            self.let_go(&place.session_id, &format!("{} (earlier)", bot.name));
         }
         self.publish(id);
         self.get(id)
@@ -521,7 +833,7 @@ impl Bots {
 
     pub fn read_memory(&self, id: &str) -> Result<Memory, String> {
         let bot = self.get(id)?;
-        let path = ensure_memory(&self.project_dir(&bot.project_id)?, &bot.name)?;
+        let (_, path) = self.ensure_workspace(&bot)?;
         let text = std::fs::read_to_string(&path).map_err(|e| e.to_string())?;
         Ok(Memory {
             path: path.to_string_lossy().into_owned(),
@@ -534,7 +846,7 @@ impl Bots {
             return Err("The memory file is too long (over 200 KB)".into());
         }
         let bot = self.get(id)?;
-        let path = ensure_memory(&self.project_dir(&bot.project_id)?, &bot.name)?;
+        let (_, path) = self.ensure_workspace(&bot)?;
         std::fs::write(&path, text).map_err(|e| format!("Can't save the memory file: {e}"))?;
         Ok(Memory {
             path: path.to_string_lossy().into_owned(),
@@ -545,15 +857,26 @@ impl Bots {
     /// Starts every bot's next task (after AgentDeck starts: no turn is running then).
     pub fn resume_all(&self) {
         for b in self.db.list_bots().unwrap_or_default() {
-            self.pump(&b.id, true);
+            let free = self
+                .db
+                .next_bot_task(&b.id)
+                .ok()
+                .flatten()
+                .and_then(|t| {
+                    self.db
+                        .bot_session(&b.id, t.project_id.as_deref())
+                        .ok()
+                        .flatten()
+                })
+                .map(|(sid, _)| sid);
+            self.pump(&b.id, free.as_deref());
         }
     }
 
     /// Starts the bot's oldest queued task if it isn't paused and nothing of it is running.
-    /// `turn_free`: the bot's session just ended a turn, whatever its status says yet.
-    pub fn pump(&self, bot_id: &str, turn_free: bool) {
+    /// `free`: a session of the bot that just ended a turn, whatever its status says yet.
+    pub fn pump(&self, bot_id: &str, free: Option<&str>) {
         let _gate = self.gate.lock().unwrap_or_else(|e| e.into_inner());
-        let mut turn_free = turn_free;
         loop {
             let Ok(Some(bot)) = self.db.bot(bot_id) else {
                 return;
@@ -561,20 +884,21 @@ impl Bots {
             if bot.paused || bot.running_task_id.is_some() {
                 return;
             }
-            // A message you sent the bot directly is still being worked on.
-            if !turn_free {
-                let busy = bot
-                    .session_id
-                    .as_deref()
-                    .and_then(|sid| self.db.session(sid).ok().flatten())
-                    .is_some_and(|s| s.status == "running" || s.status == "waiting");
-                if busy {
-                    return;
-                }
-            }
             let Ok(Some(next)) = self.db.next_bot_task(bot_id) else {
                 return;
             };
+            // A message you sent the bot directly in that place is still being worked on.
+            let busy = self
+                .db
+                .bot_session(bot_id, next.project_id.as_deref())
+                .ok()
+                .flatten()
+                .filter(|(sid, _)| Some(sid.as_str()) != free)
+                .and_then(|(sid, _)| self.db.session(&sid).ok().flatten())
+                .is_some_and(|s| s.status == "running" || s.status == "waiting");
+            if busy {
+                return;
+            }
             if !self.db.start_bot_task(&next.id).unwrap_or(false) {
                 return;
             }
@@ -584,6 +908,9 @@ impl Bots {
             self.publish_task(&task);
             match self.start(&bot, &task) {
                 Ok(()) => {
+                    if let Ok(t) = self.task(&task.id) {
+                        self.publish_task(&t);
+                    }
                     self.publish(bot_id);
                     return;
                 }
@@ -597,26 +924,47 @@ impl Bots {
                         self.publish_task(&t);
                     }
                     self.publish(bot_id);
-                    turn_free = true;
                 }
             }
         }
     }
 
-    /// Makes sure the bot's session exists and sends it the task.
+    /// Makes sure the bot's session for the task's place exists and sends it the task.
     fn start(&self, bot: &Bot, task: &BotTask) -> Result<(), String> {
-        let dir = self.project_dir(&bot.project_id)?;
-        let memory = ensure_memory(&dir, &bot.name)?;
-        let existing = bot
-            .session_id
+        let (ws, memory) = self.ensure_workspace(bot)?;
+        let place = task
+            .project_id
             .as_deref()
-            .and_then(|sid| self.db.session(sid).ok().flatten());
-        let session = match existing {
-            Some(s) => s,
+            .filter(|p| Some(*p) != bot.workspace_id.as_deref() && *p != ws.id);
+        let project = match place {
+            None => ws.clone(),
+            Some(pid) => {
+                let p = self
+                    .db
+                    .project(pid)
+                    .map_err(|e| e.to_string())?
+                    .ok_or("This task's project was removed")?;
+                if p.hidden {
+                    return Err("That folder is a bot's workspace, not a project".into());
+                }
+                if !Path::new(&p.path).is_dir() {
+                    return Err(format!("The folder {} doesn't exist anymore", p.path));
+                }
+                p
+            }
+        };
+        let existing = self
+            .db
+            .bot_session(&bot.id, place)
+            .map_err(|e| e.to_string())?
+            .and_then(|(sid, briefed)| Some((self.db.session(&sid).ok().flatten()?, briefed)));
+        let (session, briefed) = match existing {
+            Some(x) => x,
             None => {
+                let title = session_title(&bot.name, place.map(|_| project.name.as_str()));
                 let s = self
                     .db
-                    .create_session(&bot.project_id, &bot.provider, &bot.model, &bot.name)
+                    .create_session(&project.id, &bot.provider, &bot.model, &title)
                     .map_err(|e| e.to_string())?;
                 if bot.effort.is_some() {
                     self.db
@@ -629,40 +977,48 @@ impl Bots {
                     .map_err(|e| e.to_string())?
                     .unwrap_or(s);
                 self.db
-                    .set_bot_session(&bot.id, Some(&s.id))
+                    .set_bot_session(&bot.id, place, &s.id)
                     .map_err(|e| e.to_string())?;
                 (self.sink)(Outbound::Session(s.clone()));
-                s
+                (s, false)
             }
         };
-        let fresh = !self
-            .db
-            .has_user_message(&session.id)
+        self.db
+            .set_bot_task_session(&task.id, &session.id)
             .map_err(|e| e.to_string())?;
         let memory = memory.to_string_lossy();
-        let header = task_header(task, crate::db::now_ms());
-        let prompt = if fresh {
-            format!("{}\n\n{header}", brief(bot, &memory))
-        } else {
+        let header = task_header(task, &project.path, crate::db::now_ms());
+        let prompt = if briefed {
             format!("{header}\n\n(Your memory file: {memory}. Read it first and keep it current.)")
+        } else {
+            format!("{}\n\n{header}", brief(bot, &ws.path, &memory))
         };
         self.record(
             &session.id,
             "bot_task",
-            &json!({ "botId": bot.id, "taskId": task.id, "source": task.source, "text": task.text, "prompt": prompt.trim() }),
+            &json!({ "botId": bot.id, "taskId": task.id, "source": task.source, "projectId": place, "text": task.text, "prompt": prompt.trim() }),
         );
-        self.agents.send(&session.id, &prompt)
+        self.agents.send(&session.id, &prompt)?;
+        if !briefed {
+            self.db
+                .set_bot_briefed(&session.id, true)
+                .map_err(|e| e.to_string())?;
+        }
+        Ok(())
     }
 
-    /// Called for every stored event that ends a turn: the bot's running task ends with it,
-    /// and the next one starts.
+    /// Called for every stored event that ends a turn: the bot's running task ends with it
+    /// (when it's that task's session), and the next one starts.
     pub fn on_event(&self, ev: &StoredEvent) {
         let Some(end) = turn_end(ev) else { return };
         let Ok(Some(bot)) = self.db.bot_for_session(&ev.session_id) else {
             return;
         };
-        self.set_needs(&bot.id, false);
-        if let Some(tid) = &bot.running_task_id {
+        let mine = bot.running_session_id.as_deref() == Some(ev.session_id.as_str());
+        if mine || bot.running_task_id.is_none() {
+            self.set_needs(&bot.id, false);
+        }
+        if let (Some(tid), true) = (&bot.running_task_id, mine) {
             let (status, result, error) = match end {
                 TurnEnd::Reply(t) => ("done", Some(clip(&t)), None),
                 TurnEnd::NoReply => ("done", Some(String::new()), None),
@@ -675,19 +1031,22 @@ impl Bots {
                 self.publish_task(&t);
             }
         }
-        self.pump(&bot.id, true);
+        self.pump(&bot.id, Some(&ev.session_id));
         self.publish(&bot.id);
     }
 
-    /// Requests from a bot's session while a task runs: ordinary approvals are allowed, risky
-    /// ones and questions wait for the user (the bot then needs you).
+    /// Requests from a bot's session while a task runs there: ordinary approvals are allowed,
+    /// risky ones, ones outside the task's folder and the workspace, and questions wait for the
+    /// user (the bot then needs you).
     pub fn on_request(&self, ev: &StoredEvent) {
+        let Ok(Some(bot)) = self.db.bot_for_session(&ev.session_id) else {
+            return;
+        };
+        let mine = bot.running_task_id.is_some()
+            && bot.running_session_id.as_deref() == Some(ev.session_id.as_str());
         // The agent process ended in the middle of a task: no turn end will come for it.
         if ev.kind == "process_exit" && ev.source == "agentdeck" {
-            let Ok(Some(bot)) = self.db.bot_for_session(&ev.session_id) else {
-                return;
-            };
-            if let Some(tid) = &bot.running_task_id {
+            if let (Some(tid), true) = (&bot.running_task_id, mine) {
                 if let Ok(Some(t)) = self.db.finish_bot_task(
                     tid,
                     "failed",
@@ -697,25 +1056,20 @@ impl Bots {
                     self.publish_task(&t);
                 }
                 self.needs().remove(&bot.id);
-                self.pump(&bot.id, true);
+                self.pump(&bot.id, Some(&ev.session_id));
                 self.publish(&bot.id);
             }
             return;
         }
         if ev.kind == "permission_decision" || ev.kind == "question_answered" {
-            if let Ok(Some(bot)) = self.db.bot_for_session(&ev.session_id) {
-                self.set_needs(&bot.id, false);
-            }
+            self.set_needs(&bot.id, false);
             return;
         }
-        let Some(v) = unattended::verdict(&self.db, ev) else {
-            return;
-        };
-        let Ok(Some(bot)) = self.db.bot_for_session(&ev.session_id) else {
-            return;
-        };
         // A message you sent the bot yourself: you're there to answer.
-        let Some(task_id) = bot.running_task_id.clone() else {
+        let (Some(task_id), true) = (bot.running_task_id.clone(), mine) else {
+            return;
+        };
+        let Some(v) = unattended::verdict_with(&self.db, ev, &[bot.workspace.as_str()]) else {
             return;
         };
         match v {
@@ -738,6 +1092,210 @@ impl Bots {
             Verdict::Question => self.set_needs(&bot.id, true),
         }
     }
+
+    /* ------------------------------------------------------------ schedules */
+
+    pub fn schedules(&self, bot_id: &str) -> Result<Vec<BotSchedule>, String> {
+        self.db.bot_schedules(bot_id).map_err(|e| e.to_string())
+    }
+
+    fn schedule(&self, id: &str) -> Result<BotSchedule, String> {
+        self.db
+            .bot_schedule(id)
+            .map_err(|e| e.to_string())?
+            .ok_or_else(|| "Schedule not found".into())
+    }
+
+    /// Makes or changes a schedule; its next run is worked out from now.
+    pub fn save_schedule(&self, input: &ScheduleInput) -> Result<BotSchedule, String> {
+        self.save_schedule_in(input, crate::db::now_ms(), &chrono::Local)
+    }
+
+    pub fn save_schedule_in<Tz: chrono::TimeZone>(
+        &self,
+        input: &ScheduleInput,
+        now: i64,
+        tz: &Tz,
+    ) -> Result<BotSchedule, String> {
+        let text = input.text.trim();
+        if text.is_empty() {
+            return Err("Say what the bot should do".into());
+        }
+        if text.len() > MAX_TASK {
+            return Err("That task is longer than 100,000 characters".into());
+        }
+        let bot = self.get(&input.bot_id)?;
+        let project_id = input
+            .project_id
+            .as_deref()
+            .filter(|p| !p.is_empty() && Some(*p) != bot.workspace_id.as_deref());
+        if let Some(pid) = project_id {
+            self.pick_project(pid)?;
+        }
+        let (times, weekdays, every) = schedule::check(
+            &input.kind,
+            &input.times,
+            &input.weekdays,
+            input.every_minutes,
+        )?;
+        let id = input.id.clone().unwrap_or_default();
+        let old = if id.is_empty() {
+            if self.schedules(&bot.id)?.len() >= MAX_SCHEDULES {
+                return Err(format!("A bot can have up to {MAX_SCHEDULES} schedules"));
+            }
+            None
+        } else {
+            let o = self.schedule(&id)?;
+            if o.bot_id != bot.id {
+                return Err("Schedule not found".into());
+            }
+            Some(o)
+        };
+        let w = schedule::when(&input.kind, &times, &weekdays, every)
+            .ok_or("That schedule never runs")?;
+        let next = input
+            .enabled
+            .then(|| schedule::next_run(&w, now, tz))
+            .flatten();
+        let row = BotSchedule {
+            id,
+            bot_id: bot.id.clone(),
+            text: text.to_string(),
+            project_id: project_id.map(str::to_owned),
+            kind: input.kind.clone(),
+            times,
+            weekdays,
+            every_minutes: every,
+            enabled: input.enabled,
+            last_run_at: old.as_ref().and_then(|o| o.last_run_at),
+            next_run_at: next,
+            last_task_id: old.as_ref().and_then(|o| o.last_task_id.clone()),
+            skipped_at: None,
+            created_at: old.as_ref().map(|o| o.created_at).unwrap_or(now),
+        };
+        let s = self.db.save_bot_schedule(&row).map_err(|e| e.to_string())?;
+        self.publish_schedule(&s);
+        self.publish(&bot.id);
+        Ok(s)
+    }
+
+    pub fn delete_schedule(&self, id: &str) -> Result<(), String> {
+        let s = self.schedule(id)?;
+        self.db.delete_bot_schedule(id).map_err(|e| e.to_string())?;
+        self.publish(&s.bot_id);
+        Ok(())
+    }
+
+    pub fn set_schedule_enabled(&self, id: &str, enabled: bool) -> Result<BotSchedule, String> {
+        self.set_schedule_enabled_in(id, enabled, crate::db::now_ms(), &chrono::Local)
+    }
+
+    pub fn set_schedule_enabled_in<Tz: chrono::TimeZone>(
+        &self,
+        id: &str,
+        enabled: bool,
+        now: i64,
+        tz: &Tz,
+    ) -> Result<BotSchedule, String> {
+        let s = self.schedule(id)?;
+        let next = if enabled {
+            Some(
+                rule(&s)
+                    .and_then(|w| schedule::next_run(&w, now, tz))
+                    .ok_or("That schedule never runs")?,
+            )
+        } else {
+            None
+        };
+        let s = self
+            .db
+            .set_bot_schedule_enabled(id, enabled, next)
+            .map_err(|e| e.to_string())?
+            .ok_or("Schedule not found")?;
+        self.publish_schedule(&s);
+        self.publish(&s.bot_id);
+        Ok(s)
+    }
+
+    /// Whether the task a schedule added last is still waiting or working.
+    fn still_going(&self, s: &BotSchedule) -> bool {
+        s.last_task_id
+            .as_deref()
+            .and_then(|t| self.db.bot_task(t).ok().flatten())
+            .is_some_and(|t| t.status == "queued" || t.status == "running")
+    }
+
+    /// "Run now": adds the schedule's task at once; its next run stays as it was.
+    pub fn run_schedule(&self, id: &str) -> Result<BotTask, String> {
+        let s = self.schedule(id)?;
+        if self.still_going(&s) {
+            return Err("Its last run is still queued or in progress".into());
+        }
+        let t = self.add_task(&s.bot_id, &s.text, "schedule", s.project_id.as_deref())?;
+        if let Ok(Some(s)) = self.db.set_bot_schedule_run(
+            &s.id,
+            Some(crate::db::now_ms()),
+            Some(&t.id),
+            s.next_run_at,
+            None,
+        ) {
+            self.publish_schedule(&s);
+        }
+        Ok(t)
+    }
+
+    /// The scheduler's tick: each due schedule adds its task (unless its last one is still
+    /// queued or running), and its next run is worked out.
+    pub fn tick(&self, now: i64) {
+        self.tick_in(now, &chrono::Local);
+    }
+
+    pub fn tick_in<Tz: chrono::TimeZone>(&self, now: i64, tz: &Tz) {
+        for s in self.db.due_bot_schedules(now).unwrap_or_default() {
+            let due = s.next_run_at.unwrap_or(now);
+            let Some(w) = rule(&s) else {
+                let _ = self.db.set_bot_schedule_enabled(&s.id, false, None);
+                continue;
+            };
+            let row = if schedule::missed(due, now) {
+                // AgentDeck or the Mac was off: not made up, the next run is counted from now.
+                self.db.set_bot_schedule_run(
+                    &s.id,
+                    None,
+                    None,
+                    schedule::next_run(&w, now, tz),
+                    None,
+                )
+            } else {
+                let next = schedule::next_after_run(&w, due, now, tz);
+                if self.still_going(&s) {
+                    self.db
+                        .set_bot_schedule_run(&s.id, None, None, next, Some(now))
+                } else {
+                    match self.add_task(&s.bot_id, &s.text, "schedule", s.project_id.as_deref()) {
+                        Ok(t) => {
+                            self.db
+                                .set_bot_schedule_run(&s.id, Some(now), Some(&t.id), next, None)
+                        }
+                        Err(e) => {
+                            eprintln!("agentdeck: schedule {} couldn't add its task: {e}", s.id);
+                            self.db
+                                .set_bot_schedule_run(&s.id, None, None, next, Some(now))
+                        }
+                    }
+                }
+            };
+            if let Ok(Some(row)) = row {
+                self.publish_schedule(&row);
+            }
+            self.publish(&s.bot_id);
+        }
+    }
+}
+
+/// `~/AgentDeck/Bots`: where bots' workspaces are.
+pub fn bots_root(home: &Path) -> PathBuf {
+    home.join("AgentDeck").join("Bots")
 }
 
 /// True for the stored events the bot runner looks at besides turn ends.
@@ -758,6 +1316,7 @@ mod tests {
     use super::*;
     use crate::claude::Manager;
     use crate::codex::CodexManager;
+    use crate::schedule::testing::Cet2026;
 
     struct T {
         db: Arc<Db>,
@@ -765,6 +1324,16 @@ mod tests {
         project: String,
         dir: tempfile::TempDir,
         out: Arc<Mutex<Vec<Outbound>>>,
+    }
+
+    impl T {
+        /// The home folder the bots see (a temp folder, never the real one).
+        fn home(&self) -> PathBuf {
+            self.dir.path().join("home")
+        }
+        fn project_dir(&self) -> String {
+            self.db.project(&self.project).unwrap().unwrap().path
+        }
     }
 
     /// A stand-in `claude` that takes messages and never answers: turn ends are fed in by hand.
@@ -779,6 +1348,8 @@ mod tests {
         }
         let proj = dir.path().join("shop");
         std::fs::create_dir_all(proj.join(".git")).unwrap();
+        let home = dir.path().join("home");
+        std::fs::create_dir_all(&home).unwrap();
         let db = Arc::new(Db::open_in_memory().unwrap());
         let p = db
             .add_project("shop", &proj.canonicalize().unwrap().to_string_lossy())
@@ -799,7 +1370,7 @@ mod tests {
             api: Arc::new(crate::api::ApiManager::new(db.clone(), sink.clone())),
         });
         T {
-            bots: Bots::new(db.clone(), sink, agents),
+            bots: Bots::new(db.clone(), sink, agents, home.canonicalize().unwrap()),
             db,
             project: p.id,
             dir,
@@ -813,7 +1384,7 @@ mod tests {
         }
     }
 
-    fn fields<'a>(name: &'a str, project: &'a str) -> BotFields<'a> {
+    fn fields<'a>(name: &'a str, project: Option<&'a str>) -> BotFields<'a> {
         BotFields {
             name,
             role: "Reviews pull requests in the shop repo",
@@ -851,88 +1422,327 @@ mod tests {
             .collect()
     }
 
+    fn running_session(t: &T, bot: &str) -> String {
+        t.bots.get(bot).unwrap().running_session_id.unwrap()
+    }
+
     #[test]
-    fn names_slugs_and_dates() {
+    fn names_folders_slugs_and_dates() {
         assert_eq!(slug("PR Reviewer"), "pr-reviewer");
         assert_eq!(slug("  Docs / Writer!! "), "docs-writer");
         assert_eq!(slug("Çiçek Bot"), "çiçek-bot");
         assert_eq!(slug("../.."), "bot");
+        assert_eq!(folder_name("PR Reviewer"), "PR Reviewer");
+        assert_eq!(folder_name("PR / Review: v2"), "PR - Review- v2");
+        assert_eq!(folder_name("  ..hidden  "), "hidden");
+        assert_eq!(folder_name("../.."), "Bot");
+        assert_eq!(folder_name("/"), "Bot");
+        assert_eq!(folder_name("Çiçek   Bot."), "Çiçek Bot");
+        assert_eq!(folder_name(&"x".repeat(80)).len(), 60);
         assert_eq!(stamp(0), "1970-01-01 00:00 UTC");
         assert_eq!(stamp(1_793_718_300_000), "2026-11-03 15:05 UTC");
         assert_eq!(stamp(951_782_400_000), "2000-02-29 00:00 UTC");
     }
 
     #[test]
-    fn memory_file_lives_in_the_project_and_git_ignores_it() {
+    fn a_bot_gets_its_own_workspace_with_its_memory_and_no_folder_is_needed() {
         let t = setup();
-        let dir = t.db.project(&t.project).unwrap().unwrap().path;
-        let path = ensure_memory(&dir, "PR Reviewer").unwrap();
-        assert_eq!(path, Path::new(&dir).join(".agentdeck/bots/pr-reviewer.md"));
-        assert!(std::fs::read_to_string(&path)
-            .unwrap()
-            .starts_with("# PR Reviewer memory"));
-        ensure_memory(&dir, "PR Reviewer").unwrap();
-        let exclude = std::fs::read_to_string(Path::new(&dir).join(".git/info/exclude")).unwrap();
-        assert_eq!(exclude.matches(".agentdeck/").count(), 1, "{exclude}");
-        assert!(!Path::new(&dir).join(".gitignore").exists());
-        // Not a repository: nothing to exclude, and no .git is made.
-        let plain = t.dir.path().join("plain");
-        std::fs::create_dir(&plain).unwrap();
-        ensure_memory(&plain.to_string_lossy(), "x").unwrap();
-        assert!(!plain.join(".git").exists());
-        assert!(!exclude_in_git(&plain).unwrap());
-    }
-
-    #[test]
-    fn saving_checks_names_and_renaming_moves_the_memory() {
-        let t = setup();
-        let b = t.bots.save("", &fields("Reviewer", &t.project)).unwrap();
-        assert_eq!((b.paused, b.queued, b.session_id.clone()), (false, 0, None));
+        let b = t.bots.save("", &fields("PR Reviewer", None)).unwrap();
+        let ws = t.home().join("AgentDeck/Bots/PR Reviewer");
+        assert_eq!(b.workspace, ws.to_string_lossy());
+        assert_eq!(b.project_id, None, "no default project");
+        let p =
+            t.db.project(b.workspace_id.as_deref().unwrap())
+                .unwrap()
+                .unwrap();
+        assert!(p.hidden, "the workspace is a hidden project");
+        assert_eq!(p.name, "PR Reviewer");
+        let mem = t.bots.read_memory(&b.id).unwrap();
+        assert_eq!(Path::new(&mem.path), ws.join("MEMORY.md"));
+        assert!(mem.text.starts_with("# PR Reviewer memory"));
+        // Nothing is written into a project.
+        assert!(!Path::new(&t.project_dir()).join(".agentdeck").exists());
+        // A default project, and checks on names and folders.
+        let b2 = t
+            .bots
+            .save("", &fields("Shop Bot", Some(&t.project)))
+            .unwrap();
+        assert_eq!(b2.project_id.as_deref(), Some(t.project.as_str()));
         assert!(t
             .bots
-            .save("", &fields("reviewer", &t.project))
+            .save("", &fields("pr reviewer", None))
             .unwrap_err()
             .contains("already a bot"));
+        assert!(
+            t.bots.save("", &fields("PR: Reviewer", None)).is_ok(),
+            "PR- Reviewer is another folder"
+        );
         assert!(t
             .bots
-            .save("", &fields("Re-viewer", &t.project))
-            .is_ok_and(|_| true));
-        assert!(t
-            .bots
-            .save("", &fields("Re viewer", &t.project))
+            .save("", &fields("PR/ Reviewer", None))
             .unwrap_err()
-            .contains("memory file"));
-        assert!(t.bots.save("", &fields("  ", &t.project)).is_err());
-        assert!(t.bots.save("", &fields("Ghost", "p-missing")).is_err());
-        let mut bad = fields("Painter", &t.project);
+            .contains("workspace folder"));
+        assert!(t.bots.save("", &fields("  ", None)).is_err());
+        assert!(t
+            .bots
+            .save("", &fields("Ghost", Some("p-missing")))
+            .is_err());
+        assert!(
+            t.bots
+                .save("", &fields("Sneaky", b.workspace_id.as_deref()))
+                .unwrap_err()
+                .contains("workspace"),
+            "another bot's workspace isn't a project"
+        );
+        let mut bad = fields("Painter", None);
         bad.color = "chartreuse";
         assert!(t.bots.save("", &bad).is_err());
-
-        t.bots
-            .write_memory(&b.id, "# Reviewer memory\n\n- Tests: npm test\n")
-            .unwrap();
-        let renamed = t
-            .bots
-            .save(&b.id, &fields("Shop Reviewer", &t.project))
-            .unwrap();
-        assert_eq!(renamed.name, "Shop Reviewer");
-        let mem = t.bots.read_memory(&b.id).unwrap();
-        assert!(mem.path.ends_with(".agentdeck/bots/shop-reviewer.md"));
-        assert!(mem.text.contains("npm test"), "the memory came along");
         assert!(t
             .bots
             .write_memory(&b.id, &"x".repeat(MAX_MEMORY + 1))
             .is_err());
+        // The memory file is never followed through a link.
+        #[cfg(unix)]
+        {
+            let link = ws.join("MEMORY.md");
+            std::fs::remove_file(&link).unwrap();
+            std::os::unix::fs::symlink("/etc/hosts", &link).unwrap();
+            assert!(t.bots.read_memory(&b.id).unwrap_err().contains("link"));
+        }
+    }
+
+    #[test]
+    fn renaming_moves_the_workspace_and_keeps_its_sessions() {
+        let t = setup();
+        let b = t.bots.save("", &fields("Reviewer", None)).unwrap();
+        t.bots
+            .write_memory(&b.id, "# Reviewer memory\n\n- Tests: npm test\n")
+            .unwrap();
+        std::fs::write(Path::new(&b.workspace).join("notes.txt"), "kept").unwrap();
+        let t1 = t.bots.add_task(&b.id, "One", "you", None).unwrap();
+        let sid = running_session(&t, &b.id);
+        assert!(
+            t.bots
+                .save(&b.id, &fields("Shop Reviewer", None))
+                .unwrap_err()
+                .contains("Wait"),
+            "not while a task works in the workspace"
+        );
+        t.bots.on_event(&end(&sid, "result/success", "Done"));
+        assert_eq!(status(&t, &t1.id), "done");
+        let renamed = t.bots.save(&b.id, &fields("Shop Reviewer", None)).unwrap();
+        let ws = t.home().join("AgentDeck/Bots/Shop Reviewer");
+        assert_eq!(renamed.workspace, ws.to_string_lossy());
+        assert!(!t.home().join("AgentDeck/Bots/Reviewer").exists());
+        assert_eq!(
+            std::fs::read_to_string(ws.join("notes.txt")).unwrap(),
+            "kept"
+        );
+        let mem = t.bots.read_memory(&b.id).unwrap();
+        assert!(mem.text.contains("npm test"), "the memory came along");
+        assert_eq!(renamed.workspace_id, b.workspace_id, "same project row");
+        let s = t.db.session(&sid).unwrap().unwrap();
+        assert_eq!(s.title, "Shop Reviewer");
+        assert_eq!(t.db.session_dir(&s).unwrap().unwrap(), ws.to_string_lossy());
+        assert_eq!(renamed.places.len(), 1, "the session stays the bot's");
+        // A folder of that name already there (not this bot's): refused.
+        std::fs::create_dir_all(t.home().join("AgentDeck/Bots/Taken")).unwrap();
+        assert!(t
+            .bots
+            .save(&b.id, &fields("Taken", None))
+            .unwrap_err()
+            .contains("already a folder"));
+    }
+
+    #[test]
+    fn bots_from_milestone_one_get_a_workspace_and_their_memory_moves_in() {
+        let t = setup();
+        // A v8 bot: its memory in the project, its session in the project, no workspace yet.
+        let old = old_memory_path(&t.project_dir(), "Reviewer");
+        std::fs::create_dir_all(old.parent().unwrap()).unwrap();
+        std::fs::write(&old, "# Reviewer memory\n\n- Uses pnpm\n").unwrap();
+        let bot =
+            t.db.save_bot("", &fields("Reviewer", Some(&t.project)))
+                .unwrap();
+        let s =
+            t.db.create_session(&t.project, "claude-code", "default", "Reviewer")
+                .unwrap();
+        t.db.set_bot_session(&bot.id, Some(&t.project), &s.id)
+            .unwrap();
+        t.db.set_bot_briefed(&s.id, true).unwrap();
+        assert!(t.db.bot(&bot.id).unwrap().unwrap().workspace_id.is_none());
+
+        t.bots.ensure_workspaces();
+        let b = t.bots.get(&bot.id).unwrap();
+        let ws = t.home().join("AgentDeck/Bots/Reviewer");
+        assert_eq!(b.workspace, ws.to_string_lossy());
+        assert_eq!(
+            b.project_id.as_deref(),
+            Some(t.project.as_str()),
+            "its folder is its default project"
+        );
+        assert_eq!(
+            std::fs::read_to_string(ws.join("MEMORY.md")).unwrap(),
+            "# Reviewer memory\n\n- Uses pnpm\n"
+        );
+        assert!(!old.exists(), "the old file is removed once copied");
+        assert!(
+            !Path::new(&t.project_dir()).join(".agentdeck").exists(),
+            "and its empty folders"
+        );
+        // Its session carries on as its session for that project: no second brief.
+        let t1 = t
+            .bots
+            .add_task(&b.id, "Check the build", "you", Some(&t.project))
+            .unwrap();
+        assert_eq!(t1.session_id.as_deref(), Some(s.id.as_str()));
+        let p = prompts(&t, &s.id);
+        assert!(p[0].starts_with("Task from you in "), "{}", p[0]);
+        assert!(p[0].contains(&ws.join("MEMORY.md").to_string_lossy().into_owned()));
+        // Running it again changes nothing.
+        t.bots.ensure_workspaces();
+        assert_eq!(t.bots.get(&b.id).unwrap().workspace_id, b.workspace_id);
+
+        // A workspace that already has a memory file keeps it, and the old one stays.
+        let other = old_memory_path(&t.project_dir(), "Writer");
+        std::fs::create_dir_all(other.parent().unwrap()).unwrap();
+        std::fs::write(&other, "old").unwrap();
+        let ws2 = t.home().join("AgentDeck/Bots/Writer");
+        std::fs::create_dir_all(&ws2).unwrap();
+        std::fs::write(ws2.join("MEMORY.md"), "new").unwrap();
+        assert!(!move_old_memory(&other, &ws2));
+        assert_eq!(
+            std::fs::read_to_string(ws2.join("MEMORY.md")).unwrap(),
+            "new"
+        );
+        assert!(other.exists());
+    }
+
+    #[test]
+    fn one_session_per_place_and_the_header_names_the_folder() {
+        let t = setup();
+        let b = t
+            .bots
+            .save("", &fields("Reviewer", Some(&t.project)))
+            .unwrap();
+        let t1 = t
+            .bots
+            .add_task(&b.id, "Tidy your notes", "you", None)
+            .unwrap();
+        let t2 = t
+            .bots
+            .add_task(&b.id, "Review PR 12", "you", Some(&t.project))
+            .unwrap();
+        let t3 = t.bots.add_task(&b.id, "Sum up", "you", None).unwrap();
+        assert!(t
+            .bots
+            .add_task(&b.id, "x", "you", Some("p-missing"))
+            .is_err());
+        assert_eq!(t1.status, "running");
+        let ws_sid = running_session(&t, &b.id);
+        let ws = t.db.session(&ws_sid).unwrap().unwrap();
+        assert_eq!(
+            (Some(ws.project_id.as_str()), ws.title.as_str()),
+            (b.workspace_id.as_deref(), "Reviewer")
+        );
+        let p = prompts(&t, &ws_sid);
+        assert!(p[0].starts_with("You're Reviewer, a bot in AgentDeck. Your job: Reviews pull requests in the shop repo.\nBe brief.\n\nYou work through tasks one at a time."), "{}", p[0]);
+        assert!(p[0].contains(&format!(
+            "Your workspace is {}. Work there when a task names no project",
+            b.workspace
+        )));
+        assert!(p[0].contains(&format!(
+            "Your memory file is {}/MEMORY.md. Read it at the start of every task.",
+            b.workspace
+        )));
+        assert!(p[0].contains(&format!("\n\nTask from you in {} (", b.workspace)));
+        assert!(p[0].ends_with("UTC):\nTidy your notes"));
+
+        t.bots.on_event(&end(&ws_sid, "result/success", "Tidied."));
+        assert_eq!(status(&t, &t1.id), "done");
+        assert_eq!(
+            status(&t, &t2.id),
+            "running",
+            "{:?}",
+            t.db.bot_task(&t2.id).unwrap().unwrap().error
+        );
+        // The project task gets a session of its own, in the project, with the brief.
+        let proj_sid = running_session(&t, &b.id);
+        assert_ne!(proj_sid, ws_sid);
+        let ps = t.db.session(&proj_sid).unwrap().unwrap();
+        assert_eq!(
+            (ps.project_id.as_str(), ps.title.as_str()),
+            (t.project.as_str(), "Reviewer · shop")
+        );
+        let p = prompts(&t, &proj_sid);
+        assert!(p[0].starts_with("You're Reviewer"));
+        assert!(p[0].contains(&format!("\n\nTask from you in {} (", t.project_dir())));
+        assert_eq!(
+            t.db.bot_task(&t2.id)
+                .unwrap()
+                .unwrap()
+                .session_id
+                .as_deref(),
+            Some(proj_sid.as_str())
+        );
+        let bot = t.bots.get(&b.id).unwrap();
+        assert_eq!(bot.running_project_id.as_deref(), Some(t.project.as_str()));
+        assert_eq!(bot.places.len(), 2);
+        // A turn end in the other place (a message you sent there) doesn't end this task.
+        t.bots.on_event(&end(&ws_sid, "result/success", "Hi"));
+        assert_eq!(status(&t, &t2.id), "running");
+        // (The stand-in agent never says its turn ended; a real one would be idle now.)
+        t.db.update_session(&ws_sid, Some("idle"), None, None, None, None)
+            .unwrap();
+        t.bots
+            .on_event(&end(&proj_sid, "result/success", "Two notes."));
+        assert_eq!(status(&t, &t2.id), "done");
+        // Back in the workspace: the same session, a short header, no second brief.
+        assert_eq!(running_session(&t, &b.id), ws_sid);
+        let p = prompts(&t, &ws_sid);
+        assert!(
+            p[1].starts_with(&format!("Task from you in {} (", b.workspace)),
+            "{}",
+            p[1]
+        );
+        assert!(p[1].contains("Sum up\n\n(Your memory file: "));
+        t.bots
+            .on_event(&end(&ws_sid, "result/success", "Summed up."));
+        assert_eq!(status(&t, &t3.id), "done");
+
+        // Start fresh lets go of both; their sessions stay as ordinary ones.
+        let fresh = t.bots.restart_session(&b.id).unwrap();
+        assert!(fresh.places.is_empty());
+        assert_eq!(
+            t.db.session(&proj_sid).unwrap().unwrap().title,
+            "Reviewer (earlier)"
+        );
+        t.bots.add_task(&b.id, "Again", "you", None).unwrap();
+        let again = running_session(&t, &b.id);
+        assert_ne!(again, ws_sid);
+        assert!(prompts(&t, &again)[0].starts_with("You're Reviewer"));
     }
 
     #[test]
     fn tasks_run_one_at_a_time_in_order_and_end_with_the_turn() {
         let t = setup();
-        let b = t.bots.save("", &fields("Reviewer", &t.project)).unwrap();
-        assert!(t.bots.add_task(&b.id, "   ", "you").is_err());
-        let t1 = t.bots.add_task(&b.id, "Review PR 12", "you").unwrap();
-        let t2 = t.bots.add_task(&b.id, "Review PR 13", "you").unwrap();
-        let t3 = t.bots.add_task(&b.id, "Review PR 14", "you").unwrap();
+        let b = t
+            .bots
+            .save("", &fields("Reviewer", Some(&t.project)))
+            .unwrap();
+        assert!(t.bots.add_task(&b.id, "   ", "you", None).is_err());
+        let t1 = t
+            .bots
+            .add_task(&b.id, "Review PR 12", "you", Some(&t.project))
+            .unwrap();
+        let t2 = t
+            .bots
+            .add_task(&b.id, "Review PR 13", "you", Some(&t.project))
+            .unwrap();
+        let t3 = t
+            .bots
+            .add_task(&b.id, "Review PR 14", "you", Some(&t.project))
+            .unwrap();
         assert_eq!(t1.status, "running");
         assert_eq!(
             (status(&t, &t2.id), status(&t, &t3.id)),
@@ -944,24 +1754,7 @@ mod tests {
             (2, Some(t1.id.as_str()))
         );
         assert_eq!(bot.running_text.as_deref(), Some("Review PR 12"));
-        let sid = bot
-            .session_id
-            .clone()
-            .expect("the first task made the session");
-        let s = t.db.session(&sid).unwrap().unwrap();
-        assert_eq!(
-            (s.title.as_str(), s.project_id.as_str()),
-            ("Reviewer", t.project.as_str())
-        );
-
-        // The first message carries the brief, then the task.
-        let p = prompts(&t, &sid);
-        assert_eq!(p.len(), 1);
-        assert!(p[0].starts_with("You're Reviewer, a bot in AgentDeck. Your job: Reviews pull requests in the shop repo.\nBe brief.\n\nYou work through tasks one at a time."), "{}", p[0]);
-        assert!(p[0].contains(".agentdeck/bots/reviewer.md. Read it at the start of every task."));
-        assert!(p[0].contains("\n\nTask from you ("));
-        assert!(p[0].ends_with("UTC):\nReview PR 12"));
-
+        let sid = bot.running_session_id.clone().unwrap();
         // A turn end from another session changes nothing.
         let other =
             t.db.create_session(&t.project, "claude-code", "default", "x")
@@ -978,14 +1771,6 @@ mod tests {
         );
         assert!(d1.finished_at.is_some());
         assert_eq!(status(&t, &t2.id), "running");
-        let p = prompts(&t, &sid);
-        assert!(
-            p[1].starts_with("Task from you ("),
-            "later tasks carry a short header: {}",
-            p[1]
-        );
-        assert!(p[1].contains("Review PR 13"));
-
         t.bots.on_event(&end(
             &sid,
             "result/error_during_execution",
@@ -997,7 +1782,6 @@ mod tests {
             ("failed", Some("Out of credits"))
         );
         assert_eq!(status(&t, &t3.id), "running");
-
         t.bots.on_event(&end(&sid, "result/success", ""));
         let d3 = t.db.bot_task(&t3.id).unwrap().unwrap();
         assert_eq!(
@@ -1022,16 +1806,16 @@ mod tests {
     #[test]
     fn pause_resume_cancel_and_retry() {
         let t = setup();
-        let b = t.bots.save("", &fields("Reviewer", &t.project)).unwrap();
+        let b = t.bots.save("", &fields("Reviewer", None)).unwrap();
         t.bots.set_paused(&b.id, true).unwrap();
-        let t1 = t.bots.add_task(&b.id, "One", "you").unwrap();
-        let t2 = t.bots.add_task(&b.id, "Two", "you").unwrap();
-        let t3 = t.bots.add_task(&b.id, "Three", "you").unwrap();
+        let t1 = t.bots.add_task(&b.id, "One", "you", None).unwrap();
+        let t2 = t.bots.add_task(&b.id, "Two", "you", None).unwrap();
+        let t3 = t.bots.add_task(&b.id, "Three", "you", None).unwrap();
         assert_eq!(t1.status, "queued", "a paused bot starts nothing");
-        assert!(t.bots.get(&b.id).unwrap().session_id.is_none());
+        assert!(t.bots.get(&b.id).unwrap().places.is_empty());
         let bot = t.bots.set_paused(&b.id, false).unwrap();
         assert_eq!(bot.running_task_id.as_deref(), Some(t1.id.as_str()));
-        let sid = bot.session_id.unwrap();
+        let sid = bot.running_session_id.unwrap();
 
         // A queued task is just dropped.
         assert_eq!(t.bots.cancel(&t2.id).unwrap().status, "cancelled");
@@ -1057,18 +1841,18 @@ mod tests {
 
         // Pausing keeps the running task going.
         t.bots.set_paused(&b.id, true).unwrap();
-        let t4 = t.bots.add_task(&b.id, "Four", "you").unwrap();
+        let t4 = t.bots.add_task(&b.id, "Four", "you", None).unwrap();
         t.bots.on_event(&end(&sid, "result/success", "Two done"));
         assert_eq!(status(&t, &t2.id), "done");
         assert_eq!(status(&t, &t4.id), "queued");
     }
 
     #[test]
-    fn restart_recovery_and_start_fresh() {
+    fn restart_recovery() {
         let t = setup();
-        let b = t.bots.save("", &fields("Reviewer", &t.project)).unwrap();
-        let t1 = t.bots.add_task(&b.id, "One", "you").unwrap();
-        let sid = t.bots.get(&b.id).unwrap().session_id.unwrap();
+        let b = t.bots.save("", &fields("Reviewer", None)).unwrap();
+        let t1 = t.bots.add_task(&b.id, "One", "you", None).unwrap();
+        let sid = running_session(&t, &b.id);
         assert!(
             t.bots.restart_session(&b.id).is_err(),
             "not while a task runs"
@@ -1081,6 +1865,7 @@ mod tests {
         // AgentDeck closed while the task ran: it goes back to the queue and starts again.
         t.db.recover_after_restart().unwrap();
         assert_eq!(status(&t, &t1.id), "queued");
+        t.bots.ensure_workspaces();
         t.bots.resume_all();
         assert_eq!(status(&t, &t1.id), "running");
         assert_eq!(prompts(&t, &sid).len(), 2);
@@ -1088,31 +1873,27 @@ mod tests {
             prompts(&t, &sid)[1].starts_with("Task from you"),
             "same session, no second brief"
         );
-        t.bots.on_event(&end(&sid, "result/success", "Done"));
-
-        let fresh = t.bots.restart_session(&b.id).unwrap();
-        assert!(fresh.session_id.is_none());
-        assert_eq!(
-            t.db.session(&sid).unwrap().unwrap().title,
-            "Reviewer (earlier)"
-        );
-        t.bots.add_task(&b.id, "Two", "you").unwrap();
-        let sid2 = t.bots.get(&b.id).unwrap().session_id.unwrap();
-        assert_ne!(sid, sid2);
-        assert!(
-            prompts(&t, &sid2)[0].starts_with("You're Reviewer"),
-            "a new session gets the brief"
-        );
     }
 
     #[test]
-    fn a_task_whose_agent_stops_or_session_goes_fails_and_the_queue_moves_on() {
+    fn a_task_whose_agent_stops_or_session_or_project_goes_fails_and_the_queue_moves_on() {
         let t = setup();
-        let b = t.bots.save("", &fields("Reviewer", &t.project)).unwrap();
-        let t1 = t.bots.add_task(&b.id, "One", "you").unwrap();
-        let t2 = t.bots.add_task(&b.id, "Two", "you").unwrap();
-        let t3 = t.bots.add_task(&b.id, "Three", "you").unwrap();
-        let sid = t.bots.get(&b.id).unwrap().session_id.unwrap();
+        let b = t
+            .bots
+            .save("", &fields("Reviewer", Some(&t.project)))
+            .unwrap();
+        let t1 = t.bots.add_task(&b.id, "One", "you", None).unwrap();
+        let t2 = t.bots.add_task(&b.id, "Two", "you", None).unwrap();
+        let t3 = t.bots.add_task(&b.id, "Three", "you", None).unwrap();
+        let t4 = t
+            .bots
+            .add_task(&b.id, "Four", "you", Some(&t.project))
+            .unwrap();
+        let t5 = t
+            .bots
+            .add_task(&b.id, "Five", "you", Some(&t.project))
+            .unwrap();
+        let sid = running_session(&t, &b.id);
         let exit = StoredEvent {
             session_id: sid.clone(),
             seq: 1,
@@ -1123,8 +1904,7 @@ mod tests {
         };
         assert!(wants(&exit));
         t.bots.on_request(&exit);
-        let d1 = t.db.bot_task(&t1.id).unwrap().unwrap();
-        assert_eq!(d1.status, "failed");
+        assert_eq!(t.db.bot_task(&t1.id).unwrap().unwrap().status, "failed");
         assert_eq!(status(&t, &t2.id), "running");
         t.db.delete_session(&sid).unwrap();
         t.bots.session_deleted(&sid);
@@ -1133,16 +1913,37 @@ mod tests {
             Some("Its session was deleted")
         );
         assert_eq!(status(&t, &t3.id), "running");
-        let fresh = t.bots.get(&b.id).unwrap().session_id.unwrap();
+        let fresh = running_session(&t, &b.id);
         assert_ne!(fresh, sid, "the next task made a new session");
+        t.bots.on_event(&end(&fresh, "result/success", "ok"));
+        assert_eq!(status(&t, &t4.id), "running");
+        // Its project is removed while it works there.
+        t.db.remove_project(&t.project).unwrap();
+        t.bots.project_removed(&t.project);
+        assert_eq!(
+            t.db.bot_task(&t4.id).unwrap().unwrap().error.as_deref(),
+            Some("Its project was removed")
+        );
+        let t5 = t.db.bot_task(&t5.id).unwrap().unwrap();
+        assert_eq!(t5.status, "failed");
+        assert!(t5.error.unwrap().contains("project was removed"));
+        let bot = t.bots.get(&b.id).unwrap();
+        assert_eq!(
+            bot.project_id, None,
+            "it works in its workspace by default now"
+        );
+        assert_eq!(bot.places.len(), 1, "only the workspace session is left");
     }
 
     #[test]
-    fn deleting_keeps_the_session_as_an_ordinary_one() {
+    fn deleting_keeps_the_sessions_and_shows_the_workspace_as_a_project() {
         let t = setup();
-        let b = t.bots.save("", &fields("Reviewer", &t.project)).unwrap();
-        let t1 = t.bots.add_task(&b.id, "One", "you").unwrap();
-        let sid = t.bots.get(&b.id).unwrap().session_id.unwrap();
+        let b = t
+            .bots
+            .save("", &fields("Reviewer", Some(&t.project)))
+            .unwrap();
+        let t1 = t.bots.add_task(&b.id, "One", "you", None).unwrap();
+        let sid = running_session(&t, &b.id);
         t.bots.delete(&b.id).unwrap();
         assert!(t.bots.get(&b.id).is_err());
         assert!(
@@ -1154,12 +1955,32 @@ mod tests {
             "Reviewer (deleted bot)"
         );
         assert!(t.db.bot_for_session(&sid).unwrap().is_none());
+        let ws =
+            t.db.project(b.workspace_id.as_deref().unwrap())
+                .unwrap()
+                .unwrap();
+        assert!(!ws.hidden, "its session can be found in the sidebar");
+        assert!(
+            Path::new(&ws.path).join("MEMORY.md").is_file(),
+            "the folder stays"
+        );
+        // A bot that never worked leaves no project behind.
+        let b2 = t.bots.save("", &fields("Writer", None)).unwrap();
+        t.bots.delete(&b2.id).unwrap();
+        assert!(t
+            .db
+            .project(b2.workspace_id.as_deref().unwrap())
+            .unwrap()
+            .is_none());
     }
 
     #[test]
     fn unattended_rule_for_bot_sessions() {
         let t = setup();
-        let b = t.bots.save("", &fields("Reviewer", &t.project)).unwrap();
+        let b = t
+            .bots
+            .save("", &fields("Reviewer", Some(&t.project)))
+            .unwrap();
         let ask = |sid: &str, tool: &str, input: Value| StoredEvent {
             session_id: sid.into(),
             seq: 1,
@@ -1175,14 +1996,22 @@ mod tests {
                 .filter(|e| e.kind == "bot_needs_you")
                 .count()
         };
-        t.bots.add_task(&b.id, "One", "you").unwrap();
-        let sid = t.bots.get(&b.id).unwrap().session_id.unwrap();
-        // Ordinary: allowed (here the stand-in agent has no such request, so nothing is held).
+        let memory = format!("{}/MEMORY.md", b.workspace);
+        let in_project = format!("{}/src/a.ts", t.project_dir());
+        // A task in the project: the project and the workspace are in reach, nothing else.
+        t.bots
+            .add_task(&b.id, "One", "you", Some(&t.project))
+            .unwrap();
+        let sid = running_session(&t, &b.id);
         t.bots
             .on_request(&ask(&sid, "Bash", json!({ "command": "npm test" })));
+        t.bots
+            .on_request(&ask(&sid, "Edit", json!({ "file_path": memory })));
+        t.bots
+            .on_request(&ask(&sid, "Edit", json!({ "file_path": in_project })));
         assert_eq!(held(&sid), 0);
         assert!(!t.bots.get(&b.id).unwrap().needs_you);
-        // Risky or outside the folder: waits for you.
+        // Risky or outside both folders: waits for you.
         t.bots
             .on_request(&ask(&sid, "Bash", json!({ "command": "git push --force" })));
         let e =
@@ -1203,6 +2032,14 @@ mod tests {
         t.bots
             .on_request(&ask(&sid, "Write", json!({ "file_path": "/etc/hosts" })));
         assert_eq!(held(&sid), 2);
+        // Another bot's workspace is outside too.
+        let other = t.bots.save("", &fields("Writer", None)).unwrap();
+        t.bots.on_request(&ask(
+            &sid,
+            "Write",
+            json!({ "file_path": format!("{}/MEMORY.md", other.workspace) }),
+        ));
+        assert_eq!(held(&sid), 3);
         // Questions always wait; the turn's end clears the mark.
         t.bots.on_request(&ask(&sid, "AskUserQuestion", json!({})));
         assert!(t.bots.get(&b.id).unwrap().needs_you);
@@ -1211,8 +2048,197 @@ mod tests {
         // With no task running (a message you sent yourself), AgentDeck doesn't step in.
         t.bots
             .on_request(&ask(&sid, "Bash", json!({ "command": "rm -rf build" })));
-        assert_eq!(held(&sid), 2);
+        assert_eq!(held(&sid), 3);
         assert!(!t.bots.get(&b.id).unwrap().needs_you);
+        // A task in the workspace: the project is out of reach then.
+        t.bots.add_task(&b.id, "Two", "you", None).unwrap();
+        let ws_sid = running_session(&t, &b.id);
+        t.bots
+            .on_request(&ask(&ws_sid, "Edit", json!({ "file_path": memory })));
+        assert_eq!(held(&ws_sid), 0);
+        t.bots
+            .on_request(&ask(&ws_sid, "Edit", json!({ "file_path": in_project })));
+        assert_eq!(held(&ws_sid), 1);
+    }
+
+    fn sched(bot: &str, kind: &str) -> ScheduleInput {
+        ScheduleInput {
+            id: None,
+            bot_id: bot.into(),
+            text: "Check the build".into(),
+            project_id: None,
+            kind: kind.into(),
+            times: vec!["09:00".into()],
+            weekdays: vec![],
+            every_minutes: Some(60),
+            enabled: true,
+        }
+    }
+
+    /// 2026-11-03 (a Tuesday) at hh:mm in the test zone (UTC+1 then).
+    fn nov3(h: i64, m: i64) -> i64 {
+        1_793_664_000_000 + ((h - 1) * 60 + m) * 60_000
+    }
+
+    #[test]
+    fn schedules_add_tasks_when_due_and_never_twice_at_once() {
+        let t = setup();
+        let b = t
+            .bots
+            .save("", &fields("Reviewer", Some(&t.project)))
+            .unwrap();
+        let now = nov3(8, 0);
+        let mut input = sched(&b.id, "daily");
+        input.project_id = Some(t.project.clone());
+        let s = t.bots.save_schedule_in(&input, now, &Cet2026).unwrap();
+        assert_eq!(s.next_run_at, Some(nov3(9, 0)));
+        assert_eq!(t.bots.get(&b.id).unwrap().next_run_at, Some(nov3(9, 0)));
+        assert!(t
+            .bots
+            .save_schedule_in(
+                &ScheduleInput {
+                    every_minutes: Some(5),
+                    ..sched(&b.id, "interval")
+                },
+                now,
+                &Cet2026
+            )
+            .is_err());
+        assert!(t
+            .bots
+            .save_schedule_in(
+                &ScheduleInput {
+                    text: " ".into(),
+                    ..sched(&b.id, "daily")
+                },
+                now,
+                &Cet2026
+            )
+            .is_err());
+
+        // Not yet due.
+        t.bots.tick_in(nov3(8, 59), &Cet2026);
+        assert!(t.bots.tasks(&b.id, 10).unwrap().is_empty());
+        // Due (a tick 20 s late): the task is added, in the schedule's project.
+        t.bots.tick_in(nov3(9, 0) + 20_000, &Cet2026);
+        let tasks = t.bots.tasks(&b.id, 10).unwrap();
+        assert_eq!(tasks.len(), 1);
+        let t1 = &tasks[0];
+        assert_eq!(
+            (
+                t1.source.as_str(),
+                t1.project_id.as_deref(),
+                t1.status.as_str()
+            ),
+            ("schedule", Some(t.project.as_str()), "running")
+        );
+        let s = t.db.bot_schedule(&s.id).unwrap().unwrap();
+        assert_eq!(s.last_task_id.as_deref(), Some(t1.id.as_str()));
+        assert_eq!(
+            s.next_run_at,
+            Some(nov3(9, 0) + 86_400_000),
+            "tomorrow at 09:00"
+        );
+        // Next day: the first is still running, so this run is skipped (and says so).
+        t.bots.tick_in(nov3(9, 0) + 86_400_000 + 5_000, &Cet2026);
+        assert_eq!(t.bots.tasks(&b.id, 10).unwrap().len(), 1, "no second task");
+        let s = t.db.bot_schedule(&s.id).unwrap().unwrap();
+        assert_eq!(s.skipped_at, Some(nov3(9, 0) + 86_400_000 + 5_000));
+        assert_eq!(s.next_run_at, Some(nov3(9, 0) + 2 * 86_400_000));
+        // "Run now" refuses too while it's still going, then works once it's done.
+        assert!(t.bots.run_schedule(&s.id).is_err());
+        let sid = running_session(&t, &b.id);
+        t.bots
+            .on_event(&end(&sid, "result/success", "Build is green."));
+        t.db.update_session(&sid, Some("idle"), None, None, None, None)
+            .unwrap();
+        let now_task = t.bots.run_schedule(&s.id).unwrap();
+        assert_eq!(now_task.source, "schedule");
+        assert_eq!(
+            t.db.bot_schedule(&s.id).unwrap().unwrap().next_run_at,
+            s.next_run_at,
+            "its next run stays"
+        );
+        // A paused bot still gets its task; it waits in the queue.
+        t.bots
+            .on_event(&end(&sid, "result/success", "Green again."));
+        t.bots.set_paused(&b.id, true).unwrap();
+        t.bots
+            .tick_in(nov3(9, 0) + 2 * 86_400_000 + 1_000, &Cet2026);
+        let queued: Vec<_> = t
+            .bots
+            .tasks(&b.id, 10)
+            .unwrap()
+            .into_iter()
+            .filter(|x| x.status == "queued")
+            .collect();
+        assert_eq!(queued.len(), 1);
+        // Off: no next run; on again: from now.
+        let off = t
+            .bots
+            .set_schedule_enabled_in(&s.id, false, now, &Cet2026)
+            .unwrap();
+        assert_eq!((off.enabled, off.next_run_at), (false, None));
+        assert_eq!(t.bots.get(&b.id).unwrap().next_run_at, None);
+        let on = t
+            .bots
+            .set_schedule_enabled_in(&s.id, true, nov3(10, 0), &Cet2026)
+            .unwrap();
+        assert_eq!(on.next_run_at, Some(nov3(9, 0) + 86_400_000));
+        assert!(t
+            .out
+            .lock()
+            .unwrap()
+            .iter()
+            .any(|o| matches!(o, Outbound::BotSchedule(x) if x.id == s.id)));
+        t.bots.delete_schedule(&s.id).unwrap();
+        assert!(t.bots.schedules(&b.id).unwrap().is_empty());
+    }
+
+    #[test]
+    fn missed_runs_are_not_made_up_and_intervals_repeat() {
+        let t = setup();
+        let b = t.bots.save("", &fields("Reviewer", None)).unwrap();
+        let s = t
+            .bots
+            .save_schedule_in(&sched(&b.id, "daily"), nov3(8, 0), &Cet2026)
+            .unwrap();
+        // The Mac slept through 09:00 and wakes at 13:00: nothing is added, next is tomorrow.
+        t.bots.tick_in(nov3(13, 0), &Cet2026);
+        assert!(t.bots.tasks(&b.id, 10).unwrap().is_empty());
+        assert_eq!(
+            t.db.bot_schedule(&s.id).unwrap().unwrap().next_run_at,
+            Some(nov3(9, 0) + 86_400_000)
+        );
+        // Every 60 minutes, in its workspace.
+        let i = t
+            .bots
+            .save_schedule_in(&sched(&b.id, "interval"), nov3(8, 0), &Cet2026)
+            .unwrap();
+        assert_eq!(
+            (i.kind.as_str(), i.every_minutes, i.times.len()),
+            ("interval", Some(60), 0)
+        );
+        assert_eq!(i.next_run_at, Some(nov3(9, 0)));
+        t.bots.tick_in(nov3(9, 0) + 30_000, &Cet2026);
+        let tasks = t.bots.tasks(&b.id, 10).unwrap();
+        assert_eq!(tasks.len(), 1);
+        assert_eq!(tasks[0].project_id, None);
+        assert_eq!(
+            t.db.bot_schedule(&i.id).unwrap().unwrap().next_run_at,
+            Some(nov3(10, 0))
+        );
+        // A schedule for a project that's removed stops.
+        let mut p = sched(&b.id, "interval");
+        p.project_id = Some(t.project.clone());
+        let ps = t.bots.save_schedule_in(&p, nov3(8, 0), &Cet2026).unwrap();
+        t.db.remove_project(&t.project).unwrap();
+        t.bots.project_removed(&t.project);
+        let ps = t.db.bot_schedule(&ps.id).unwrap().unwrap();
+        assert_eq!((ps.enabled, ps.next_run_at), (false, None));
+        // Deleting the bot deletes its schedules.
+        t.bots.delete(&b.id).unwrap();
+        assert!(t.db.bot_schedule(&i.id).unwrap().is_none());
     }
 }
 
@@ -1227,7 +2253,7 @@ mod integration {
 
     #[test]
     #[ignore]
-    fn two_queued_tasks_run_in_order_and_ordinary_requests_are_allowed() {
+    fn queued_tasks_run_in_order_in_the_workspace_and_a_project() {
         if std::env::var("AGENTDECK_IT").is_err() {
             return;
         }
@@ -1235,6 +2261,8 @@ mod integration {
         let db = Arc::new(Db::open(&dir.path().join("t.db")).unwrap());
         let proj = dir.path().join("project");
         std::fs::create_dir_all(proj.join(".git")).unwrap();
+        let home = dir.path().join("home");
+        std::fs::create_dir_all(&home).unwrap();
         let p = db
             .add_project("project", &proj.canonicalize().unwrap().to_string_lossy())
             .unwrap();
@@ -1273,7 +2301,12 @@ mod integration {
             agy: Arc::new(crate::agy::AgyManager::new(db.clone(), sink.clone())),
             api: Arc::new(crate::api::ApiManager::new(db.clone(), sink.clone())),
         });
-        let bots = Arc::new(Bots::new(db.clone(), sink, agents.clone()));
+        let bots = Arc::new(Bots::new(
+            db.clone(),
+            sink,
+            agents.clone(),
+            home.canonicalize().unwrap(),
+        ));
         let _ = cell.set(bots.clone());
 
         let bot = bots
@@ -1287,73 +2320,115 @@ mod integration {
                     model: "default",
                     effort: None,
                     profile_id: None,
-                    project_id: &p.id,
+                    project_id: Some(&p.id),
                     color: "teal",
                 },
             )
             .unwrap();
-        let t1 = bots.add_task(&bot.id, "Say hello", "you").unwrap();
-        // Claude Code asks before writing a file: an ordinary request the bot gets allowed.
+        let ws = PathBuf::from(&bot.workspace);
+        assert_eq!(
+            ws,
+            home.canonicalize().unwrap().join("AgentDeck/Bots/Checker")
+        );
+        let t1 = bots.add_task(&bot.id, "Say hello", "you", None).unwrap();
+        // Claude Code asks before writing a file: an ordinary request the bot gets allowed, in
+        // the project for one task and in its own workspace for the other.
         let t2 = bots
-            .add_task(&bot.id, "write the greeting file", "you")
+            .add_task(&bot.id, "write the greeting file", "you", Some(&p.id))
+            .unwrap();
+        let t3 = bots
+            .add_task(&bot.id, "write the greeting file", "you", None)
             .unwrap();
         assert_eq!(
-            (t1.status.as_str(), t2.status.as_str()),
-            ("running", "queued")
+            (t1.status.as_str(), t2.status.as_str(), t3.status.as_str()),
+            ("running", "queued", "queued")
         );
 
-        let deadline = Instant::now() + Duration::from_secs(150);
+        let deadline = Instant::now() + Duration::from_secs(200);
         let ended = |id: &str| {
             db.bot_task(id)
                 .unwrap()
                 .is_some_and(|t| t.status != "queued" && t.status != "running")
         };
-        while !(ended(&t1.id) && ended(&t2.id)) && Instant::now() < deadline {
+        while !(ended(&t1.id) && ended(&t2.id) && ended(&t3.id)) && Instant::now() < deadline {
             std::thread::sleep(Duration::from_millis(200));
         }
-        let (d1, d2) = (
+        let (d1, d2, d3) = (
             db.bot_task(&t1.id).unwrap().unwrap(),
             db.bot_task(&t2.id).unwrap().unwrap(),
+            db.bot_task(&t3.id).unwrap().unwrap(),
         );
-        let sid = bots.get(&bot.id).unwrap().session_id.unwrap();
+        let b = bots.get(&bot.id).unwrap();
         if let Ok(path) = std::env::var("AGENTDECK_DUMP_BOT") {
-            std::fs::write(
-                path,
-                serde_json::to_string_pretty(&db.events(&sid).unwrap()).unwrap(),
-            )
-            .unwrap();
+            let all: Vec<_> = b
+                .places
+                .iter()
+                .flat_map(|pl| db.events(&pl.session_id).unwrap())
+                .collect();
+            std::fs::write(path, serde_json::to_string_pretty(&all).unwrap()).unwrap();
         }
         assert_eq!(d1.status, "done", "{:?}", d1.error);
         assert_eq!(d1.result.as_deref(), Some("Hello from the mock model."));
-        assert_eq!(d2.status, "done", "{:?}", d2.error);
+        for d in [&d2, &d3] {
+            assert_eq!(d.status, "done", "{:?}", d.error);
+            assert!(
+                d.result
+                    .as_deref()
+                    .unwrap_or("")
+                    .contains("file is in place"),
+                "{:?}",
+                d.result
+            );
+        }
         assert!(
-            d2.result
-                .as_deref()
-                .unwrap_or("")
-                .contains("file is in place"),
-            "{:?}",
-            d2.result
+            proj.join("hello.txt").is_file(),
+            "the project task wrote in the project"
         );
-        assert!(proj.join("hello.txt").is_file(), "the write went ahead");
         assert!(
-            d1.finished_at.unwrap() <= d2.started_at.unwrap(),
+            ws.join("hello.txt").is_file(),
+            "the workspace task wrote in the workspace"
+        );
+        assert!(
+            d1.finished_at.unwrap() <= d2.started_at.unwrap()
+                && d2.finished_at.unwrap() <= d3.started_at.unwrap(),
             "one task at a time, in order"
         );
-        let events = db.events(&sid).unwrap();
-        let prompts: Vec<&str> = events
-            .iter()
-            .filter(|e| e.kind == "bot_task")
-            .filter_map(|e| e.payload["prompt"].as_str())
-            .collect();
-        assert_eq!(prompts.len(), 2);
-        assert!(prompts[0].starts_with("You're Checker, a bot in AgentDeck."));
-        assert!(prompts[1].starts_with("Task from you ("));
-        // The Write request was ordinary: AgentDeck allowed it for the bot.
-        assert!(events.iter().any(|e| e.kind == "permission_decision"
-            && e.payload["auto"] == "bot"
-            && e.payload["decision"] == "allow"));
-        assert!(!events.iter().any(|e| e.kind == "bot_needs_you"));
-        assert!(proj.join(".agentdeck/bots/checker.md").is_file());
+        // One session per place: the workspace's (tasks 1 and 3) and the project's (task 2).
+        assert_eq!(b.places.len(), 2);
+        let ws_sid = d1.session_id.clone().unwrap();
+        assert_eq!(d3.session_id.as_deref(), Some(ws_sid.as_str()));
+        let proj_sid = d2.session_id.clone().unwrap();
+        assert_ne!(ws_sid, proj_sid);
+        let wss = db.session(&ws_sid).unwrap().unwrap();
+        assert_eq!(db.session_dir(&wss).unwrap().unwrap(), bot.workspace);
+        assert_eq!(db.session(&proj_sid).unwrap().unwrap().project_id, p.id);
+        let prompts = |sid: &str| -> Vec<String> {
+            db.events(sid)
+                .unwrap()
+                .iter()
+                .filter(|e| e.kind == "bot_task")
+                .filter_map(|e| e.payload["prompt"].as_str().map(str::to_owned))
+                .collect()
+        };
+        let (pw, pp) = (prompts(&ws_sid), prompts(&proj_sid));
+        assert_eq!((pw.len(), pp.len()), (2, 1));
+        assert!(pw[0].starts_with("You're Checker, a bot in AgentDeck."));
+        assert!(pw[1].starts_with(&format!("Task from you in {} (", bot.workspace)));
+        assert!(pp[0].starts_with("You're Checker, a bot in AgentDeck."));
+        assert!(pp[0].contains(&format!("Task from you in {} (", p.path)));
+        // Both Write requests were ordinary: AgentDeck allowed them for the bot.
+        for sid in [&ws_sid, &proj_sid] {
+            let events = db.events(sid).unwrap();
+            assert!(events.iter().any(|e| e.kind == "permission_decision"
+                && e.payload["auto"] == "bot"
+                && e.payload["decision"] == "allow"));
+            assert!(!events.iter().any(|e| e.kind == "bot_needs_you"));
+        }
+        assert!(ws.join("MEMORY.md").is_file());
+        assert!(
+            !proj.join(".agentdeck").exists(),
+            "nothing of the bot's in the project"
+        );
         agents.shutdown_all();
     }
 }

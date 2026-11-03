@@ -183,7 +183,7 @@ function NoSession() {
   const projects = useStore((s) => s.projects);
   const addProjectFolder = useStore((s) => s.addProjectFolder);
   const newSession = useStore((s) => s.newSession);
-  const hasProjects = projects.some((p) => p.workspaceId === ws);
+  const hasProjects = projects.some((p) => p.workspaceId === ws && !p.hidden);
   return (
     <div className="flex h-full flex-col">
       <div data-tauri-drag-region className="drag h-12 shrink-0 border-b border-line-soft" />

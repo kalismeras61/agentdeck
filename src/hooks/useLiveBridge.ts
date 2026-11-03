@@ -37,6 +37,7 @@ export function useLiveBridge() {
           onFlow: (f) => useStore.getState().upsertFlow(f),
           onBot: (b) => useStore.getState().upsertBot(b),
           onBotTask: (t) => useStore.getState().upsertBotTask(t),
+          onBotSchedule: (s) => useStore.getState().upsertBotSchedule(s),
         });
         const [projects, rows] = await Promise.all([liveApi.listProjects(), liveApi.listSessions()]);
         // Only recent and busy sessions load their history now; the rest load when opened.

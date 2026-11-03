@@ -43,7 +43,7 @@ import { RenameField } from "./RenameField";
 import { UpdateNotice } from "./UpdateNotice";
 import { BotEditor } from "./bots/BotEditor";
 import { BotMark } from "./bots/BotMark";
-import { botState, botStatusLine } from "../lib/bots";
+import { botSessionIds, botState, botStatusLine } from "../lib/bots";
 import type { Bot } from "../lib/live";
 
 function Logo() {
@@ -91,13 +91,14 @@ export function Sidebar() {
   const selectedBotId = useStore((s) => s.selectedBotId);
   const openBot = useStore((s) => s.openBot);
   const openBotEditor = useStore((s) => s.openBotEditor);
-  // Bots of this workspace (their folder is one of its projects), oldest first.
-  const bots = useMemo(() => {
-    const ids = new Set(projects.map((p) => p.id));
-    return Object.values(allBots)
-      .filter((b) => ids.has(b.projectId))
-      .sort((a, b) => a.createdAt - b.createdAt);
-  }, [allBots, projects]);
+  // Bots of this workspace (the demo's labeled ones, or this Mac's), oldest first.
+  const bots = useMemo(
+    () =>
+      Object.values(allBots)
+        .filter((b) => b.id.startsWith("b-demo-") === (workspaceId === "demo"))
+        .sort((a, b) => a.createdAt - b.createdAt),
+    [allBots, workspaceId],
+  );
   const shownBots = useMemo(() => {
     const q = search.trim().toLowerCase();
     return q ? bots.filter((b) => b.name.toLowerCase().includes(q) || b.role.toLowerCase().includes(q)) : bots;
@@ -114,8 +115,8 @@ export function Sidebar() {
     }
   }, [searchTick]);
 
-  // A bot's own session shows on its page, not under its project.
-  const botSessions = useMemo(() => new Set(Object.values(allBots).flatMap((b) => (b.sessionId ? [b.sessionId] : []))), [allBots]);
+  // A bot's own sessions show on its page, not under their project.
+  const botSessions = useMemo(() => botSessionIds(Object.values(allBots)), [allBots]);
   const groups = useMemo(() => {
     const q = search.trim().toLowerCase();
     // Chats (sessions without a project) first, then project folders.
@@ -344,7 +345,7 @@ export function Sidebar() {
               selectedId={view === "bot" ? selectedBotId : null}
               onOpen={openBot}
               onNew={() => openBotEditor(null)}
-              canCreate={hasProjects}
+              canCreate={isLocal || hasProjects}
             />
           )}
           {groups.map(({ project, sessions: list }) => {

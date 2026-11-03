@@ -66,7 +66,10 @@ export function ImportDialog() {
 
   const destination = (f: ImportFound) => {
     if (!f.cwd || !f.folderExists) return { name: t("Chats"), note: f.cwd ? t("its folder is gone") : t("no folder recorded"), chats: true };
-    const known = projects.find((p) => p.path === f.cwd);
+    const match = projects.find((p) => p.path === f.cwd);
+    // A bot's workspace isn't a project: sessions that ran there go to Chats.
+    if (match?.hidden) return { name: t("Chats"), note: t("it ran in a bot's workspace"), chats: true };
+    const known = match;
     return { name: known?.name ?? folderName(f.cwd), note: known ? "" : t("new project"), chats: false };
   };
 

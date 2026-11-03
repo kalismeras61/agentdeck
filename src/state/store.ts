@@ -1,11 +1,11 @@
 import { t, type LocaleId } from "../lib/i18n";
 import { create } from "zustand";
 import { createJSONStorage, persist, type StateStorage } from "zustand/middleware";
-import { demoBots, demoBotTasks, demoProjects, demoSessions, providerModels, type Project, type Session, type WorkspaceId } from "../data/demo";
+import { demoBots, demoBotSchedules, demoBotTasks, demoProjects, demoSessions, providerModels, type Project, type Session, type WorkspaceId } from "../data/demo";
 import type { StoredEvent } from "../lib/claude";
 import { normalizeFor } from "../lib/normalize";
-import type { Bot, BotInput, BotTask, FlowRow, ModelProfile, RelayRow, StartFlow, StartRelay, Workflow } from "../lib/live";
-import { mergeTask } from "../lib/bots";
+import type { Bot, BotInput, BotSchedule, BotScheduleInput, BotTask, FlowRow, ModelProfile, RelayRow, StartFlow, StartRelay, Workflow } from "../lib/live";
+import { mergeSchedule, mergeTask, soonest } from "../lib/bots";
 import type { ProviderId } from "../lib/events";
 import { errorText, liveApi, pickFolder, type LiveProject, type LiveProvider, type LiveSessionRow } from "../lib/live";
 
@@ -196,8 +196,21 @@ interface Actions {
   botTasks: Record<string, BotTask[]>;
   /** The bot whose page is open. */
   selectedBotId: string | null;
-  /** The bot editor: a bot to edit (null: a new one), and a folder to start with. */
+  /** The bot editor: a bot to edit (null: a new one), and a default project to start with. */
   botEditor: { botId: string | null; projectId: string | null } | null;
+  /** Each bot's schedules. */
+  botSchedules: Record<string, BotSchedule[]>;
+  /** The place shown on each bot's page (null: its workspace; absent: where it works now). */
+  botPlace: Record<string, string | null>;
+  setBotPlace: (botId: string, projectId: string | null) => void;
+  upsertBotSchedule: (s: BotSchedule) => void;
+  loadBotSchedules: (botId: string) => Promise<void>;
+  /** Returns an error to show, or null. */
+  saveBotSchedule: (input: BotScheduleInput) => Promise<string | null>;
+  deleteBotSchedule: (id: string) => Promise<string | null>;
+  setBotScheduleEnabled: (id: string, enabled: boolean) => Promise<string | null>;
+  /** Adds the schedule's task now. */
+  runBotSchedule: (id: string) => Promise<string | null>;
   /** Last error from an action on a bot, shown on its page. */
   botErrors: Record<string, string | undefined>;
   openBot: (botId: string) => void;
@@ -210,7 +223,8 @@ interface Actions {
   /** Returns an error to show, or null. */
   saveBot: (input: BotInput) => Promise<string | null>;
   deleteBot: (botId: string) => Promise<string | null>;
-  addBotTask: (botId: string, text: string) => Promise<string | null>;
+  /** projectId null: the task works in the bot's workspace. */
+  addBotTask: (botId: string, text: string, projectId: string | null, source?: string) => Promise<string | null>;
   cancelBotTask: (taskId: string) => void;
   retryBotTask: (taskId: string) => void;
   setBotPaused: (botId: string, paused: boolean) => void;
@@ -262,7 +276,21 @@ function shortCommand(cmd: string): string {
 const pendingLoads = new Map<string, StoredEvent[]>();
 
 function toProject(p: LiveProject): Project {
-  return { id: p.id, name: p.name, path: p.path, workspaceId: "local", kind: p.kind === "chats" ? "chats" : "folder" };
+  return { id: p.id, name: p.name, path: p.path, workspaceId: "local", kind: p.kind === "chats" ? "chats" : "folder", ...(p.hidden ? { hidden: true } : {}) };
+}
+
+/** Projects you added (not bots' own workspaces, which are never listed). */
+export function listed(p: Project): boolean {
+  return !p.hidden;
+}
+
+const isDemoBot = (id: string) => id.startsWith("b-demo-");
+
+/** A demo bot's next run after its schedules changed (the desktop app works it out for real ones). */
+function demoNextRun(botId: string) {
+  const st = useStore.getState();
+  const b = st.bots[botId];
+  if (b) st.upsertBot({ ...b, nextRunAt: soonest(st.botSchedules[botId] ?? []) });
 }
 
 function toSession(row: LiveSessionRow, events: StoredEvent[], projectPath: string): Session {
@@ -371,7 +399,10 @@ export const useStore = create<UiState & Actions>()(
         setWorkspace: (id) => {
           if (id === "local" && !liveApi.available) return;
           const first = get()
-            .sessions.filter((s) => get().projects.find((p) => p.id === s.projectId)?.workspaceId === id)
+            .sessions.filter((s) => {
+              const p = get().projects.find((x) => x.id === s.projectId);
+              return p?.workspaceId === id && listed(p);
+            })
             .sort((a, b) => b.updatedAt - a.updatedAt)[0];
           set({ workspaceId: id, selectedId: first?.id ?? null, view: "workspace", search: "" });
         },
@@ -426,7 +457,7 @@ export const useStore = create<UiState & Actions>()(
         newSession: (projectId, provider, profileId, worktree) => {
           const st = get();
           const current = st.sessions.find((s) => s.id === st.selectedId);
-          const inWs = st.projects.filter((p) => p.workspaceId === st.workspaceId);
+          const inWs = st.projects.filter((p) => p.workspaceId === st.workspaceId && listed(p));
           const pid = projectId ?? (current && inWs.some((p) => p.id === current.projectId) ? current.projectId : inWs[0]?.id);
 
           if (st.workspaceId === "local") {
@@ -797,7 +828,7 @@ export const useStore = create<UiState & Actions>()(
             const live = rows.map((r) => toSession(r, events[r.id] ?? [], r.worktree || pathOf(r.projectId)));
             const sessions = [...live, ...s.sessions.filter((x) => !x.live)];
             const keepSelection = sessions.some((x) => x.id === s.selectedId && projects.find((p) => p.id === x.projectId)?.workspaceId === s.workspaceId);
-            const firstLocal = live.sort((a, b) => b.updatedAt - a.updatedAt)[0];
+            const firstLocal = live.filter((x) => !projects.find((p) => p.id === x.projectId)?.hidden).sort((a, b) => b.updatedAt - a.updatedAt)[0];
             return {
               projects,
               sessions,
@@ -968,19 +999,109 @@ export const useStore = create<UiState & Actions>()(
         botErrors: {},
         openBot: (botId) => {
           set({ view: "bot", selectedBotId: botId });
-          const b = get().bots[botId];
-          if (b?.sessionId) void get().ensureEvents(b.sessionId);
           void get().loadBotTasks(botId);
+          void get().loadBotSchedules(botId);
+        },
+        botSchedules: { ...demoBotSchedules },
+        botPlace: {},
+        setBotPlace: (botId, projectId) => set((s) => ({ botPlace: { ...s.botPlace, [botId]: projectId } })),
+        upsertBotSchedule: (sc) => set((s) => ({ botSchedules: { ...s.botSchedules, [sc.botId]: mergeSchedule(s.botSchedules[sc.botId] ?? [], sc) } })),
+        loadBotSchedules: async (botId) => {
+          if (!liveApi.available || isDemoBot(botId)) return;
+          try {
+            const list = await liveApi.botSchedules(botId);
+            set((s) => ({ botSchedules: { ...s.botSchedules, [botId]: list } }));
+          } catch {
+            /* keeps the last list */
+          }
+        },
+        saveBotSchedule: async (input) => {
+          if (isDemoBot(input.botId)) {
+            const old = input.id ? (get().botSchedules[input.botId] ?? []).find((x) => x.id === input.id) : undefined;
+            const sc: BotSchedule = {
+              id: input.id ?? localId("sc-demo"),
+              botId: input.botId,
+              text: input.text.trim(),
+              projectId: input.projectId,
+              kind: input.kind,
+              times: input.kind === "daily" ? [...input.times].sort() : [],
+              weekdays: input.kind === "daily" && input.weekdays.length < 7 ? [...input.weekdays].sort() : [],
+              everyMinutes: input.kind === "interval" ? input.everyMinutes : null,
+              enabled: input.enabled,
+              lastRunAt: old?.lastRunAt ?? null,
+              nextRunAt: input.enabled ? Date.now() + (input.kind === "interval" ? (input.everyMinutes ?? 60) * 60_000 : 3_600_000) : null,
+              lastTaskId: old?.lastTaskId ?? null,
+              skippedAt: null,
+              createdAt: old?.createdAt ?? Date.now(),
+            };
+            get().upsertBotSchedule(sc);
+            demoNextRun(input.botId);
+            return null;
+          }
+          try {
+            get().upsertBotSchedule(await liveApi.saveBotSchedule(input));
+            return null;
+          } catch (e: unknown) {
+            return errorText(e);
+          }
+        },
+        deleteBotSchedule: async (id) => {
+          const sc = Object.values(get().botSchedules)
+            .flat()
+            .find((x) => x.id === id);
+          if (!sc) return null;
+          const drop = () => set((s) => ({ botSchedules: { ...s.botSchedules, [sc.botId]: (s.botSchedules[sc.botId] ?? []).filter((x) => x.id !== id) } }));
+          if (isDemoBot(sc.botId)) {
+            drop();
+            demoNextRun(sc.botId);
+            return null;
+          }
+          try {
+            await liveApi.deleteBotSchedule(id);
+            drop();
+            return null;
+          } catch (e: unknown) {
+            return errorText(e);
+          }
+        },
+        setBotScheduleEnabled: async (id, enabled) => {
+          const sc = Object.values(get().botSchedules)
+            .flat()
+            .find((x) => x.id === id);
+          if (!sc) return null;
+          if (isDemoBot(sc.botId)) {
+            get().upsertBotSchedule({ ...sc, enabled, nextRunAt: enabled ? Date.now() + 3_600_000 : null });
+            demoNextRun(sc.botId);
+            return null;
+          }
+          try {
+            get().upsertBotSchedule(await liveApi.setBotScheduleEnabled(id, enabled));
+            return null;
+          } catch (e: unknown) {
+            return errorText(e);
+          }
+        },
+        runBotSchedule: async (id) => {
+          const sc = Object.values(get().botSchedules)
+            .flat()
+            .find((x) => x.id === id);
+          if (!sc) return null;
+          if (isDemoBot(sc.botId)) {
+            const err = await get().addBotTask(sc.botId, sc.text, sc.projectId, "schedule");
+            get().upsertBotSchedule({ ...sc, lastRunAt: Date.now() });
+            return err;
+          }
+          try {
+            get().upsertBotTask(await liveApi.runBotSchedule(id));
+            return null;
+          } catch (e: unknown) {
+            return errorText(e);
+          }
         },
         openBotEditor: (botId, projectId) => set({ botEditor: { botId, projectId: projectId ?? null } }),
         closeBotEditor: () => set({ botEditor: null }),
         clearBotError: (botId) => set((s) => ({ botErrors: { ...s.botErrors, [botId]: undefined } })),
-        upsertBot: (b) => {
-          const prev = get().bots[b.id];
-          set((s) => ({ bots: { ...s.bots, [b.id]: b } }));
-          // A new session (first task, or after Start fresh): its history shows on the bot page.
-          if (b.sessionId && b.sessionId !== prev?.sessionId && get().selectedBotId === b.id) void get().ensureEvents(b.sessionId);
-        },
+        upsertBot: (b) => set((s) => ({ bots: { ...s.bots, [b.id]: b } })),
         upsertBotTask: (task) => set((s) => ({ botTasks: { ...s.botTasks, [task.botId]: mergeTask(s.botTasks[task.botId] ?? [], task) } })),
         loadBots: async () => {
           if (!liveApi.available) return;
@@ -1029,12 +1150,16 @@ export const useStore = create<UiState & Actions>()(
           try {
             await liveApi.deleteBot(botId);
             drop();
+            // Its workspace may now show as an ordinary project with its sessions.
+            void get()
+              .reloadLive()
+              .catch(() => undefined);
             return null;
           } catch (e: unknown) {
             return errorText(e);
           }
         },
-        addBotTask: async (botId, text) => {
+        addBotTask: async (botId, text, projectId, source = "you") => {
           const trimmed = text.trim();
           if (!trimmed) return null;
           if (botId.startsWith("b-demo-")) {
@@ -1043,7 +1168,7 @@ export const useStore = create<UiState & Actions>()(
               id: localId("t-demo"),
               botId,
               text: trimmed,
-              source: "you",
+              source,
               status: "queued",
               result: null,
               error: null,
@@ -1051,13 +1176,15 @@ export const useStore = create<UiState & Actions>()(
               startedAt: null,
               finishedAt: null,
               parentId: null,
+              projectId,
+              sessionId: null,
             });
             const b = get().bots[botId];
             if (b) get().upsertBot({ ...b, queued: b.queued + 1 });
             return null;
           }
           try {
-            get().upsertBotTask(await liveApi.addBotTask(botId, trimmed));
+            get().upsertBotTask(await liveApi.addBotTask(botId, trimmed, projectId));
             return null;
           } catch (e: unknown) {
             return errorText(e);
@@ -1072,7 +1199,7 @@ export const useStore = create<UiState & Actions>()(
             get().upsertBotTask({ ...task, status: "cancelled", finishedAt: Date.now() });
             const b = get().bots[task.botId];
             if (b && task.status === "queued") get().upsertBot({ ...b, queued: Math.max(0, b.queued - 1) });
-            if (b && task.status === "running") get().upsertBot({ ...b, runningTaskId: null, runningText: null });
+            if (b && task.status === "running") get().upsertBot({ ...b, runningTaskId: null, runningText: null, runningProjectId: null, runningSessionId: null });
             return;
           }
           liveApi
@@ -1112,7 +1239,7 @@ export const useStore = create<UiState & Actions>()(
           const b = get().bots[botId];
           if (!b) return;
           if (botId.startsWith("b-demo-")) {
-            get().upsertBot({ ...b, sessionId: null });
+            get().upsertBot({ ...b, places: [] });
             return;
           }
           liveApi
@@ -1127,9 +1254,14 @@ export const useStore = create<UiState & Actions>()(
             .then(() =>
               set((s) => ({
                 projects: s.projects.filter((p) => p.id !== projectId),
-                // The project's bots go with it.
-                bots: Object.fromEntries(Object.entries(s.bots).filter(([, b]) => b.projectId !== projectId)),
-                ...(s.view === "bot" && s.bots[s.selectedBotId ?? ""]?.projectId === projectId ? { view: "workspace" as AppView, selectedBotId: null } : {}),
+                // Bots stay; the ones that worked there by default now work in their workspace.
+                bots: Object.fromEntries(
+                  Object.entries(s.bots).map(([id, b]) => [
+                    id,
+                    { ...b, projectId: b.projectId === projectId ? null : b.projectId, places: b.places.filter((p) => p.projectId !== projectId) },
+                  ]),
+                ),
+                botPlace: Object.fromEntries(Object.entries(s.botPlace).filter(([, p]) => p !== projectId)),
                 sessions: s.sessions.filter((x) => x.projectId !== projectId),
                 selectedId: s.sessions.find((x) => x.id === s.selectedId)?.projectId === projectId ? null : s.selectedId,
               })),

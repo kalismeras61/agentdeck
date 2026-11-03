@@ -44,8 +44,19 @@ pub fn risky(text: &str) -> Option<&'static str> {
 }
 
 /// Absolute paths in a request that point outside the folder the session works in.
+#[cfg(test)]
 pub fn outside(payload: &Value, dir: &str) -> Option<String> {
-    fn walk(v: &Value, dir: &str, out: &mut Option<String>) {
+    outside_all(payload, &[dir])
+}
+
+/// Absolute paths in a request that point outside every one of `dirs`.
+pub fn outside_all(payload: &Value, dirs: &[&str]) -> Option<String> {
+    fn within(p: &str, dir: &str) -> bool {
+        // ".." could climb out of a folder that the path seems to be in.
+        !p.split('/').any(|part| part == "..")
+            && (p == dir || p.starts_with(&format!("{}/", dir.trim_end_matches('/'))))
+    }
+    fn walk(v: &Value, dirs: &[&str], out: &mut Option<String>) {
         match v {
             Value::Object(m) => {
                 for (k, x) in m {
@@ -55,25 +66,20 @@ pub fn outside(payload: &Value, dir: &str) -> Option<String> {
                     );
                     match (pathish, x.as_str()) {
                         (true, Some(p))
-                            if p.starts_with('/')
-                                && !(p == dir
-                                    || p.starts_with(&format!(
-                                        "{}/",
-                                        dir.trim_end_matches('/')
-                                    ))) =>
+                            if p.starts_with('/') && !dirs.iter().any(|d| within(p, d)) =>
                         {
                             *out = Some(p.to_string());
                         }
-                        _ => walk(x, dir, out),
+                        _ => walk(x, dirs, out),
                     }
                 }
             }
-            Value::Array(a) => a.iter().for_each(|x| walk(x, dir, out)),
+            Value::Array(a) => a.iter().for_each(|x| walk(x, dirs, out)),
             _ => {}
         }
     }
     let mut out = None;
-    walk(payload, dir, &mut out);
+    walk(payload, dirs, &mut out);
     out
 }
 
@@ -101,6 +107,11 @@ pub fn claude_tool(ev: &StoredEvent) -> Option<&str> {
 
 /// Reads an event as a request to the user. None: the event asks nothing.
 pub fn verdict(db: &Db, ev: &StoredEvent) -> Option<Verdict> {
+    verdict_with(db, ev, &[])
+}
+
+/// As `verdict`, with more folders the session may reach besides its own (a bot's workspace).
+pub fn verdict_with(db: &Db, ev: &StoredEvent, also: &[&str]) -> Option<Verdict> {
     let claude = ev.source == "claude" && ev.kind == "control_request/can_use_tool";
     if claude && matches!(claude_tool(ev), Some("AskUserQuestion" | "ExitPlanMode")) {
         return Some(Verdict::Question);
@@ -126,8 +137,9 @@ pub fn verdict(db: &Db, ev: &StoredEvent) -> Option<Verdict> {
         .map(|why| format!("it {why}"))
         .or_else(|| {
             // Without a known folder every absolute path counts as outside.
-            outside(&request, if dir.is_empty() { "/\0" } else { &dir })
-                .map(|p| format!("it reaches outside the project ({p})"))
+            let mut dirs: Vec<&str> = vec![if dir.is_empty() { "/\0" } else { &dir }];
+            dirs.extend(also.iter().copied().filter(|d| !d.is_empty()));
+            outside_all(&request, &dirs).map(|p| format!("it reaches outside the project ({p})"))
         });
     Some(match held {
         Some(why) => Verdict::Hold { request_id, why },
@@ -206,6 +218,17 @@ mod tests {
         let req: Value =
             serde_json::from_str(r#"{"input":{"file_path":"/p/application/x"}}"#).unwrap();
         assert_eq!(outside(&req, "/p/app").as_deref(), Some("/p/application/x"));
+        let req = json!({ "input": { "file_path": "/p/app/../secrets/x" } });
+        assert_eq!(
+            outside(&req, "/p/app").as_deref(),
+            Some("/p/app/../secrets/x")
+        );
+        let req = json!({ "input": { "file_path": "/home/me/AgentDeck/Bots/R/MEMORY.md" } });
+        assert_eq!(
+            outside_all(&req, &["/p/app", "/home/me/AgentDeck/Bots/R"]),
+            None
+        );
+        assert!(outside_all(&req, &["/p/app", "/home/me/AgentDeck/Bots/Q"]).is_some());
     }
 
     fn ev(sid: &str, source: &str, kind: &str, payload: Value) -> StoredEvent {

@@ -3,7 +3,7 @@ import { setupApi } from "../lib/setup";
 import { UpdateSettings } from "../components/UpdateNotice";
 import { Check, Copy, FolderPlus, RefreshCw } from "lucide-react";
 import { Fragment, useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
-import { AgentMark, cx, Kbd } from "../components/ui";
+import { AgentMark, cx, Kbd, Switch } from "../components/ui";
 import { liveProviders, providerLabel } from "../data/demo";
 import { ModelMenu } from "../components/ModelMenu";
 import { AgyApprovalsMenu } from "../components/AgyApprovals";
@@ -129,21 +129,6 @@ function DefaultEffortRow({ provider }: { provider: "claude-code" | "codex" }) {
   );
 }
 
-function Switch({ checked, onChange, label }: { checked: boolean; onChange: (v: boolean) => void; label: string }) {
-  return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={checked}
-      aria-label={label}
-      onClick={() => onChange(!checked)}
-      className={cx("relative h-[22px] w-[38px] shrink-0 rounded-full transition-colors", checked ? "bg-violet-strong" : "bg-elevated ring-1 ring-line")}
-    >
-      <span className={cx("absolute top-[3px] h-4 w-4 rounded-full bg-white shadow transition-[left] duration-150", checked ? "start-[19px]" : "start-[3px]")} />
-    </button>
-  );
-}
-
 function Row({ title, hint, children }: { title: string; hint?: ReactNode; children?: ReactNode }) {
   return (
     <div className="flex items-center justify-between gap-6 border-b border-line-soft py-4 last:border-b-0">
@@ -178,7 +163,7 @@ export function Settings() {
   const [confirmReset, setConfirmReset] = useState(false);
   const [copied, setCopied] = useState(false);
   const [removing, setRemoving] = useState<string | null>(null);
-  const localProjects = st.projects.filter((p) => p.workspaceId === "local" && p.kind !== "chats");
+  const localProjects = st.projects.filter((p) => p.workspaceId === "local" && p.kind !== "chats" && !p.hidden);
 
   const check = useCallback(async () => {
     if (!isTauri) return;
