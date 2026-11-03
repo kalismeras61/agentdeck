@@ -1405,9 +1405,10 @@ mod tests {
     }
 
     impl T {
-        /// The home folder the bots see (a temp folder, never the real one).
+        /// The home folder the bots see (a temp folder, never the real one), resolved the way
+        /// the app resolves it: on macOS the temp folder sits behind `/var` → `/private/var`.
         fn home(&self) -> PathBuf {
-            self.dir.path().join("home")
+            self.dir.path().join("home").canonicalize().unwrap()
         }
         fn project_dir(&self) -> String {
             self.db.project(&self.project).unwrap().unwrap().path
@@ -1426,7 +1427,13 @@ mod tests {
         }
         let proj = dir.path().join("shop");
         std::fs::create_dir_all(proj.join(".git")).unwrap();
+        // `home` is a link, like macOS's `/var` → `/private/var`, so a test that compares
+        // unresolved paths fails here too and not only on a Mac.
         let home = dir.path().join("home");
+        std::fs::create_dir_all(dir.path().join("real-home")).unwrap();
+        #[cfg(unix)]
+        std::os::unix::fs::symlink(dir.path().join("real-home"), &home).unwrap();
+        #[cfg(not(unix))]
         std::fs::create_dir_all(&home).unwrap();
         let db = Arc::new(Db::open_in_memory().unwrap());
         let p = db
