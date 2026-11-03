@@ -1,5 +1,7 @@
 <div align="center">
 
+**English** · [Türkçe](docs/readme/README.tr.md) · [Deutsch](docs/readme/README.de.md) · [Русский](docs/readme/README.ru.md) · [Español](docs/readme/README.es.md) · [Français](docs/readme/README.fr.md) · [Português](docs/readme/README.pt.md) · [简体中文](docs/readme/README.zh.md) · [日本語](docs/readme/README.ja.md) · [한국어](docs/readme/README.ko.md) · [العربية](docs/readme/README.ar.md)
+
 # AgentDeck
 
 **One Mac workspace for every AI coding agent you already use.**
@@ -34,9 +36,13 @@ AgentDeck keeps the agents exactly as they are and gives them a proper workspace
 
 Every project is a folder; every session is one agent working in it. Switch agents before the first message, pick from every model each agent offers, and switch models mid-conversation. Start a chat without a project, move sessions between projects, rename them, or import the sessions Claude Code, Codex and Gemini CLI already saved on your Mac; they pick up the same conversation.
 
+Choose how hard the agent thinks, too. Claude Code and Codex get an **effort** setting next to the model (low to max, only the levels that model supports). The menu shows the effort the agent is using right now, a change applies immediately while Claude Code works, and Settings sets the effort new sessions start with.
+
 ### Review what changed, the way you review a pull request
 
 Every file an agent touches shows up with a side-by-side or unified diff, file by file, with keyboard navigation and "viewed" marks. Nothing is committed or pushed for you.
+
+Screenshots and images an agent takes or looks at (a simulator screenshot, a rendered page, an image it reads) appear right in the conversation and in the Preview tab; click one to see it full size.
 
 ![Reviewing an agent's changes side by side](docs/screenshots/readme/review.png)
 
@@ -73,8 +79,13 @@ Type `/` in the message box for the agent's own commands in that folder (Claude 
 - **Attach anything.** Drop files or folders, paste a screenshot, or pick files. Images reach the agent as images.
 - **Your own models.** DeepSeek, Kimi, GLM (Z.ai), Ollama, LM Studio, OpenRouter or any OpenAI- or Anthropic-compatible endpoint, with the same approvals, plan mode and workflows.
 - **Sign in where it fails.** When an agent needs a login, a button runs its own sign-in in a built-in terminal and sends your message again.
-- **Updates itself.** Signed updates, checked against a key built into the app.
-- **Your language.** English, Türkçe, Deutsch, Русский, Español, Français, Português, 简体中文, 日本語, 한국어 and العربية (right-to-left). It follows your Mac's language, or pick one in Settings. Agent output and code are never translated.
+- **Updates itself.** New versions are signed and notarized, and each update is checked against a key built into the app before it installs.
+
+### In your language
+
+The whole interface is available in **English, Türkçe, Deutsch, Русский, Español, Français, Português, 简体中文, 日本語, 한국어 and العربية**, with a right-to-left layout for Arabic. AgentDeck follows your Mac's language, or you pick one in Settings → Appearance. Agent replies, code, commands and file names are never translated, and agents answer in whatever language you write to them.
+
+![AgentDeck in Turkish and in Arabic, right to left](docs/screenshots/readme/languages.png)
 
 ## Light on your Mac
 
@@ -122,7 +133,8 @@ macOS 12 or later, Apple Silicon or Intel.
 └──────┬──────────────┬──────────────┬──────────────┬───────────────────┘
        │ stream-json  │ JSON-RPC     │ ACP          │ OpenAI / Anthropic API
        ▼              ▼              ▼              ▼
-   claude          codex app-server  gemini, grok   your models
+   claude          codex app-server  gemini, grok,  your models
+                                     kimi
    (your install, your sign-in, your folder)
 ```
 
@@ -187,6 +199,7 @@ src/                     React app
   components/            sidebar, conversation, composer, terminal, panels
   components/blocks/     renderers: markdown, code, diff, tools, approvals, questions, plans, workflows
   views/                 review, permissions, git, agent setup, settings, get started
+  locales/               interface translations (English text is the key)
 src-tauri/src/           Rust core
   claude.rs, codex.rs, acp.rs, agy.rs, api.rs   one manager per agent protocol
   flow.rs, relay.rs      workflows and relays
@@ -203,6 +216,8 @@ Stack: Tauri 2 (Rust), React 19, TypeScript (strict), Vite, Tailwind CSS 4, Radi
 
 Issues and pull requests are welcome. Run the checks above before opening a PR, and keep UI text short and plain.
 
+**Translations.** The interface translations were made with the help of AI and checked by tests, not yet by native speakers, so corrections are very welcome: edit `src/locales/<language>.json` and run `node scripts/i18n-validate.mjs`. New interface text goes through `t()`; see [docs/I18N.md](docs/I18N.md).
+
 AgentDeck is offered under the AGPL and, separately, under a commercial license. To keep that possible, contributors are asked to sign a contributor license agreement on their first pull request.
 
 ## License
@@ -211,4 +226,4 @@ AgentDeck is free software under the [GNU Affero General Public License v3.0](LI
 
 For a commercial license without the AGPL's obligations (for example, to ship AgentDeck inside a closed product), get in touch through the repository.
 
-Claude Code, Codex, Gemini CLI, Grok Build and Antigravity are products of their respective owners. AgentDeck isn't affiliated with or endorsed by them; it runs your own installed copies.
+Claude Code, Codex, Gemini CLI, Grok Build, Kimi Code and Antigravity are products of their respective owners. AgentDeck isn't affiliated with or endorsed by them; it runs your own installed copies.
