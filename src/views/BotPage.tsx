@@ -17,6 +17,7 @@ import {
   Plus,
   Repeat,
   Send,
+  Zap,
   RotateCcw,
   RotateCw,
   Square,
@@ -40,6 +41,7 @@ import { useStore } from "../state/store";
 import { TextEditor } from "./setup/TextEditor";
 import { PlacePicker } from "../components/bots/PlacePicker";
 import { usePlaceName } from "../hooks/usePlaceName";
+import { TriggersTab } from "../components/bots/TriggersTab";
 import { ScheduleEditor } from "../components/bots/ScheduleEditor";
 import { ViewHeader } from "./ViewHeader";
 
@@ -459,13 +461,13 @@ const tabCls =
   "relative h-7 rounded-md px-2.5 text-[12.5px] text-fg-2 hover:text-fg data-[state=active]:bg-elevated data-[state=active]:text-fg";
 
 function BotSidePanel({ bot }: { bot: Bot }) {
-  const [tab, setTab] = useState<"queue" | "schedules" | "memory">("queue");
+  const [tab, setTab] = useState<"queue" | "schedules" | "triggers" | "memory">("queue");
   const tasks = useStore((s) => s.botTasks[bot.id]);
   const schedules = useStore((s) => s.botSchedules[bot.id]);
   const { queued } = orderTasks(tasks ?? []);
   const on = (schedules ?? []).filter((x) => x.enabled).length;
   return (
-    <Tabs.Root value={tab} onValueChange={(v) => setTab(v as "queue" | "schedules" | "memory")} className="flex h-full flex-col">
+    <Tabs.Root value={tab} onValueChange={(v) => setTab(v as "queue" | "schedules" | "triggers" | "memory")} className="flex h-full flex-col">
       <div className="flex h-11 shrink-0 items-center border-b border-line-soft ps-3 pe-2">
         <Tabs.List aria-label={t("Bot")} className="flex gap-0.5">
           <Tabs.Trigger value="queue" className={tabCls}>
@@ -475,6 +477,9 @@ function BotSidePanel({ bot }: { bot: Bot }) {
           <Tabs.Trigger value="schedules" className={tabCls}>
             {t("Schedules")}
             {on > 0 && <span className="ms-1.5 text-[11px] tabular-nums text-fg-3">{on}</span>}
+          </Tabs.Trigger>
+          <Tabs.Trigger value="triggers" className={tabCls}>
+            {t("Triggers")}
           </Tabs.Trigger>
           <Tabs.Trigger value="memory" className={tabCls}>
             {t("Memory")}
@@ -486,6 +491,9 @@ function BotSidePanel({ bot }: { bot: Bot }) {
       </Tabs.Content>
       <Tabs.Content value="schedules" className="scroll-quiet min-h-0 flex-1 overflow-y-auto focus-visible:outline-offset-[-2px]">
         <SchedulesTab bot={bot} schedules={schedules} />
+      </Tabs.Content>
+      <Tabs.Content value="triggers" className="scroll-quiet min-h-0 flex-1 overflow-y-auto focus-visible:outline-offset-[-2px]">
+        <TriggersTab bot={bot} />
       </Tabs.Content>
       <Tabs.Content value="memory" className="min-h-0 flex-1 focus-visible:outline-offset-[-2px]">
         <MemoryTab bot={bot} />
@@ -597,6 +605,11 @@ function TaskPlace({ task, link = false, from: showFrom = true }: { task: BotTas
       {task.source === "schedule" && (
         <Tip label={t("Added by a schedule")}>
           <Repeat size={11} className="shrink-0" aria-label={t("Added by a schedule")} />
+        </Tip>
+      )}
+      {task.source.startsWith("trigger:") && (
+        <Tip label={t("Added by a trigger")}>
+          <Zap size={11} className="shrink-0" aria-label={t("Added by a trigger")} />
         </Tip>
       )}
       {task.source.startsWith("telegram:") && (

@@ -1878,8 +1878,17 @@ fn set_bot_connections(
     bot_id: String,
     ids: Vec<String>,
 ) -> CmdResult<Vec<String>> {
-    state.bots.get(&bot_id)?;
-    connections::set_for_bot(&state.db, &bot_id, &ids)
+    let bot = state.bots.get(&bot_id)?;
+    let before = connections::for_bot(&state.db, &bot_id);
+    let after = connections::set_for_bot(&state.db, &bot_id, &ids)?;
+    // Its agent takes connections when it starts: an idle bot's agents stop, so its next task
+    // starts them with the new ones (its conversations carry on).
+    if before != after && bot.running_task_id.is_none() {
+        for p in &bot.places {
+            state.stop_any(&p.session_id);
+        }
+    }
+    Ok(after)
 }
 
 /// Telegram: whether it's connected, as whom, and the paired chats.

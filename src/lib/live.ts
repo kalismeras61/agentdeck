@@ -476,6 +476,61 @@ export const termApi = {
   openLink: (url: string) => call<void>("open_link", { url }),
 };
 
+/** A name/value a connection starts with; a secret's value stays in the keychain. */
+export interface ConnectionField {
+  key: string;
+  value: string;
+  secret: boolean;
+  /** A secret's value is saved (it never comes back here). */
+  saved?: boolean;
+}
+
+/** Something bots can reach: an MCP server on this Mac or the web, or the Mac's own apps. */
+export interface Connection {
+  id: string;
+  name: string;
+  server: string;
+  kind: "browser" | "github" | "notion" | "mac" | "stdio" | "http";
+  command: string;
+  args: string[];
+  url: string;
+  env: ConnectionField[];
+  headers: ConnectionField[];
+  actAlone: boolean;
+  createdAt: number;
+}
+
+export const connectionsApi = {
+  list: () => call<Connection[]>("connections_list"),
+  save: (input: Connection) => call<Connection>("connection_save", { input }),
+  remove: (id: string) => call<void>("connection_remove", { id }),
+  forBot: (botId: string) => call<string[]>("bot_connections", { botId }),
+  setForBot: (botId: string, ids: string[]) => call<string[]>("set_bot_connections", { botId, ids }),
+};
+
+/** Something that gives a bot a task on its own: a page changing, new files, a GitHub label, a call to a hook. */
+export interface BotTrigger {
+  id: string;
+  botId: string;
+  kind: "page" | "folder" | "github" | "hook";
+  text: string;
+  projectId: string | null;
+  enabled: boolean;
+  config: { url?: string; everyMinutes?: number; path?: string; repo?: string; label?: string; users?: string[]; secret?: string };
+  nextCheckAt: number;
+  lastFiredAt: number | null;
+  lastError: string | null;
+  createdAt: number;
+}
+
+export const triggersApi = {
+  list: (botId: string) => call<BotTrigger[]>("bot_triggers", { botId }),
+  save: (input: BotTrigger) => call<BotTrigger>("save_bot_trigger", { input }),
+  remove: (id: string) => call<void>("delete_bot_trigger", { id }),
+  check: (id: string) => call<BotTrigger | null>("check_bot_trigger", { id }),
+  hookInfo: () => call<{ port: number | null }>("hook_info"),
+};
+
 export interface TelegramChat {
   id: number;
   name: string;

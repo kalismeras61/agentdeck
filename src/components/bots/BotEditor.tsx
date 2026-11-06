@@ -1,11 +1,13 @@
 import * as Dialog from "@radix-ui/react-dialog";
 import * as Dropdown from "@radix-ui/react-dropdown-menu";
-import { Bot as BotIcon, Check, ChevronDown, FolderGit2, FolderPlus, House } from "lucide-react";
+import { Bot as BotIcon, Check, ChevronDown, FolderGit2, FolderPlus, House, Sparkles } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { liveProviders, providerLabel } from "../../data/demo";
 import { BOT_COLORS, BOT_MARK, canDelegate, COLOR_NAMES, nameTaken, workspaceFolder } from "../../lib/bots";
 import { t } from "../../lib/i18n";
-import { errorText, liveApi, pickFolder, type BotColor, type LiveProvider } from "../../lib/live";
+import { connectionsApi, errorText, liveApi, pickFolder, type BotColor, type LiveProvider } from "../../lib/live";
+import { TEMPLATES } from "../../lib/connections";
+import { useConnections } from "../../views/ConnectionsSettings";
 import { detectProviders } from "../../lib/native";
 import { withoutHidden } from "../../lib/setup";
 import { useStore } from "../../state/store";
@@ -82,6 +84,17 @@ function EditorForm({ botId, projectId, onDone }: { botId: string | null; projec
   const [color, setColor] = useState<BotColor>(bot?.color ?? BOT_COLORS.find((c) => !used.has(c)) ?? "violet");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const { list: connections } = useConnections();
+  const [conns, setConns] = useState<string[] | null>(bot ? null : []);
+  const [template, setTemplate] = useState<string | null>(null);
+  const picked = TEMPLATES.find((x) => x.id === template);
+  useEffect(() => {
+    if (!bot || !liveApi.available) {
+      setConns([]);
+      return;
+    }
+    connectionsApi.forBot(bot.id).then(setConns, () => setConns([]));
+  }, [bot?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const agents = useMemo(() => withoutHidden((installed ?? []) as LiveProvider[], agyEnabled).filter((p) => p !== "api"), [installed, agyEnabled]);
   const profile = profileId ? profiles.find((m) => m.id === profileId) : undefined;
@@ -129,7 +142,8 @@ function EditorForm({ botId, projectId, onDone }: { botId: string | null; projec
           e.preventDefault();
           if (!clean || taken) return;
           setBusy(true);
-          const err = await saveBot({
+          const err = await saveBot(
+            {
             ...(bot ? { id: bot.id } : {}),
             name: clean,
             role: role.trim(),
@@ -140,12 +154,44 @@ function EditorForm({ botId, projectId, onDone }: { botId: string | null; projec
             profileId,
             projectId: project || null,
             color,
-          });
+            },
+            conns ?? undefined,
+          );
           setBusy(false);
           if (err) setError(err);
           else onDone();
         }}
       >
+        {!bot && (
+          <div className="text-[12px] text-fg-2">
+            <p className="flex items-center gap-1.5">
+              <Sparkles size={12} className="text-violet-text" /> {t("Start from")}
+            </p>
+            <div className="mt-1 flex flex-wrap gap-1.5">
+              {TEMPLATES.map((x) => (
+                <button
+                  key={x.id}
+                  type="button"
+                  aria-pressed={template === x.id}
+                  onClick={() => {
+                    setTemplate(x.id);
+                    setName(t(x.name));
+                    setRole(t(x.role));
+                    setInstructions(t(x.instructions));
+                    setConns((connections ?? []).filter((c) => x.connections.includes(c.kind)).map((c) => c.id));
+                    setError(null);
+                  }}
+                  className={cx(
+                    "h-7 rounded-lg border px-2.5 text-[12.5px]",
+                    template === x.id ? "border-[color-mix(in_srgb,var(--violet)_55%,var(--border))] bg-violet-soft text-violet-text" : "border-line text-fg-2 hover:bg-elevated hover:text-fg",
+                  )}
+                >
+                  {t(x.name)}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
         <div className="flex gap-3">
           <label className="block flex-1 text-[12px] text-fg-2">
             {t("Name")}
@@ -307,6 +353,38 @@ function EditorForm({ botId, projectId, onDone }: { botId: string | null; projec
             {t("Tasks work here unless you pick another place for them. Its own workspace, {path}, is where it keeps its memory file and the files it makes.", { path: wsPath })}
           </p>
         </div>
+        <fieldset className="text-[12px] text-fg-2">
+          <legend>{t("Connections")}</legend>
+          {connections && connections.length > 0 ? (
+            <div className="mt-1 space-y-1">
+              {connections.map((c) => {
+                const on = (conns ?? []).includes(c.id);
+                return (
+                  <label key={c.id} className="flex cursor-pointer items-center gap-2 text-[13px] text-fg">
+                    <input
+                      type="checkbox"
+                      checked={on}
+                      disabled={conns === null}
+                      onChange={() => setConns((x) => (on ? (x ?? []).filter((i) => i !== c.id) : [...(x ?? []), c.id]))}
+                      className="accent-[var(--violet)]"
+                    />
+                    <span className="truncate">{c.name}</span>
+                    <span className="truncate text-[11.5px] text-fg-3">{c.actAlone ? t("acts on its own") : t("changes wait for you")}</span>
+                  </label>
+                );
+              })}
+              {picked && picked.connections.some((k) => !connections.some((c) => c.kind === k)) && (
+                <p className="text-[11.5px] leading-[1.5] text-fg-3">{t("This kind of bot works best with a connection you haven't added yet (Settings → Connections).")}</p>
+              )}
+            </div>
+          ) : (
+            <p className="mt-1 text-[11.5px] leading-[1.5] text-fg-3">
+              {t("None yet. In Settings → Connections you can add a browser, GitHub, Notion, your Mac's Calendar, Reminders, Mail and Notes, or any MCP server.")}
+            </p>
+          )}
+          {bot && <p className="mt-1 text-[11.5px] text-fg-3">{t("A change applies from the bot's next task.")}</p>}
+        </fieldset>
+        {picked && <p className="rounded-lg bg-surface px-2.5 py-2 text-[12px] leading-[1.5] text-fg-2">{t("Next: {step}", { step: t(picked.next) })}</p>}
         {renames && <p className="text-[12px] text-fg-2">{t("Its workspace folder is renamed to match.")}</p>}
         {movesSession && <p className="text-[12px] text-fg-2">{t("A new agent means new sessions: the next task in each place starts one. The old sessions stay.")}</p>}
         {error && (

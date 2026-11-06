@@ -192,6 +192,8 @@ export function normalizeFor(provider: ProviderId, events: StoredEvent[], ctx: N
               ? t("Task")
               : str(p.source)?.startsWith("telegram:")
                 ? t("Task from Telegram")
+                : str(p.source)?.startsWith("trigger:")
+                  ? t("Task from a trigger")
                 : t("Task from {source}", { source: str(p.source)?.startsWith("bot:") ? (str(p.fromName) ?? t("another bot")) : (str(p.source) ?? "") }),
         },
       });

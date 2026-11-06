@@ -17,6 +17,7 @@ import { SHORTCUTS } from "../lib/shortcuts";
 import { useStore, type MotionPref, type NotificationPrefs, type ThemePref } from "../state/store";
 import { ModelsSettings } from "./ModelsSettings";
 import { TelegramSettings } from "./TelegramSettings";
+import { ConnectionsSettings } from "./ConnectionsSettings";
 import { WorkflowsSettings } from "./WorkflowsSettings";
 import { ViewHeader } from "./ViewHeader";
 
@@ -27,6 +28,7 @@ const SECTIONS = /* i18n */ [
   ["workflows", "Workflows"],
   ["defaults", "Workspace defaults"],
   ["notifications", "Notifications"],
+  ["connections", "Connections"],
   ["telegram", "Telegram"],
   ["shortcuts", "Shortcuts"],
   ["privacy", "Data and privacy"],
@@ -516,6 +518,14 @@ export function Settings() {
                   <Switch label={label} checked={st.notifications[k]} onChange={(v) => st.setNotification(k, v)} />
                 </Row>
               ))}
+            </Section>
+
+            <Section
+              id="connections"
+              title={t("Connections")}
+              lede={t("What bots can reach besides their files: a browser, GitHub, Notion, your Mac's Calendar, Reminders, Mail and Notes, or any MCP server. Add them with your own accounts, then pick them per bot.")}
+            >
+              <ConnectionsSettings />
             </Section>
 
             <Section

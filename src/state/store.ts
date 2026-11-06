@@ -7,7 +7,7 @@ import { normalizeFor } from "../lib/normalize";
 import type { Bot, BotInput, BotSchedule, BotScheduleInput, BotTask, FlowRow, ModelProfile, RelayRow, StartFlow, StartRelay, Workflow } from "../lib/live";
 import { childrenOf, mergeSchedule, mergeTask, soonest } from "../lib/bots";
 import type { ProviderId } from "../lib/events";
-import { errorText, liveApi, pickFolder, remoteApi, type LiveProject, type LiveProvider, type LiveSessionRow } from "../lib/live";
+import { connectionsApi, errorText, liveApi, pickFolder, remoteApi, type LiveProject, type LiveProvider, type LiveSessionRow } from "../lib/live";
 
 export type AppView = "workspace" | "overview" | "review" | "permissions" | "gallery" | "settings" | "setup" | "git" | "welcome" | "bot";
 export type ContextTab = "files" | "changes" | "preview" | "activity";
@@ -232,7 +232,8 @@ interface Actions {
   loadBots: () => Promise<void>;
   loadBotTasks: (botId: string) => Promise<void>;
   /** Returns an error to show, or null. */
-  saveBot: (input: BotInput) => Promise<string | null>;
+  /** connections: the bot's connections (ids), set after it's saved. */
+  saveBot: (input: BotInput, connections?: string[]) => Promise<string | null>;
   deleteBot: (botId: string) => Promise<string | null>;
   /** projectId null: the task works in the bot's workspace. */
   addBotTask: (botId: string, text: string, projectId: string | null, source?: string) => Promise<string | null>;
@@ -1204,10 +1205,11 @@ export const useStore = create<UiState & Actions>()(
             /* keeps the last list */
           }
         },
-        saveBot: async (input) => {
+        saveBot: async (input, connections) => {
           if (!liveApi.available) return t("Bots run on this Mac. Open AgentDeck on your Mac to make one.");
           try {
             const b = await liveApi.saveBot(input);
+            if (connections) await connectionsApi.setForBot(b.id, connections);
             get().upsertBot(b);
             if (!input.id) get().openBot(b.id);
             return null;
