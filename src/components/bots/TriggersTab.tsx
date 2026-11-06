@@ -321,7 +321,7 @@ function Form({ bot, trigger: x, onDone }: { bot: Bot; trigger: BotTrigger | nul
             <label className="block text-[12px] text-fg-2">
               {t("From")} <span className="text-fg-3">{t("(optional)")}</span>
               <input value={users} onChange={(e) => setUsers(e.target.value)} placeholder={t("GitHub usernames, comma-separated")} spellCheck={false} className={field} />
-              <span className="mt-1 block text-[11.5px] leading-[1.5] text-fg-3">{t("Only issues and pull requests from these people fire it. Empty: the repository's owner, members and collaborators. Private repositories need the GitHub connection.")}</span>
+              <span className="mt-1 block text-[11.5px] leading-[1.5] text-fg-3">{t("Only a label one of these people adds fires it. Empty: the repository's owner. Private repositories need the GitHub connection.")}</span>
             </label>
           </>
         )}

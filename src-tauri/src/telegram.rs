@@ -183,6 +183,8 @@ struct Pairing {
 struct Prompt {
     session_id: String,
     request_id: String,
+    /// The bot task it came up in: when that ends, the request is over.
+    task_id: Option<String>,
     bot_name: String,
     /// The message text, kept to edit it when it's answered.
     text: String,
@@ -529,7 +531,12 @@ impl Telegram {
             } else if self
                 .told
                 .lock()
-                .map(|mut t| t.insert(chat))
+                .map(|mut t| {
+                    if t.len() > 1000 {
+                        t.clear();
+                    }
+                    t.insert(chat)
+                })
                 .unwrap_or(false)
             {
                 self.say(chat, "This bot belongs to someone's AgentDeck and only answers chats they paired. If it's yours: in AgentDeck open Settings → Telegram, press Pair a chat, and send the code here as /pair 123456.");
@@ -949,11 +956,20 @@ impl Telegram {
             if let Some(Prompt {
                 kind:
                     PromptKind::Question {
-                        questions, answers, ..
+                        questions,
+                        answers,
+                        finished,
+                        ..
                     },
                 ..
             }) = prompts.get_mut(&tok)
             {
+                // An answered question keeps its answer.
+                if finished.contains(&qi) {
+                    drop(prompts);
+                    self.say(chat, "That question is answered already.");
+                    return true;
+                }
                 let q = questions[qi].text.clone();
                 answers.insert(q, vec![text.to_string()]);
             }
@@ -1049,11 +1065,14 @@ impl Telegram {
         let mut prompt = Prompt {
             session_id: ev.session_id.clone(),
             request_id: rid.to_string(),
+            task_id: p["taskId"].as_str().map(str::to_owned),
             bot_name: bot_name.clone(),
             text: String::new(),
             sent: Vec::new(),
             kind: PromptKind::Approval,
         };
+        // What goes out: (question index or None, text, buttons).
+        let mut outgoing: Vec<(Option<usize>, String, Value)> = Vec::new();
         if tool == "AskUserQuestion" {
             let questions: Vec<Question> = input["questions"]
                 .as_array()
@@ -1078,24 +1097,19 @@ impl Telegram {
                 return;
             }
             prompt.text = format!("❓ {bot_name} has a question{task_line}");
-            let mut messages = Vec::new();
             for (qi, q) in questions.iter().enumerate() {
-                let text = question_text(&bot_name, q, &[], false, false);
-                let kb = question_keyboard(&token, qi, q, &[]);
-                let mut ms = Vec::new();
-                for c in &chats {
-                    if let Some(m) = self.say_with(c.id, &text, Some(kb.clone()), None) {
-                        ms.push((c.id, m));
-                    }
-                }
-                messages.push(ms);
+                outgoing.push((
+                    Some(qi),
+                    question_text(&bot_name, q, &[], false, false),
+                    question_keyboard(&token, qi, q, &[]),
+                ));
             }
             prompt.kind = PromptKind::Question {
+                messages: vec![Vec::new(); questions.len()],
                 questions,
                 answers: HashMap::new(),
                 skipped: HashSet::new(),
                 finished: HashSet::new(),
-                messages,
             };
         } else if tool == "ExitPlanMode" {
             let plan = input["plan"].as_str().unwrap_or("");
@@ -1104,15 +1118,14 @@ impl Telegram {
                 "📋 {bot_name} has a plan for you to approve{task_line}\n\n{}",
                 clip(plan, 3000)
             );
-            let kb = json!([[
-                { "text": "✅ Approve plan", "callback_data": format!("{token}:a") },
-                { "text": "✋ Keep planning", "callback_data": format!("{token}:d") }
-            ]]);
-            for c in &chats {
-                if let Some(m) = self.say_with(c.id, &prompt.text, Some(kb.clone()), None) {
-                    prompt.sent.push((c.id, m));
-                }
-            }
+            outgoing.push((
+                None,
+                prompt.text.clone(),
+                json!([[
+                    { "text": "✅ Approve plan", "callback_data": format!("{token}:a") },
+                    { "text": "✋ Keep planning", "callback_data": format!("{token}:d") }
+                ]]),
+            ));
         } else if p["question"].as_bool() == Some(true) {
             // A question this agent asks in its own way: answered in AgentDeck.
             let text = format!("❓ {bot_name} has a question for you in AgentDeck.{task_line}");
@@ -1126,18 +1139,47 @@ impl Telegram {
                 "🔔 {bot_name} needs you{task_line}\n\nIt wants to: {}\n\nIt waited because {why}.",
                 describe(tool, &input)
             );
-            let kb = json!([[
-                { "text": "✅ Allow", "callback_data": format!("{token}:a") },
-                { "text": "❌ Deny", "callback_data": format!("{token}:d") }
-            ]]);
+            outgoing.push((
+                None,
+                prompt.text.clone(),
+                json!([[
+                    { "text": "✅ Allow", "callback_data": format!("{token}:a") },
+                    { "text": "❌ Deny", "callback_data": format!("{token}:d") }
+                ]]),
+            ));
+        }
+        // Kept before it's sent, so a quick tap (or an answer in AgentDeck) finds it.
+        if let Ok(mut ps) = self.prompts.lock() {
+            ps.insert(token.clone(), prompt);
+        }
+        for (qi, text, kb) in outgoing {
             for c in &chats {
-                if let Some(m) = self.say_with(c.id, &prompt.text, Some(kb.clone()), None) {
-                    prompt.sent.push((c.id, m));
+                let Some(m) = self.say_with(c.id, &text, Some(kb.clone()), None) else {
+                    continue;
+                };
+                let mut ps = match self.prompts.lock() {
+                    Ok(ps) => ps,
+                    Err(_) => return,
+                };
+                match ps.get_mut(&token) {
+                    Some(Prompt {
+                        kind: PromptKind::Question { messages, .. },
+                        ..
+                    }) => {
+                        if let Some(ms) = qi.and_then(|i| messages.get_mut(i)) {
+                            ms.push((c.id, m));
+                        }
+                    }
+                    Some(p) => p.sent.push((c.id, m)),
+                    // Answered meanwhile: this message says so at once.
+                    None => {
+                        drop(ps);
+                        if let Some(api) = self.api() {
+                            let _ = api.edit(c.id, m, &format!("{text}\n\nAnswered"), None);
+                        }
+                    }
                 }
             }
-        }
-        if let Ok(mut ps) = self.prompts.lock() {
-            ps.insert(token, prompt);
         }
     }
 
@@ -1146,12 +1188,33 @@ impl Telegram {
         if !matches!(t.status.as_str(), "done" | "failed" | "cancelled") || self.api().is_none() {
             return;
         }
-        if !self
+        // Its requests can't be answered anymore.
+        let over: Vec<Prompt> = self
+            .prompts
+            .lock()
+            .map(|mut ps| {
+                let toks: Vec<String> = ps
+                    .iter()
+                    .filter(|(_, p)| p.task_id.as_deref() == Some(t.id.as_str()))
+                    .map(|(k, _)| k.clone())
+                    .collect();
+                toks.iter().filter_map(|k| ps.remove(k)).collect()
+            })
+            .unwrap_or_default();
+        for p in &over {
+            self.close(p, "No longer waiting: the task ended");
+        }
+        let fresh = self
             .reported
             .lock()
-            .map(|mut r| r.insert(t.id.clone()))
-            .unwrap_or(false)
-        {
+            .map(|mut r| {
+                if r.len() > 5000 {
+                    r.clear();
+                }
+                r.insert(t.id.clone())
+            })
+            .unwrap_or(false);
+        if !fresh {
             return;
         }
         let chats = self.chats();
@@ -1257,33 +1320,50 @@ fn find_bot(bots: &[Bot], name: &str) -> Option<Bot> {
         .cloned()
 }
 
+/// `text` without `prefix` at its start, letters compared without case (Turkish İ/ı, ß… too),
+/// cut at a character boundary of `text` itself.
+fn strip_prefix_ci<'a>(text: &'a str, prefix: &str) -> Option<&'a str> {
+    let mut rest = text.char_indices();
+    for pc in prefix.chars() {
+        let (_, tc) = rest.next()?;
+        if !pc.to_lowercase().eq(tc.to_lowercase()) {
+            return None;
+        }
+    }
+    Some(match rest.next() {
+        Some((i, _)) => &text[i..],
+        None => "",
+    })
+}
+
 /// "Reviewer: look at PR 12" or "@Reviewer look at PR 12": that bot, and the rest.
 fn addressed(bots: &[Bot], text: &str) -> Option<(Bot, String)> {
     let t = text.trim();
     let mut by_len: Vec<&Bot> = bots.iter().collect();
-    by_len.sort_by_key(|b| std::cmp::Reverse(b.name.len()));
+    by_len.sort_by_key(|b| std::cmp::Reverse(b.name.chars().count()));
     for b in by_len {
         let name = b.name.trim();
         if name.is_empty() {
             continue;
         }
-        let lower = t.to_lowercase();
-        let lname = name.to_lowercase();
-        for prefix in [format!("@{lname}"), lname.clone()] {
-            if let Some(rest) = lower.strip_prefix(&prefix) {
-                let rest_orig = &t[t.len() - rest.len()..];
-                let after = rest_orig.trim_start();
-                let ok = if prefix.starts_with('@') {
-                    rest.is_empty()
-                        || rest.starts_with(char::is_whitespace)
-                        || rest.starts_with([':', ','])
-                } else {
-                    rest.starts_with([':', ','])
-                };
-                if ok {
-                    let after = after.trim_start_matches([':', ',']).trim();
-                    return Some((b.clone(), after.to_string()));
-                }
+        let tagged = t.strip_prefix('@').and_then(|x| strip_prefix_ci(x, name));
+        if let Some(rest) = tagged {
+            if rest.is_empty()
+                || rest.starts_with(char::is_whitespace)
+                || rest.starts_with([':', ','])
+            {
+                return Some((
+                    b.clone(),
+                    rest.trim_start_matches([':', ',']).trim().to_string(),
+                ));
+            }
+        }
+        if let Some(rest) = strip_prefix_ci(t, name) {
+            if rest.starts_with([':', ',']) {
+                return Some((
+                    b.clone(),
+                    rest.trim_start_matches([':', ',']).trim().to_string(),
+                ));
             }
         }
     }
@@ -1599,6 +1679,20 @@ mod tests {
         let chunked = chunks(&"line\n".repeat(2000));
         assert!(chunked.len() >= 3 && chunked.iter().all(|c| c.chars().count() <= CHUNK));
         assert_eq!(chunks("short"), vec!["short"]);
+        assert_eq!(
+            strip_prefix_ci("YAZILIMCI: İstanbul", "Yazılımcı"),
+            None,
+            "I and ı are different letters"
+        );
+        assert_eq!(
+            strip_prefix_ci("yazılımcı: İstanbul ofisine bak", "Yazılımcı"),
+            Some(": İstanbul ofisine bak")
+        );
+        assert_eq!(
+            strip_prefix_ci("REVIEWER: İİİİİİİİİİ", "reviewer"),
+            Some(": İİİİİİİİİİ")
+        );
+        assert_eq!(strip_prefix_ci("Rev", "Reviewer"), None);
         assert_eq!(
             describe("Bash", &json!({ "command": "git push origin main" })),
             "run git push origin main"

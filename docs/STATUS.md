@@ -2,6 +2,17 @@
 
 Updated 2026-11-03. All five milestones are built and tested on Linux with the real `claude`, `codex` and `gemini` CLIs against local mock APIs; milestone 3 was also confirmed on a Mac with a real signed-in Claude Code. Grok Build is implemented but untested (its installer isn't reachable from the test environment).
 
+## Connections and triggers for bots (0.6.0)
+
+| What | How it's checked |
+|---|---|
+| Connections (stdio command, https address, Mac tools) with secrets only in the keychain; per-bot choice | `secrets_stay_in_the_keychain_and_reach_the_agent_filled_in`, `names_and_addresses_are_checked` |
+| Each agent gets them its own way: Claude Code's config file, Codex `-c` with secrets in variables kept from its shell, ACP `session/new` | `connections_reach_each_agent_with_secrets_out_of_the_shell` |
+| Reading is allowed, changing waits unless the connection may act alone (Claude Code, Codex, Gemini CLI request shapes) | `reading_is_allowed_changing_waits_unless_it_may_act_alone` |
+| Mac tools: listed by the `--mac` bridge only; inputs checked; scripts take input as an argument | `the_mac_bridge_lists_the_mac_tools_only`, `every_tool_has_a_script_a_schema_and_a_kind`, `inputs_are_checked_before_anything_runs`. Not yet run on a Mac |
+| Triggers: page changes with what changed, new files once, GitHub labels added by people you allow, hook POSTs from this Mac (web pages refused) | `a_page_fires_when_it_changes_with_what_changed`, `new_files_in_a_folder_fire_once`, `a_github_label_fires_when_someone_you_allow_adds_it`, `a_hook_is_a_post_to_this_mac_with_its_secret` |
+| Not yet tried with the real Playwright, GitHub and Notion servers, nor GitHub's API | |
+
 ## Telegram for bots (0.6.0)
 
 | What | How it's checked |

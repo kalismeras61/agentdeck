@@ -101,6 +101,8 @@ struct Proc {
     models: Mutex<Vec<String>>,
     provider: String,
     load_session: AtomicBool,
+    /// The agent takes MCP servers by address (`mcpCapabilities.http`).
+    http_mcp: AtomicBool,
     /// While `session/load` replays history, its updates are already in our store.
     replaying: AtomicBool,
     /// When the last session/update arrived (ms since the epoch), to tell when a replay is over.
@@ -119,6 +121,21 @@ struct Proc {
 }
 
 impl Proc {
+    /// The MCP servers for `session/new` and `session/load`: those by address only when the
+    /// agent said it takes them (one it can't take would refuse the whole session).
+    fn servers(&self) -> Value {
+        let http = self.http_mcp.load(Ordering::SeqCst);
+        Value::Array(
+            self.mcp_servers
+                .as_array()
+                .cloned()
+                .unwrap_or_default()
+                .into_iter()
+                .filter(|s| http || s.get("type").and_then(Value::as_str) != Some("http"))
+                .collect(),
+        )
+    }
+
     fn key(&self, id: &Value) -> String {
         let raw = match id {
             Value::String(s) => s.clone(),
@@ -284,6 +301,7 @@ impl AcpManager {
             models: Mutex::new(Vec::new()),
             provider: spec.provider.to_string(),
             load_session: AtomicBool::new(false),
+            http_mcp: AtomicBool::new(false),
             replaying: AtomicBool::new(false),
             last_update: AtomicU64::new(0),
             prompting: AtomicBool::new(false),
@@ -338,13 +356,13 @@ impl AcpManager {
                 proc.replaying.store(true, Ordering::SeqCst);
                 proc.request(
                     "session/load",
-                    json!({ "sessionId": old, "cwd": cwd, "mcpServers": proc.mcp_servers }),
+                    json!({ "sessionId": old, "cwd": cwd, "mcpServers": proc.servers() }),
                     Pending::OpenSession,
                 )
             }
             _ => proc.request(
                 "session/new",
-                json!({ "cwd": cwd, "mcpServers": proc.mcp_servers }),
+                json!({ "cwd": cwd, "mcpServers": proc.servers() }),
                 Pending::OpenSession,
             ),
         };
@@ -619,6 +637,11 @@ impl AcpManager {
                         .and_then(Value::as_bool)
                         .unwrap_or(false);
                     proc.load_session.store(can_load, Ordering::SeqCst);
+                    let http = result
+                        .pointer("/agentCapabilities/mcpCapabilities/http")
+                        .and_then(Value::as_bool)
+                        .unwrap_or(false);
+                    proc.http_mcp.store(http, Ordering::SeqCst);
                     self.record(
                         sid,
                         "acp",

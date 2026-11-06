@@ -302,25 +302,43 @@ fn run_script(src: &str, arg: &str) -> Result<String, String> {
         .stderr(Stdio::piped())
         .spawn()
         .map_err(|e| format!("Couldn't run osascript: {e}"))?;
+    // Read while it runs: a big answer would otherwise fill the pipe and never end.
+    let reader = |pipe: Option<Box<dyn Read + Send>>| {
+        std::thread::spawn(move || {
+            let mut buf = Vec::new();
+            if let Some(p) = pipe {
+                let _ = p.take(4 << 20).read_to_end(&mut buf);
+            }
+            String::from_utf8_lossy(&buf).into_owned()
+        })
+    };
+    let out_t = reader(
+        child
+            .stdout
+            .take()
+            .map(|p| Box::new(p) as Box<dyn Read + Send>),
+    );
+    let err_t = reader(
+        child
+            .stderr
+            .take()
+            .map(|p| Box::new(p) as Box<dyn Read + Send>),
+    );
     let deadline = std::time::Instant::now() + std::time::Duration::from_secs(60);
     loop {
         match child.try_wait() {
             Ok(Some(_)) => break,
             Ok(None) if std::time::Instant::now() > deadline => {
                 let _ = child.kill();
+                let _ = child.wait();
                 return Err("The app took longer than a minute to answer".into());
             }
             Ok(None) => std::thread::sleep(std::time::Duration::from_millis(100)),
             Err(e) => return Err(e.to_string()),
         }
     }
-    let (mut out, mut err) = (String::new(), String::new());
-    if let Some(mut o) = child.stdout.take() {
-        let _ = o.read_to_string(&mut out);
-    }
-    if let Some(mut e) = child.stderr.take() {
-        let _ = e.read_to_string(&mut err);
-    }
+    let out = out_t.join().unwrap_or_default();
+    let err = err_t.join().unwrap_or_default();
     let out = out.trim();
     if out.is_empty() {
         // -1743: the user said no (or hasn't been asked) in Privacy & Security → Automation.

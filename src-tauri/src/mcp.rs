@@ -472,9 +472,11 @@ impl Launch {
         let mut env = self.env.clone();
         for (i, s) in self.servers.iter().enumerate() {
             match s {
-                crate::connections::Server::Stdio { env: e, .. } => {
+                crate::connections::Server::Stdio {
+                    env: e, secrets, ..
+                } => {
                     for (k, v) in e {
-                        if hidden_from_shell(k) {
+                        if hidden_from_shell(k) || secrets.contains(k) {
                             env.push((k.clone(), v.clone()));
                         }
                     }
@@ -545,6 +547,8 @@ impl Launch {
             )
         };
         let mut out = Vec::new();
+        // Variables with secrets that Codex's shell must not see besides its own defaults.
+        let mut exclude: Vec<String> = Vec::new();
         if let Some(alone) = self.mac {
             let key = |k: &str| format!("mcp_servers.{MAC_SERVER}.{k}");
             let mut args = self.args.clone();
@@ -565,12 +569,25 @@ impl Launch {
             let key = |k: &str| format!("mcp_servers.{}.{k}", toml_key(s.name()));
             match s {
                 crate::connections::Server::Stdio {
-                    command, args, env, ..
+                    command,
+                    args,
+                    env,
+                    secrets,
+                    ..
                 } => {
                     out.push(format!("{}={}", key("command"), toml_str(command)));
                     out.push(format!("{}={}", key("args"), list(args)));
-                    let (passed, inline): (Vec<_>, Vec<_>) =
-                        env.iter().cloned().partition(|(k, _)| hidden_from_shell(k));
+                    // Secrets never go on the command line: Codex passes them on from its
+                    // environment (kept from its shell below).
+                    let (passed, inline): (Vec<_>, Vec<_>) = env
+                        .iter()
+                        .cloned()
+                        .partition(|(k, _)| hidden_from_shell(k) || secrets.contains(k));
+                    for (k, _) in &passed {
+                        if !hidden_from_shell(k) && !exclude.contains(k) {
+                            exclude.push(k.clone());
+                        }
+                    }
                     if !passed.is_empty() {
                         let names: Vec<String> = passed.into_iter().map(|(k, _)| k).collect();
                         out.push(format!("{}={}", key("env_vars"), list(&names)));
@@ -598,6 +615,17 @@ impl Launch {
                 ));
             }
             out.push(format!("{}=60", key("startup_timeout_sec")));
+        }
+        if !self.servers.is_empty() {
+            // Codex keeps *KEY*, *SECRET* and *TOKEN* variables from the commands it runs; make
+            // sure a config of the user's doesn't turn that off, and add the other secrets.
+            out.push("shell_environment_policy.ignore_default_excludes=false".into());
+            if !exclude.is_empty() {
+                out.push(format!(
+                    "shell_environment_policy.exclude={}",
+                    list(&exclude)
+                ));
+            }
         }
         out
     }
@@ -2185,7 +2213,9 @@ mod tests {
                     env: vec![
                         ("NOTION_TOKEN".into(), "ntn_x".into()),
                         ("MODE".into(), "full".into()),
+                        ("PASSWORD".into(), "hunter2".into()),
                     ],
+                    secrets: vec!["NOTION_TOKEN".into(), "PASSWORD".into()],
                     act_alone: true,
                 },
             ],
@@ -2205,10 +2235,15 @@ mod tests {
         assert_eq!(c["mcpServers"]["mac"]["env"][TOKEN_ENV], "abc");
         // Codex: secrets in its environment under names it keeps from its shell, never in -c.
         let args = l.codex_args().join(" ");
-        assert!(!args.contains("ghp_x") && !args.contains("ntn_x"), "{args}");
+        assert!(
+            !args.contains("ghp_x") && !args.contains("ntn_x") && !args.contains("hunter2"),
+            "{args}"
+        );
+        assert!(args.contains("mcp_servers.notion.env_vars=[\"NOTION_TOKEN\", \"PASSWORD\"]"));
+        assert!(args.contains("shell_environment_policy.ignore_default_excludes=false"));
+        assert!(args.contains("shell_environment_policy.exclude=[\"PASSWORD\"]"));
         assert!(args.contains("mcp_servers.github.url=\"https://api.githubcopilot.com/mcp/\""));
         assert!(args.contains("mcp_servers.github.env_http_headers={\"Authorization\" = \"AGENTDECK_CONNECTION_0_0_TOKEN\"}"));
-        assert!(args.contains("mcp_servers.notion.env_vars=[\"NOTION_TOKEN\"]"));
         assert!(args.contains("mcp_servers.notion.env={\"MODE\" = \"full\"}"));
         assert!(args.contains("mcp_servers.notion.default_tools_approval_mode=\"approve\""));
         assert!(!args.contains("mcp_servers.github.default_tools_approval_mode"));

@@ -20,9 +20,9 @@ export const PRESETS: Preset[] = /* i18n */ [
   {
     kind: "browser",
     name: "Browser",
-    blurb: "Opens websites in a browser window of its own, reads them, clicks and types. It doesn't see your browser's sign-ins. Needs Node.js (npx).",
+    blurb: "Opens websites in a browser window of its own, reads them, clicks and types. It doesn't see your browser's sign-ins. Each step waits for you unless you let it act without asking, and then it could also send what it read to any site. Needs Node.js (npx).",
     build: () => ({ command: "npx", args: ["-y", "@playwright/mcp@latest"], url: "", env: [], headers: [] }),
-    actAlone: true,
+    actAlone: false,
   },
   {
     kind: "github",

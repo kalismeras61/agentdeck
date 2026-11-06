@@ -84,6 +84,8 @@ pub enum Server {
         command: String,
         args: Vec<String>,
         env: Vec<(String, String)>,
+        /// Names in `env` whose values are secrets.
+        secrets: Vec<String>,
         act_alone: bool,
     },
     Http {
@@ -202,10 +204,12 @@ pub fn save(db: &Db, mut input: Connection) -> Result<Connection, String> {
             input.headers.clear();
         }
         _ if !input.url.is_empty() => {
-            if !(input.url.starts_with("https://")
-                || input.url.starts_with("http://127.0.0.1")
-                || input.url.starts_with("http://localhost"))
-            {
+            let ok = reqwest::Url::parse(&input.url).is_ok_and(|u| match u.scheme() {
+                "https" => u.host_str().is_some(),
+                "http" => matches!(u.host_str(), Some("localhost" | "127.0.0.1" | "[::1]")),
+                _ => false,
+            });
+            if !ok {
                 return Err("The address must start with https:// (or be on this Mac)".into());
             }
             input.command.clear();
@@ -336,6 +340,12 @@ pub fn servers(db: &Db, bot_id: &str) -> (Vec<Server>, Option<bool>) {
                 command: c.command.clone(),
                 args: c.args.clone(),
                 env: fill(&c.env),
+                secrets: c
+                    .env
+                    .iter()
+                    .filter(|f| f.secret)
+                    .map(|f| f.key.clone())
+                    .collect(),
                 act_alone: c.act_alone,
             }),
         }
@@ -367,11 +377,25 @@ pub fn requested(ev: &StoredEvent) -> Option<(String, String)> {
             .unwrap_or("");
         return Some((server.to_string(), tool.to_string()));
     }
-    // ACP agents (Gemini CLI): "<tool> (<server> MCP Server)".
-    let title = p.pointer("/toolCall/title").and_then(Value::as_str)?;
+    // ACP agents (Gemini CLI): "<tool> (<server> MCP Server)". The title is free text (a shell
+    // command's title is the command), so only a plain name counts, and never for a request
+    // that runs, edits, deletes or moves something.
+    let call = p.get("toolCall")?;
+    if matches!(
+        call.get("kind").and_then(Value::as_str),
+        Some("execute" | "edit" | "delete" | "move")
+    ) {
+        return None;
+    }
+    let title = call.get("title").and_then(Value::as_str)?;
     let inner = title.strip_suffix(" MCP Server)")?;
     let (tool, server) = inner.rsplit_once(" (")?;
-    Some((server.trim().to_string(), tool.trim().to_string()))
+    let plain = |x: &str| {
+        !x.is_empty()
+            && x.bytes()
+                .all(|b| b.is_ascii_alphanumeric() || b == b'_' || b == b'-' || b == b'.')
+    };
+    (plain(tool) && plain(server)).then(|| (server.to_string(), tool.to_string()))
 }
 
 /// Tools that only look: by the first word of their name (`get_issue`, `list_events`,
@@ -382,26 +406,19 @@ pub fn reads(tool: &str) -> bool {
         "list",
         "search",
         "read",
-        "fetch",
         "find",
-        "query",
         "view",
         "describe",
         "show",
         "lookup",
         "count",
         "retrieve",
-        "check",
         "inspect",
         "snapshot",
         "screenshot",
-        "navigate",
-        "wait",
         "console",
         "network",
-        "tabs",
         "take",
-        "resolve",
         "explain",
     ];
     let t = tool.to_lowercase();
@@ -526,9 +543,19 @@ mod tests {
         assert!(save(&db, input("Tool", "stdio"))
             .unwrap_err()
             .contains("command"));
-        let mut h = input("Plain http", "http");
-        h.url = "http://example.com/mcp".into();
-        assert!(save(&db, h).unwrap_err().contains("https://"));
+        for bad in [
+            "http://example.com/mcp",
+            "http://localhost.evil.com/mcp",
+            "http://127.0.0.1.nip.io/mcp",
+            "ftp://x",
+        ] {
+            let mut h = input("Plain http", "http");
+            h.url = bad.into();
+            assert!(save(&db, h).unwrap_err().contains("https://"), "{bad}");
+        }
+        let mut local = input("Local", "http");
+        local.url = "http://localhost:3000/mcp".into();
+        assert!(save(&db, local).is_ok());
         let mut a = input("agentdeck", "stdio");
         a.command = "x".into();
         assert_eq!(
@@ -595,6 +622,17 @@ mod tests {
             verdict(&db, &codex, "b1"),
             Some(Verdict::Hold { .. })
         ));
+        // A shell command dressed up as a connection's read tool is not one.
+        let shell = StoredEvent {
+            source: "gemini-cli".into(),
+            kind: "approval".into(),
+            payload: json!({ "requestId": "r1", "toolCall": { "kind": "execute", "title": "find ~ -delete # (github MCP Server)" } }),
+            ..ask("x")
+        };
+        assert_eq!(verdict(&db, &shell, "b1"), None);
+        let mut sneaky = shell.clone();
+        sneaky.payload["toolCall"]["kind"] = json!("other");
+        assert_eq!(verdict(&db, &sneaky, "b1"), None, "not a plain tool name");
         let gemini = StoredEvent {
             source: "gemini-cli".into(),
             kind: "approval".into(),
