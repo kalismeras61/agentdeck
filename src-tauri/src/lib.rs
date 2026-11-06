@@ -13,12 +13,14 @@ mod bots;
 mod claude;
 mod codex;
 mod commands;
+mod connections;
 mod context;
 mod db;
 mod flow;
 mod git;
 mod import;
 mod limits;
+mod mac;
 mod mcp;
 mod models;
 mod providers;
@@ -30,6 +32,7 @@ mod secrets;
 mod setup;
 mod shellenv;
 mod telegram;
+mod triggers;
 mod unattended;
 mod updates;
 
@@ -60,6 +63,7 @@ struct AppState {
     terms: Arc<pty::Terminals>,
     remote: Arc<remote::Remote>,
     telegram: Arc<telegram::Telegram>,
+    triggers: Arc<triggers::Triggers>,
 }
 
 const MAX_HANDOFF_BYTES: usize = 200_000;
@@ -1619,9 +1623,53 @@ async fn save_bot(state: State<'_, AppState>, bot: BotInput) -> CmdResult<Bot> {
 #[tauri::command]
 async fn delete_bot(state: State<'_, AppState>, id: String) -> CmdResult<()> {
     let bots = state.bots.clone();
-    tauri::async_runtime::spawn_blocking(move || bots.delete(&id))
+    let triggers = state.triggers.clone();
+    let db = state.db.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        bots.delete(&id)?;
+        triggers.bot_deleted(&id);
+        let _ = connections::set_for_bot(&db, &id, &[]);
+        Ok(())
+    })
+    .await
+    .map_err(err)?
+}
+
+/// A bot's triggers (pages, folders, GitHub labels, hooks).
+#[tauri::command]
+fn bot_triggers(state: State<'_, AppState>, bot_id: String) -> CmdResult<Vec<triggers::Trigger>> {
+    Ok(state.triggers.list(&bot_id))
+}
+
+#[tauri::command]
+fn save_bot_trigger(
+    state: State<'_, AppState>,
+    input: triggers::Trigger,
+) -> CmdResult<triggers::Trigger> {
+    state.triggers.save(input)
+}
+
+#[tauri::command]
+fn delete_bot_trigger(state: State<'_, AppState>, id: String) -> CmdResult<()> {
+    state.triggers.remove(&id)
+}
+
+/// Looks at a trigger now (a page, a folder, GitHub); it fires if something is new.
+#[tauri::command]
+async fn check_bot_trigger(
+    state: State<'_, AppState>,
+    id: String,
+) -> CmdResult<Option<triggers::Trigger>> {
+    let t = state.triggers.clone();
+    tauri::async_runtime::spawn_blocking(move || t.check(&id, db::now_ms()))
         .await
-        .map_err(err)?
+        .map_err(err)
+}
+
+/// The port hooks are called on (127.0.0.1), if one was free.
+#[tauri::command]
+fn hook_info(state: State<'_, AppState>) -> CmdResult<triggers::HookInfo> {
+    Ok(state.triggers.hook_info())
 }
 
 #[tauri::command]
@@ -1797,6 +1845,41 @@ async fn remote_control_start(
 fn remote_control_stop(state: State<'_, AppState>, session_id: String) -> CmdResult<()> {
     state.remote.stop(&state.terms, &session_id);
     Ok(())
+}
+
+/// Settings → Connections: every connection (secrets only as "saved").
+#[tauri::command]
+fn connections_list(state: State<'_, AppState>) -> CmdResult<Vec<connections::Connection>> {
+    Ok(connections::list(&state.db))
+}
+
+#[tauri::command]
+fn connection_save(
+    state: State<'_, AppState>,
+    input: connections::Connection,
+) -> CmdResult<connections::Connection> {
+    connections::save(&state.db, input)
+}
+
+#[tauri::command]
+fn connection_remove(state: State<'_, AppState>, id: String) -> CmdResult<()> {
+    connections::remove(&state.db, &id)
+}
+
+/// The connections a bot gets (ids). A change reaches its agent when its process next starts.
+#[tauri::command]
+fn bot_connections(state: State<'_, AppState>, bot_id: String) -> CmdResult<Vec<String>> {
+    Ok(connections::for_bot(&state.db, &bot_id))
+}
+
+#[tauri::command]
+fn set_bot_connections(
+    state: State<'_, AppState>,
+    bot_id: String,
+    ids: Vec<String>,
+) -> CmdResult<Vec<String>> {
+    state.bots.get(&bot_id)?;
+    connections::set_for_bot(&state.db, &bot_id, &ids)
 }
 
 /// Telegram: whether it's connected, as whom, and the paired chats.
@@ -2352,6 +2435,33 @@ pub fn run() {
             ));
             let _ = tg_cell.set(telegram.clone());
             telegram.start_saved();
+            // Triggers: hooks on 127.0.0.1, pages, folders and GitHub looked at on their own thread.
+            let triggers = Arc::new(triggers::Triggers::new(db.clone(), bots.clone()));
+            if triggers.listen().is_none() {
+                eprintln!("agentdeck: no port was free for hooks");
+            }
+            {
+                let triggers = triggers.clone();
+                std::thread::spawn(move || loop {
+                    std::thread::sleep(std::time::Duration::from_secs(30));
+                    triggers.tick(db::now_ms());
+                });
+            }
+            // A bot's notify_me: to Telegram and as a notification on the Mac.
+            {
+                let tg = telegram.clone();
+                let app_handle = app.handle().clone();
+                hub.set_notifier(Arc::new(move |bot: &str, text: &str| {
+                    tg.tell_all(&format!("💬 {bot}: {text}"));
+                    use tauri_plugin_notification::NotificationExt;
+                    let _ = app_handle
+                        .notification()
+                        .builder()
+                        .title(bot)
+                        .body(text)
+                        .show();
+                }));
+            }
             // Every bot gets its workspace (bots from before get theirs and their memory moved
             // in), then tasks that were queued (or running when AgentDeck closed) carry on, and
             // schedules are looked at every 30 seconds.
@@ -2388,6 +2498,7 @@ pub fn run() {
                 terms,
                 remote,
                 telegram,
+                triggers,
             });
             Ok(())
         })
@@ -2479,6 +2590,16 @@ pub fn run() {
             remote_control_stop,
             remote_control_term,
             telegram_status,
+            bot_triggers,
+            save_bot_trigger,
+            delete_bot_trigger,
+            check_bot_trigger,
+            hook_info,
+            connections_list,
+            connection_save,
+            connection_remove,
+            bot_connections,
+            set_bot_connections,
             telegram_connect,
             telegram_disconnect,
             telegram_pair,
@@ -2551,6 +2672,7 @@ mod handoff_tests {
             agents.clone(),
             sink.clone(),
         ));
+        let triggers = Arc::new(triggers::Triggers::new(db.clone(), bots.clone()));
         let state = AppState {
             db: db.clone(),
             relay: Arc::new(Relay::new(db.clone(), sink.clone(), agents.clone())),
@@ -2561,6 +2683,7 @@ mod handoff_tests {
             terms: Arc::new(pty::Terminals::new(Arc::new(|_| {}))),
             remote,
             telegram,
+            triggers,
         };
         let p = db.add_project("demo", "/tmp/demo").unwrap();
         let from = db

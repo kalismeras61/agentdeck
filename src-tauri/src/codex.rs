@@ -242,7 +242,7 @@ impl CodexManager {
         // which passes them on to that server only (`env_vars`).
         if let Some(l) = self.mcp.as_ref().and_then(|f| f(session)) {
             cmd.args(l.codex_args());
-            for (k, v) in &l.env {
+            for (k, v) in l.codex_env() {
                 cmd.env(k, v);
             }
         }

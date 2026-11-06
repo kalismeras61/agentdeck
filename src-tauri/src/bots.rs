@@ -214,6 +214,9 @@ fn source_label(db: &Db, source: &str) -> String {
     if source.starts_with("telegram:") {
         return "you (sent from Telegram)".into();
     }
+    if source.starts_with("trigger:") {
+        return "a trigger you set up".into();
+    }
     match source.strip_prefix("bot:") {
         Some(id) => match db.bot(id).ok().flatten() {
             Some(b) => format!("{} (another bot)", b.name.trim()),
@@ -1148,7 +1151,9 @@ impl Bots {
         // Its own agentdeck tools (handing work to other bots) never wait for the user.
         let v = match crate::mcp::requested_tool(ev) {
             Some(_) => unattended::request_id(ev).map(|request_id| Verdict::Allow { request_id }),
-            None => unattended::verdict_with(&self.db, ev, &[bot.workspace.as_str()]),
+            // A connection's tool: reading is allowed, changing waits (unless it may act alone).
+            None => crate::connections::verdict(&self.db, ev, &bot.id)
+                .or_else(|| unattended::verdict_with(&self.db, ev, &[bot.workspace.as_str()])),
         };
         let Some(v) = v else {
             return;

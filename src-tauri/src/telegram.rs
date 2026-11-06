@@ -471,6 +471,13 @@ impl Telegram {
         }
     }
 
+    /// A message to every paired chat (a bot's `notify_me`, a trigger that fired).
+    pub fn tell_all(&self, text: &str) {
+        for c in self.chats() {
+            self.say(c.id, text);
+        }
+    }
+
     fn say(&self, chat: i64, text: &str) {
         self.say_with(chat, text, None, None);
     }
@@ -1168,7 +1175,9 @@ impl Telegram {
                 // Cancelled tasks are only reported where they were sent from.
                 let n = self.notify();
                 let wanted = t.status != "cancelled"
-                    && (n == "all" || (n == "schedules" && t.source == "schedule"));
+                    && (n == "all"
+                        || (n == "schedules"
+                            && (t.source == "schedule" || t.source.starts_with("trigger:"))));
                 if wanted {
                     chats.iter().map(|c| (c.id, None)).collect()
                 } else {
@@ -1188,6 +1197,8 @@ impl Telegram {
             .unwrap_or_else(|| "The bot".into());
         let head = if t.source == "schedule" {
             format!(" (scheduled: {})", first_line(&t.text, 60))
+        } else if t.source.starts_with("trigger:") {
+            format!(" (a trigger fired: {})", first_line(&t.text, 60))
         } else if from_tg.is_none() {
             format!(" ({})", first_line(&t.text, 60))
         } else {

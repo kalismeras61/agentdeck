@@ -293,7 +293,7 @@ impl AcpManager {
             stopping: AtomicBool::new(false),
             use_key: AtomicBool::new(key.is_some()),
             gen: uuid::Uuid::new_v4().simple().to_string()[..8].to_string(),
-            mcp_servers: json!(mcp.map(|l| vec![l.acp_server()]).unwrap_or_default()),
+            mcp_servers: json!(mcp.map(|l| l.acp_servers()).unwrap_or_default()),
         });
         proc.request(
             "initialize",
