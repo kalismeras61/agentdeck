@@ -29,6 +29,7 @@ mod schedule;
 mod secrets;
 mod setup;
 mod shellenv;
+mod telegram;
 mod unattended;
 mod updates;
 
@@ -58,6 +59,7 @@ struct AppState {
     bots: Arc<Bots>,
     terms: Arc<pty::Terminals>,
     remote: Arc<remote::Remote>,
+    telegram: Arc<telegram::Telegram>,
 }
 
 const MAX_HANDOFF_BYTES: usize = 200_000;
@@ -1797,6 +1799,46 @@ fn remote_control_stop(state: State<'_, AppState>, session_id: String) -> CmdRes
     Ok(())
 }
 
+/// Telegram: whether it's connected, as whom, and the paired chats.
+#[tauri::command]
+fn telegram_status(state: State<'_, AppState>) -> CmdResult<telegram::Status> {
+    Ok(state.telegram.status())
+}
+
+/// Saves your Telegram bot's token (in the keychain) once Telegram accepts it.
+#[tauri::command]
+async fn telegram_connect(
+    state: State<'_, AppState>,
+    token: String,
+) -> CmdResult<telegram::Status> {
+    let tg = state.telegram.clone();
+    tauri::async_runtime::spawn_blocking(move || tg.connect(&token))
+        .await
+        .map_err(err)?
+}
+
+#[tauri::command]
+fn telegram_disconnect(state: State<'_, AppState>) -> CmdResult<telegram::Status> {
+    Ok(state.telegram.disconnect())
+}
+
+/// A code to send to your bot as `/pair <code>`, valid for 10 minutes.
+#[tauri::command]
+fn telegram_pair(state: State<'_, AppState>) -> CmdResult<telegram::Status> {
+    state.telegram.start_pairing()
+}
+
+#[tauri::command]
+fn telegram_unpair(state: State<'_, AppState>, chat_id: i64) -> CmdResult<telegram::Status> {
+    Ok(state.telegram.unpair(chat_id))
+}
+
+/// Which bot tasks report back to Telegram: "telegram", "schedules" or "all".
+#[tauri::command]
+fn telegram_set_notify(state: State<'_, AppState>, notify: String) -> CmdResult<telegram::Status> {
+    state.telegram.set_notify(&notify)
+}
+
 /// The terminal a session is in Remote Control in, if it is.
 #[tauri::command]
 fn remote_control_term(
@@ -2193,9 +2235,21 @@ pub fn run() {
             type Listeners = (Arc<Relay>, Arc<Flow>, Arc<Bots>);
             let relay_cell: Arc<OnceLock<Listeners>> = Arc::new(OnceLock::new());
             let cell = relay_cell.clone();
+            // Telegram reports bots' results and requests (set once it exists).
+            let tg_cell: Arc<OnceLock<Arc<telegram::Telegram>>> = Arc::new(OnceLock::new());
+            let tgc = tg_cell.clone();
             let sink: claude::Sink = Arc::new(move |o| {
                 let _ = match o {
                     Outbound::Event(e) => {
+                        if let Some(tg) = tgc.get() {
+                            if matches!(
+                                e.kind.as_str(),
+                                "bot_needs_you" | "permission_decision" | "question_answered"
+                            ) {
+                                let (tg, e) = (tg.clone(), e.clone());
+                                std::thread::spawn(move || tg.on_event(&e));
+                            }
+                        }
                         if let Some((r, f, b)) = cell.get() {
                             if relay::turn_end(&e).is_some() {
                                 let (r, f, b, e) = (r.clone(), f.clone(), b.clone(), e.clone());
@@ -2225,9 +2279,18 @@ pub fn run() {
                     Outbound::Relay(r) => handle.emit("agentdeck://relay", r),
                     Outbound::Flow(f) => handle.emit("agentdeck://flow", f),
                     Outbound::Bot(b) => handle.emit("agentdeck://bot", b),
-                    Outbound::BotTask(t) => handle.emit("agentdeck://bot-task", t),
+                    Outbound::BotTask(t) => {
+                        if let Some(tg) = tgc.get() {
+                            if matches!(t.status.as_str(), "done" | "failed" | "cancelled") {
+                                let (tg, t) = (tg.clone(), t.clone());
+                                std::thread::spawn(move || tg.on_task(&t));
+                            }
+                        }
+                        handle.emit("agentdeck://bot-task", t)
+                    }
                     Outbound::BotSchedule(s) => handle.emit("agentdeck://bot-schedule", s),
                     Outbound::Limits(l) => handle.emit("agentdeck://limits", l),
+                    Outbound::Telegram(s) => handle.emit("agentdeck://telegram", s),
                 };
             });
             // The agentdeck MCP server bots hand work to each other with: a socket in the data
@@ -2281,6 +2344,14 @@ pub fn run() {
             bots.delegation
                 .store(hub_up, std::sync::atomic::Ordering::SeqCst);
             let _ = relay_cell.set((relay.clone(), flow.clone(), bots.clone()));
+            let telegram = Arc::new(telegram::Telegram::new(
+                db.clone(),
+                bots.clone(),
+                agents.clone(),
+                sink.clone(),
+            ));
+            let _ = tg_cell.set(telegram.clone());
+            telegram.start_saved();
             // Every bot gets its workspace (bots from before get theirs and their memory moved
             // in), then tasks that were queued (or running when AgentDeck closed) carry on, and
             // schedules are looked at every 30 seconds.
@@ -2316,6 +2387,7 @@ pub fn run() {
                 bots,
                 terms,
                 remote,
+                telegram,
             });
             Ok(())
         })
@@ -2406,6 +2478,12 @@ pub fn run() {
             remote_control_start,
             remote_control_stop,
             remote_control_term,
+            telegram_status,
+            telegram_connect,
+            telegram_disconnect,
+            telegram_pair,
+            telegram_unpair,
+            telegram_set_notify,
             term_info,
             term_write,
             term_resize,
@@ -2461,20 +2539,28 @@ mod handoff_tests {
             sink.clone(),
             std::env::temp_dir(),
         ));
+        let bots = Arc::new(Bots::new(
+            db.clone(),
+            sink.clone(),
+            agents.clone(),
+            std::env::temp_dir().join("agentdeck-handoff-test-home"),
+        ));
+        let telegram = Arc::new(telegram::Telegram::new(
+            db.clone(),
+            bots.clone(),
+            agents.clone(),
+            sink.clone(),
+        ));
         let state = AppState {
             db: db.clone(),
             relay: Arc::new(Relay::new(db.clone(), sink.clone(), agents.clone())),
             flow: Arc::new(Flow::new(db.clone(), sink.clone(), agents.clone())),
-            bots: Arc::new(Bots::new(
-                db.clone(),
-                sink.clone(),
-                agents.clone(),
-                std::env::temp_dir().join("agentdeck-handoff-test-home"),
-            )),
+            bots,
             agents,
             sink,
             terms: Arc::new(pty::Terminals::new(Arc::new(|_| {}))),
             remote,
+            telegram,
         };
         let p = db.add_project("demo", "/tmp/demo").unwrap();
         let from = db

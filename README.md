@@ -70,8 +70,9 @@ A bot is an agent that stays. Give it a name, a job, instructions and an agent a
 - **Schedules.** "Weekdays at 9:00: review yesterday's merged pull requests", "every 6 hours: look for flaky tests". Each run lands in the queue like any task.
 - **A manager bot.** Bots can hand parts of a task to other bots and wait for their results, through AgentDeck's own tools (`list_bots`, `delegate_task`, `wait_for_tasks`). A lead bot can split the work between a reviewer, a tester and a writer and put their reports together.
 - **Unattended, not unchecked.** While a bot works on a task, ordinary requests are approved for it inside its folder and the task's project. Anything risky (deleting, pushing, deploying, credentials, anything elsewhere) and every question waits for you, and the bot shows "Needs you" in the sidebar.
+- **Telegram.** Connect a Telegram bot of your own (a token from @BotFather, kept in your keychain) and pair your chat with a code. Then write a task from your phone and the bot's answer comes back there; start with a bot's name ("Reviewer: …") to pick one. When a bot needs you, the risky step, the question or the plan arrives with buttons: allow, deny, pick an answer. AgentDeck asks Telegram for messages itself, so nothing on your Mac is opened to the internet, and only chats you paired are answered.
 
-Coming next: reaching your bots from your phone and from Telegram.
+Coming next: connections (mail, calendar, a browser, GitHub and more) so bots can do more than code, and more ways to start them (a web page changing, a mail arriving, a GitHub label).
 
 ![A bot working through its queue, with its schedules and memory one tab away](docs/screenshots/readme/bots.png)
 

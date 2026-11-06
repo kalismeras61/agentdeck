@@ -70,6 +70,8 @@ pub enum Outbound {
     BotSchedule(crate::db::BotSchedule),
     /// An agent's plan usage limits changed.
     Limits(crate::limits::PlanLimits),
+    /// Telegram's connection changed (`telegram::Status`).
+    Telegram(crate::telegram::Status),
 }
 
 pub type Sink = Arc<dyn Fn(Outbound) + Send + Sync>;

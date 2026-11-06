@@ -72,8 +72,9 @@ Un bot est un agent qui reste. Donnez-lui un nom, un rôle, des instructions, un
 - **Planifications.** « En semaine à 9 h : relire les pull requests fusionnées la veille », « toutes les 6 heures : chercher les tests instables ». Chaque exécution rejoint la file comme n'importe quelle tâche.
 - **Un bot manager.** Les bots peuvent confier des parties d'une tâche à d'autres bots et attendre leurs résultats, grâce aux outils propres à AgentDeck (`list_bots`, `delegate_task`, `wait_for_tasks`). Un bot principal peut répartir le travail entre un relecteur, un testeur et un rédacteur, puis rassembler leurs rapports.
 - **Sans surveillance, mais pas sans contrôle.** Pendant qu'un bot travaille sur une tâche, les demandes ordinaires sont approuvées pour lui dans son dossier et dans le projet de la tâche. Tout ce qui est risqué (suppression, push, déploiement, identifiants, tout ce qui se passe ailleurs) ainsi que chaque question vous attendent, et le bot affiche « Vous attend » dans la barre latérale.
+- **Telegram.** Connectez votre propre bot Telegram (un token obtenu auprès de @BotFather, conservé dans votre trousseau) et associez votre conversation avec un code. Écrivez ensuite une tâche depuis votre téléphone : la réponse du bot y revient ; commencez par le nom d'un bot (« Reviewer: … ») pour le choisir. Quand un bot vous attend, l'étape risquée, la question ou le plan arrive avec des boutons : autoriser, refuser, choisir une réponse. AgentDeck interroge lui-même Telegram pour récupérer les messages : rien sur votre Mac n'est donc ouvert à Internet, et seules les conversations que vous avez associées reçoivent une réponse.
 
-À venir : l'accès à vos bots depuis votre téléphone et depuis Telegram.
+À venir : des connexions (e-mail, agenda, navigateur, GitHub et plus encore) pour que les bots fassent plus que du code, et de nouvelles façons de les lancer (une page web qui change, un e-mail qui arrive, un label GitHub).
 
 ![Un bot qui traite sa file, avec ses planifications et sa mémoire à un onglet de distance](../screenshots/readme/bots.png)
 

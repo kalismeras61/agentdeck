@@ -476,6 +476,37 @@ export const termApi = {
   openLink: (url: string) => call<void>("open_link", { url }),
 };
 
+export interface TelegramChat {
+  id: number;
+  name: string;
+  pairedAt: number;
+}
+
+/** Your own Telegram bot: connected or not, and the chats paired with it. */
+export interface TelegramStatus {
+  connected: boolean;
+  username: string | null;
+  error: string | null;
+  chats: TelegramChat[];
+  pairingCode: string | null;
+  pairingUntil: number | null;
+  notify: "telegram" | "schedules" | "all";
+}
+
+export const telegramApi = {
+  status: () => call<TelegramStatus>("telegram_status"),
+  connect: (token: string) => call<TelegramStatus>("telegram_connect", { token }),
+  disconnect: () => call<TelegramStatus>("telegram_disconnect"),
+  pair: () => call<TelegramStatus>("telegram_pair"),
+  unpair: (chatId: number) => call<TelegramStatus>("telegram_unpair", { chatId }),
+  setNotify: (notify: TelegramStatus["notify"]) => call<TelegramStatus>("telegram_set_notify", { notify }),
+  /** Status changes (a chat paired, the connection dropped). */
+  subscribe: async (f: (s: TelegramStatus) => void) => {
+    const { listen } = await import("@tauri-apps/api/event");
+    return listen<TelegramStatus>("agentdeck://telegram", (e) => f(e.payload));
+  },
+};
+
 /** Claude Code's Remote Control: a conversation continues in a terminal the Claude app connects to. */
 export const remoteApi = {
   start: (sessionId: string, cols: number, rows: number) => call<TermInfo>("remote_control_start", { sessionId, cols, rows }),

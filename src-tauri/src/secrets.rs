@@ -58,3 +58,39 @@ pub fn remove(profile_id: &str) {
 pub const fn service() -> &'static str {
     SERVICE
 }
+
+/// Other secrets AgentDeck keeps (a Telegram bot token), under their own name in the keychain.
+#[cfg(not(test))]
+pub fn set_named(name: &str, value: &str) -> Result<(), String> {
+    keyring::Entry::new(SERVICE, name)
+        .map_err(|e| e.to_string())?
+        .set_password(value)
+        .map_err(|e| format!("Couldn't save it in the keychain: {e}"))
+}
+
+#[cfg(not(test))]
+pub fn get_named(name: &str) -> Option<String> {
+    keyring::Entry::new(SERVICE, name).ok()?.get_password().ok()
+}
+
+#[cfg(not(test))]
+pub fn remove_named(name: &str) {
+    if let Ok(e) = keyring::Entry::new(SERVICE, name) {
+        let _ = e.delete_credential();
+    }
+}
+
+#[cfg(test)]
+pub fn set_named(name: &str, value: &str) -> Result<(), String> {
+    set(&format!("named:{name}"), value)
+}
+
+#[cfg(test)]
+pub fn get_named(name: &str) -> Option<String> {
+    get(&format!("named:{name}"))
+}
+
+#[cfg(test)]
+pub fn remove_named(name: &str) {
+    remove(&format!("named:{name}"))
+}

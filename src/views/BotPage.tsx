@@ -16,6 +16,7 @@ import {
   Play,
   Plus,
   Repeat,
+  Send,
   RotateCcw,
   RotateCw,
   Square,
@@ -596,6 +597,11 @@ function TaskPlace({ task, link = false, from: showFrom = true }: { task: BotTas
       {task.source === "schedule" && (
         <Tip label={t("Added by a schedule")}>
           <Repeat size={11} className="shrink-0" aria-label={t("Added by a schedule")} />
+        </Tip>
+      )}
+      {task.source.startsWith("telegram:") && (
+        <Tip label={t("Sent from Telegram")}>
+          <Send size={11} className="shrink-0" aria-label={t("Sent from Telegram")} />
         </Tip>
       )}
       {from && (

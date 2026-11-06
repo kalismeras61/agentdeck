@@ -72,8 +72,9 @@ Um bot é um agente que fica. Dê a ele um nome, uma função, instruções e um
 - **Agendamentos.** "Dias úteis às 9:00: revisar os pull requests mesclados ontem", "a cada 6 horas: procurar testes instáveis". Cada execução entra na fila como qualquer tarefa.
 - **Um bot gerente.** Bots podem passar partes de uma tarefa para outros bots e esperar os resultados, usando as ferramentas do próprio AgentDeck (`list_bots`, `delegate_task`, `wait_for_tasks`). Um bot líder pode dividir o trabalho entre um revisor, um testador e um redator e juntar os relatórios deles.
 - **Sem supervisão, mas não sem controle.** Enquanto um bot trabalha em uma tarefa, pedidos comuns dentro da pasta dele e do projeto da tarefa são aprovados para ele. Qualquer coisa arriscada (apagar, fazer push, fazer deploy, credenciais, qualquer coisa em outro lugar) e toda pergunta esperam por você, e o bot mostra "Precisa de você" na barra lateral.
+- **Telegram.** Conecte um bot do Telegram só seu (um token do @BotFather, guardado no Acesso às Chaves) e pareie seu chat com um código. Depois é só escrever uma tarefa pelo celular, e a resposta do bot chega lá; comece com o nome de um bot ("Reviewer: …") para escolher qual. Quando um bot precisa de você, o passo arriscado, a pergunta ou o plano chega com botões: permitir, negar, escolher uma resposta. O AgentDeck busca as mensagens no Telegram por conta própria, então nada no seu Mac fica aberto para a internet, e só os chats que você pareou recebem resposta.
 
-Em breve: acesso aos seus bots pelo celular e pelo Telegram.
+Em breve: conexões (e-mail, calendário, um navegador, GitHub e mais) para que os bots façam mais do que programar, e mais formas de iniciá-los (uma página web que muda, um e-mail que chega, um label no GitHub).
 
 ![Um bot trabalhando na fila dele, com os agendamentos e a memória a uma aba de distância](../screenshots/readme/bots.png)
 

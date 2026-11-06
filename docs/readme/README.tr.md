@@ -72,8 +72,9 @@ Bot, kalıcı bir ajandır. Ona bir ad, bir iş, talimatlar ve bir ajan ile mode
 - **Zamanlamalar.** "Hafta içi 09:00'da: dün birleştirilen pull request'leri incele", "6 saatte bir: kararsız testleri bul". Her çalıştırma, her görev gibi sıraya girer.
 - **Yönetici bot.** Botlar, AgentDeck'in kendi araçlarıyla (`list_bots`, `delegate_task`, `wait_for_tasks`) bir görevin parçalarını başka botlara devredip sonuçlarını bekleyebilir. Lider bir bot, işi bir inceleyici, bir test uzmanı ve bir yazar arasında bölüp raporlarını bir araya getirebilir.
 - **Gözetimsiz ama denetimsiz değil.** Bot bir görev üzerinde çalışırken, kendi klasörü ve görevin projesi içindeki sıradan istekler onun adına onaylanır. Riskli her şey (silme, push, deploy, kimlik bilgileri, başka bir yerdeki her şey) ve her soru sizi bekler; bot da kenar çubuğunda "Sizi bekliyor" olarak görünür.
+- **Telegram.** Kendi Telegram botunuzu bağlayın (@BotFather'dan alınan bir token; Anahtar Zinciri'nizde saklanır) ve sohbetinizi bir kodla eşleştirin. Ardından telefonunuzdan bir görev yazın; botun yanıtı oraya geri gelir. Belirli bir botu seçmek için mesaja botun adıyla başlayın ("Reviewer: …"). Bir botun size ihtiyacı olduğunda riskli adım, soru ya da plan düğmelerle gelir: izin ver, reddet, bir yanıt seç. AgentDeck yeni mesajları Telegram'dan kendisi çeker; böylece Mac'inizdeki hiçbir şey internete açılmaz ve yalnızca eşleştirdiğiniz sohbetlere yanıt verilir.
 
-Yakında: botlarınıza telefonunuzdan ve Telegram'dan ulaşma.
+Yakında: botların kod yazmaktan fazlasını yapabilmesi için bağlantılar (e-posta, takvim, tarayıcı, GitHub ve daha fazlası) ve onları başlatmanın yeni yolları (bir web sayfasının değişmesi, bir e-postanın gelmesi, bir GitHub etiketi).
 
 ![Sırasındaki görevleri tamamlayan bir bot; zamanlamaları ve hafızası bir sekme ötede](../screenshots/readme/bots.png)
 

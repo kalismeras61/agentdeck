@@ -72,8 +72,9 @@ Ein Bot ist ein Agent, der bleibt. Gib ihm einen Namen, einen Job, Anweisungen u
 - **Zeitpläne.** „Werktags um 9:00: die gestern gemergten Pull Requests reviewen“, „alle 6 Stunden: nach flaky Tests suchen“. Jeder Lauf reiht sich wie jede Aufgabe in die Warteschlange ein.
 - **Ein Manager-Bot.** Bots können Teile einer Aufgabe über AgentDecks eigene Tools (`list_bots`, `delegate_task`, `wait_for_tasks`) an andere Bots abgeben und auf deren Ergebnisse warten. Ein leitender Bot kann die Arbeit auf einen Reviewer, einen Tester und einen Autor verteilen und ihre Berichte zusammenführen.
 - **Unbeaufsichtigt, aber nicht unkontrolliert.** Während ein Bot an einer Aufgabe arbeitet, werden gewöhnliche Anfragen innerhalb seines Ordners und des Projekts der Aufgabe für ihn freigegeben. Alles Riskante (Löschen, Pushen, Deployen, Zugangsdaten, alles anderswo) und jede Frage wartet auf dich, und der Bot zeigt in der Seitenleiste „Braucht dich“.
+- **Telegram.** Verbinde einen eigenen Telegram-Bot (ein Token von @BotFather, das in deinem Schlüsselbund liegt) und kopple deinen Chat mit einem Code. Dann schreibst du eine Aufgabe vom Handy aus, und die Antwort des Bots kommt dort an; beginne mit dem Namen eines Bots („Reviewer: …“), um ihn auszuwählen. Wenn ein Bot dich braucht, kommen der riskante Schritt, die Frage oder der Plan mit Buttons: erlauben, ablehnen, eine Antwort wählen. AgentDeck fragt Telegram selbst nach Nachrichten, deshalb ist auf deinem Mac nichts vom Internet aus erreichbar, und nur Chats, die du gekoppelt hast, bekommen eine Antwort.
 
-Als Nächstes: deine Bots vom Handy und über Telegram erreichen.
+Als Nächstes: Verbindungen (Mail, Kalender, ein Browser, GitHub und mehr), damit Bots mehr können als Code, und mehr Wege, sie zu starten (eine Webseite ändert sich, eine Mail kommt an, ein GitHub-Label).
 
 ![Ein Bot arbeitet seine Warteschlange ab, seine Zeitpläne und sein Gedächtnis sind nur einen Tab entfernt](../screenshots/readme/bots.png)
 

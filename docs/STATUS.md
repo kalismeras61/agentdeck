@@ -2,6 +2,16 @@
 
 Updated 2026-11-03. All five milestones are built and tested on Linux with the real `claude`, `codex` and `gemini` CLIs against local mock APIs; milestone 3 was also confirmed on a Mac with a real signed-in Claude Code. Grok Build is implemented but untested (its installer isn't reachable from the test environment).
 
+## Telegram for bots (0.6.0)
+
+| What | How it's checked |
+|---|---|
+| Your own bot token, checked with Telegram, kept in the keychain; long polling, no listening port; errors never show the token | `the_bot_api_is_called_as_telegram_expects_and_errors_never_show_the_token` (a local stand-in for the Bot API), `a_token_is_checked_before_anything_is_saved` |
+| Only private chats paired with a one-time code (10 minutes, 5 tries) reach the bots | `only_a_chat_paired_with_the_code_reaches_the_bots` |
+| A message is a task for the chosen bot ("Name: …" picks one); its answer comes back as a reply; scheduled results as chosen | `a_message_is_a_task_and_its_answer_comes_back_to_the_chat`, `scheduled_results_go_to_paired_chats_as_you_chose` |
+| Risky steps, plans and questions with buttons; answered in AgentDeck, the Telegram message says so | `a_risky_step_is_allowed_or_denied_from_telegram`, `a_question_is_asked_with_its_choices`, `answered_in_agentdeck_the_telegram_message_says_so` |
+| Not yet tried against the real api.telegram.org (not reachable from where it was built) | |
+
 ## Remote Control from a Claude Code session (0.5.1)
 
 | What | How it's checked |

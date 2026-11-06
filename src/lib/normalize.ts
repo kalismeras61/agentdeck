@@ -190,10 +190,14 @@ export function normalizeFor(provider: ProviderId, events: StoredEvent[], ctx: N
           label:
             p.source === "you" || !p.source
               ? t("Task")
-              : t("Task from {source}", { source: str(p.source)?.startsWith("bot:") ? (str(p.fromName) ?? t("another bot")) : (str(p.source) ?? "") }),
+              : str(p.source)?.startsWith("telegram:")
+                ? t("Task from Telegram")
+                : t("Task from {source}", { source: str(p.source)?.startsWith("bot:") ? (str(p.fromName) ?? t("another bot")) : (str(p.source) ?? "") }),
         },
       });
     } else if (e.kind === "bot_needs_you") {
+      // A question shows as its own card.
+      if (p.question === true) continue;
       own.push({
         ...base(e, `bn-${e.seq}`),
         type: "notice",

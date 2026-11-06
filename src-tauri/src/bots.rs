@@ -211,6 +211,9 @@ pub fn task_header(task: &BotTask, from: &str, folder: &str, now: i64) -> String
 
 /// Who a task is from, for its header: a bot's name for a task another bot handed over.
 fn source_label(db: &Db, source: &str) -> String {
+    if source.starts_with("telegram:") {
+        return "you (sent from Telegram)".into();
+    }
     match source.strip_prefix("bot:") {
         Some(id) => match db.bot(id).ok().flatten() {
             Some(b) => format!("{} (another bot)", b.name.trim()),
@@ -1167,7 +1170,17 @@ impl Bots {
                 );
                 self.set_needs(&bot.id, true);
             }
-            Verdict::Question => self.set_needs(&bot.id, true),
+            // Noted too, so a question can be answered from your phone (Telegram).
+            Verdict::Question => {
+                if let Some(request_id) = unattended::request_id(ev) {
+                    self.record(
+                        &ev.session_id,
+                        "bot_needs_you",
+                        &json!({ "botId": bot.id, "taskId": task_id, "requestId": request_id, "question": true }),
+                    );
+                }
+                self.set_needs(&bot.id, true);
+            }
         }
     }
 
@@ -1387,6 +1400,97 @@ pub fn wants(ev: &StoredEvent) -> bool {
             | "question_answered"
             | "process_exit"
     )
+}
+
+/// A bot runner for other modules' tests (Telegram): a stand-in `claude` that never answers.
+#[cfg(test)]
+pub mod tests_support {
+    use super::*;
+    use crate::claude::Manager;
+    use crate::codex::CodexManager;
+
+    pub struct Setup {
+        pub db: Arc<Db>,
+        pub bots: Arc<Bots>,
+        pub agents: Arc<Agents>,
+        pub project: String,
+        _dir: tempfile::TempDir,
+    }
+
+    impl Setup {
+        pub fn new() -> Self {
+            let dir = tempfile::tempdir().unwrap();
+            let fake = dir.path().join("claude");
+            std::fs::write(&fake, "#!/bin/sh\nwhile read -r line; do :; done\n").unwrap();
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::PermissionsExt;
+                std::fs::set_permissions(&fake, std::fs::Permissions::from_mode(0o755)).unwrap();
+            }
+            let proj = dir.path().join("shop");
+            std::fs::create_dir_all(&proj).unwrap();
+            let home = dir.path().join("home");
+            std::fs::create_dir_all(&home).unwrap();
+            let db = Arc::new(Db::open_in_memory().unwrap());
+            let project = db
+                .add_project("shop", &proj.canonicalize().unwrap().to_string_lossy())
+                .unwrap()
+                .id;
+            let sink: Sink = Arc::new(|_| {});
+            let mut claude = Manager::new(db.clone(), sink.clone());
+            claude.binary_override = Some(fake);
+            let mut codex = CodexManager::new(db.clone(), sink.clone());
+            codex.binary_override = Some("/nonexistent/codex".into());
+            let agents = Arc::new(Agents {
+                db: db.clone(),
+                claude: Arc::new(claude),
+                codex: Arc::new(codex),
+                acp: Arc::new(crate::acp::AcpManager::new(db.clone(), sink.clone())),
+                agy: Arc::new(crate::agy::AgyManager::new(db.clone(), sink.clone())),
+                api: Arc::new(crate::api::ApiManager::new(db.clone(), sink.clone())),
+            });
+            Self {
+                bots: Arc::new(Bots::new(
+                    db.clone(),
+                    sink,
+                    agents.clone(),
+                    home.canonicalize().unwrap(),
+                )),
+                db,
+                agents,
+                project,
+                _dir: dir,
+            }
+        }
+
+        /// A session a bot's request can be in.
+        pub fn session(&self, _bot: &Bot) -> String {
+            self.db
+                .create_session(&self.project, "claude-code", "default", "Bot")
+                .unwrap()
+                .id
+        }
+    }
+
+    impl Drop for Setup {
+        fn drop(&mut self) {
+            self.agents.shutdown_all();
+        }
+    }
+
+    pub fn bot_fields(name: &str) -> BotFields<'_> {
+        BotFields {
+            name,
+            role: "Helps",
+            instructions: "Be brief.",
+            provider: "claude-code",
+            model: "default",
+            effort: None,
+            profile_id: None,
+            project_id: None,
+            color: "violet",
+        }
+    }
 }
 
 #[cfg(test)]
@@ -2078,7 +2182,7 @@ mod tests {
             t.db.events(sid)
                 .unwrap()
                 .into_iter()
-                .filter(|e| e.kind == "bot_needs_you")
+                .filter(|e| e.kind == "bot_needs_you" && e.payload["question"] != json!(true))
                 .count()
         };
         let memory = format!("{}/MEMORY.md", b.workspace);
@@ -2128,6 +2232,15 @@ mod tests {
         // Questions always wait; the turn's end clears the mark.
         t.bots.on_request(&ask(&sid, "AskUserQuestion", json!({})));
         assert!(t.bots.get(&b.id).unwrap().needs_you);
+        // Noted too (so Telegram can ask it), as a question rather than a held request.
+        assert!(t
+            .db
+            .events(&sid)
+            .unwrap()
+            .iter()
+            .any(|e| e.kind == "bot_needs_you"
+                && e.payload["question"] == json!(true)
+                && e.payload["requestId"] == json!("r1")));
         t.bots.on_event(&end(&sid, "result/success", "Done"));
         assert!(!t.bots.get(&b.id).unwrap().needs_you);
         // With no task running (a message you sent yourself), AgentDeck doesn't step in.

@@ -16,6 +16,7 @@ import { appInfo, detectProviders, isTauri, type AppInfo, type ProviderProbe } f
 import { SHORTCUTS } from "../lib/shortcuts";
 import { useStore, type MotionPref, type NotificationPrefs, type ThemePref } from "../state/store";
 import { ModelsSettings } from "./ModelsSettings";
+import { TelegramSettings } from "./TelegramSettings";
 import { WorkflowsSettings } from "./WorkflowsSettings";
 import { ViewHeader } from "./ViewHeader";
 
@@ -26,6 +27,7 @@ const SECTIONS = /* i18n */ [
   ["workflows", "Workflows"],
   ["defaults", "Workspace defaults"],
   ["notifications", "Notifications"],
+  ["telegram", "Telegram"],
   ["shortcuts", "Shortcuts"],
   ["privacy", "Data and privacy"],
   ["updates", "Updates"],
@@ -514,6 +516,14 @@ export function Settings() {
                   <Switch label={label} checked={st.notifications[k]} onChange={(v) => st.setNotification(k, v)} />
                 </Row>
               ))}
+            </Section>
+
+            <Section
+              id="telegram"
+              title={t("Telegram")}
+              lede={t("Talk to your bots from your phone: give them tasks, get their answers, and allow or deny what they wait on.")}
+            >
+              <TelegramSettings />
             </Section>
 
             <Section id="shortcuts" title={t("Shortcuts")} lede={t("Approving a permission request has no shortcut on purpose.")}>
