@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 use std::path::Path;
 use std::sync::{LazyLock, Mutex};
 
-pub const SCHEMA_VERSION: i64 = 9;
+pub const SCHEMA_VERSION: i64 = 10;
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -289,6 +289,31 @@ pub struct BotTask {
     pub session_id: Option<String>,
     /// How many tasks it handed to other bots.
     pub children: i64,
+    /// The model it runs on, when the task asked for one (None: the bot's own).
+    pub model: Option<String>,
+    pub effort: Option<String>,
+    /// The git worktree and branch it worked in, when it had one of its own.
+    pub worktree: Option<String>,
+    pub branch: Option<String>,
+    /// What its turn used, when the agent reports it (Claude Code does).
+    pub tokens_in: Option<i64>,
+    pub tokens_out: Option<i64>,
+    /// At API prices, as the agent reports it (also on a subscription).
+    pub cost_usd: Option<f64>,
+}
+
+/// What a bot's tasks used over a time.
+#[derive(Debug, Clone, Serialize, PartialEq, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct BotUsage {
+    pub tasks: i64,
+    pub done: i64,
+    pub failed: i64,
+    /// Tasks whose use the agent reported.
+    pub measured: i64,
+    pub tokens_in: i64,
+    pub tokens_out: i64,
+    pub cost_usd: f64,
 }
 
 /// A task that repeats: daily at times on chosen weekdays, or every N minutes.
@@ -383,7 +408,8 @@ fn row_to_bot(r: &rusqlite::Row<'_>) -> rusqlite::Result<Bot> {
 }
 
 const TASK_COLS: &str = "id, bot_id, text, source, status, result, error, created_at, started_at, finished_at, parent_id, project_id, session_id,
-  (SELECT COUNT(*) FROM bot_tasks c WHERE c.parent_id = bot_tasks.id)";
+  (SELECT COUNT(*) FROM bot_tasks c WHERE c.parent_id = bot_tasks.id),
+  model, effort, worktree, branch, tokens_in, tokens_out, cost_usd";
 
 fn row_to_task(r: &rusqlite::Row<'_>) -> rusqlite::Result<BotTask> {
     Ok(BotTask {
@@ -401,6 +427,13 @@ fn row_to_task(r: &rusqlite::Row<'_>) -> rusqlite::Result<BotTask> {
         project_id: r.get(11)?,
         session_id: r.get(12)?,
         children: r.get(13)?,
+        model: r.get(14)?,
+        effort: r.get(15)?,
+        worktree: r.get(16)?,
+        branch: r.get(17)?,
+        tokens_in: r.get(18)?,
+        tokens_out: r.get(19)?,
+        cost_usd: r.get(20)?,
     })
 }
 
@@ -593,6 +626,23 @@ impl Db {
              CREATE INDEX IF NOT EXISTS bot_tasks_queue ON bot_tasks(bot_id, status, queued_at);",
         )?;
         Self::migrate_v9(&conn)?;
+        // v10: a task's own model and effort, its worktree, and what it used.
+        for (col, ty) in [
+            ("model", "TEXT"),
+            ("effort", "TEXT"),
+            ("worktree", "TEXT"),
+            ("branch", "TEXT"),
+            ("tokens_in", "INTEGER"),
+            ("tokens_out", "INTEGER"),
+            ("cost_usd", "REAL"),
+        ] {
+            let has = conn
+                .prepare("SELECT 1 FROM pragma_table_info('bot_tasks') WHERE name = ?1")?
+                .exists(params![col])?;
+            if !has {
+                conn.execute(&format!("ALTER TABLE bot_tasks ADD COLUMN {col} {ty}"), [])?;
+            }
+        }
         conn.execute(
             "UPDATE meta SET value = ?1 WHERE key = 'schema_version'",
             params![SCHEMA_VERSION.to_string()],
@@ -1183,7 +1233,9 @@ impl Db {
         let id: Option<String> = self
             .conn()
             .query_row(
-                "SELECT bot_id FROM bot_sessions WHERE session_id = ?1 LIMIT 1",
+                "SELECT bot_id FROM bot_sessions WHERE session_id = ?1
+                 UNION ALL SELECT bot_id FROM bot_tasks WHERE session_id = ?1 AND worktree IS NOT NULL
+                 LIMIT 1",
                 params![session_id],
                 |r| r.get(0),
             )
@@ -1314,6 +1366,7 @@ impl Db {
         Ok(())
     }
 
+    #[cfg(test)]
     pub fn add_bot_task(
         &self,
         bot_id: &str,
@@ -1322,14 +1375,85 @@ impl Db {
         project_id: Option<&str>,
         parent_id: Option<&str>,
     ) -> rusqlite::Result<BotTask> {
+        self.add_bot_task_with(bot_id, text, source, project_id, parent_id, None, None)
+    }
+
+    /// As `add_bot_task`, on a model (and effort) of its own.
+    #[allow(clippy::too_many_arguments)]
+    pub fn add_bot_task_with(
+        &self,
+        bot_id: &str,
+        text: &str,
+        source: &str,
+        project_id: Option<&str>,
+        parent_id: Option<&str>,
+        model: Option<&str>,
+        effort: Option<&str>,
+    ) -> rusqlite::Result<BotTask> {
         let id = format!("t-{}", uuid::Uuid::new_v4());
         let now = now_ms();
         self.conn().execute(
-            "INSERT INTO bot_tasks(id, bot_id, text, source, status, created_at, parent_id, queued_at, project_id) VALUES (?1, ?2, ?3, ?4, 'queued', ?5, ?6, ?5, ?7)",
-            params![id, bot_id, redact(text), source, now, parent_id, project_id],
+            "INSERT INTO bot_tasks(id, bot_id, text, source, status, created_at, parent_id, queued_at, project_id, model, effort) VALUES (?1, ?2, ?3, ?4, 'queued', ?5, ?6, ?5, ?7, ?8, ?9)",
+            params![id, bot_id, redact(text), source, now, parent_id, project_id, model, effort],
         )?;
         self.bot_task(&id)?
             .ok_or(rusqlite::Error::QueryReturnedNoRows)
+    }
+
+    /// The worktree and branch a task works in.
+    pub fn set_bot_task_worktree(
+        &self,
+        id: &str,
+        worktree: &str,
+        branch: &str,
+    ) -> rusqlite::Result<()> {
+        self.conn().execute(
+            "UPDATE bot_tasks SET worktree = ?2, branch = ?3 WHERE id = ?1",
+            params![id, worktree, branch],
+        )?;
+        Ok(())
+    }
+
+    /// What a task's turn used (as the agent reported it).
+    pub fn set_bot_task_usage(
+        &self,
+        id: &str,
+        tokens_in: i64,
+        tokens_out: i64,
+        cost_usd: Option<f64>,
+    ) -> rusqlite::Result<()> {
+        self.conn().execute(
+            "UPDATE bot_tasks SET tokens_in = ?2, tokens_out = ?3, cost_usd = ?4 WHERE id = ?1",
+            params![id, tokens_in, tokens_out, cost_usd],
+        )?;
+        Ok(())
+    }
+
+    /// What a bot's tasks that finished since `since` (ms) used.
+    pub fn bot_usage(&self, bot_id: &str, since: i64) -> rusqlite::Result<BotUsage> {
+        self.conn().query_row(
+            "SELECT COUNT(*),
+                    COALESCE(SUM(status = 'done'), 0),
+                    COALESCE(SUM(status = 'failed'), 0),
+                    COALESCE(SUM(tokens_in IS NOT NULL), 0),
+                    COALESCE(SUM(tokens_in), 0),
+                    COALESCE(SUM(tokens_out), 0),
+                    COALESCE(SUM(cost_usd), 0.0)
+             FROM bot_tasks
+             WHERE bot_id = ?1 AND status IN ('done', 'failed') AND finished_at >= ?2",
+            params![bot_id, since],
+            |r| {
+                Ok(BotUsage {
+                    tasks: r.get(0)?,
+                    done: r.get(1)?,
+                    failed: r.get(2)?,
+                    measured: r.get(3)?,
+                    tokens_in: r.get(4)?,
+                    tokens_out: r.get(5)?,
+                    cost_usd: r.get(6)?,
+                })
+            },
+        )
     }
 
     /// The session a task runs in (set when it starts).
@@ -2027,7 +2151,7 @@ mod tests {
             conn.execute_batch("CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT NOT NULL); INSERT INTO meta VALUES ('schema_version', '7');").unwrap();
         }
         let db = Db::open(&path).unwrap();
-        assert_eq!(db.meta("schema_version").unwrap().as_deref(), Some("9"));
+        assert_eq!(db.meta("schema_version").unwrap().as_deref(), Some("10"));
         let p = db.add_project("shop", "/tmp/shop").unwrap();
         let f = BotFields {
             name: "Reviewer",
@@ -2167,7 +2291,7 @@ mod tests {
             .unwrap();
         }
         let db = Db::open(&path).unwrap();
-        assert_eq!(db.meta("schema_version").unwrap().as_deref(), Some("9"));
+        assert_eq!(db.meta("schema_version").unwrap().as_deref(), Some("10"));
         let b = db.bot("b1").unwrap().unwrap();
         assert_eq!(
             b.project_id.as_deref(),

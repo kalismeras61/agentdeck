@@ -1635,6 +1635,47 @@ async fn delete_bot(state: State<'_, AppState>, id: String) -> CmdResult<()> {
     .map_err(err)?
 }
 
+/// A bot's options: its own worktree per task, and the models a manager may pick for it.
+#[tauri::command]
+fn bot_options(state: State<'_, AppState>, bot_id: String) -> CmdResult<bots::BotOptions> {
+    state.bots.get(&bot_id)?;
+    Ok(bots::options(&state.db, &bot_id))
+}
+
+#[tauri::command]
+fn set_bot_options(
+    state: State<'_, AppState>,
+    bot_id: String,
+    options: bots::BotOptions,
+) -> CmdResult<bots::BotOptions> {
+    state.bots.get(&bot_id)?;
+    bots::set_options(&state.db, &bot_id, &options)
+}
+
+/// What a bot's tasks used in the last day, week and 30 days.
+#[derive(serde::Serialize)]
+struct BotUsageView {
+    day: db::BotUsage,
+    week: db::BotUsage,
+    month: db::BotUsage,
+}
+
+#[tauri::command]
+fn bot_usage(state: State<'_, AppState>, bot_id: String) -> CmdResult<BotUsageView> {
+    let now = db::now_ms();
+    let since = |days: i64| {
+        state
+            .db
+            .bot_usage(&bot_id, now - days * 86_400_000)
+            .map_err(err)
+    };
+    Ok(BotUsageView {
+        day: since(1)?,
+        week: since(7)?,
+        month: since(30)?,
+    })
+}
+
 /// A bot's triggers (pages, folders, GitHub labels, hooks).
 #[tauri::command]
 fn bot_triggers(state: State<'_, AppState>, bot_id: String) -> CmdResult<Vec<triggers::Trigger>> {
@@ -2600,6 +2641,9 @@ pub fn run() {
             remote_control_term,
             telegram_status,
             bot_triggers,
+            bot_options,
+            set_bot_options,
+            bot_usage,
             save_bot_trigger,
             delete_bot_trigger,
             check_bot_trigger,

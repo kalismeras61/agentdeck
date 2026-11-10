@@ -173,7 +173,68 @@ pub fn stamp(ms: i64) -> String {
 }
 
 /// What a bot that can hand work to other bots is told (milestone 2c).
-pub const MANAGER_BRIEF: &str = "You can hand tasks to other bots with the agentdeck tools: list_bots, delegate_task, then wait_for_tasks to get their results. Use them when another bot's job fits a part of the work better.";
+pub const MANAGER_BRIEF: &str = "You can hand tasks to other bots with the agentdeck tools: list_bots, delegate_task, then wait_for_tasks to get their results. Use them when another bot's job fits a part of the work better. Hand independent parts to bots at the same time and wait for them together. Where list_bots shows a bot's model choices, pick the model for each task: a quicker one for simple work, a stronger one for hard work. A bot that works in worktrees reports a branch for each task; review it (or have a reviewer bot do it) before it's merged.";
+
+/// Per-bot settings kept apart from the bot itself: whether each task gets its own git
+/// worktree, and which other models a managing bot may run its tasks on.
+#[derive(Debug, Clone, Serialize, serde::Deserialize, PartialEq, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct BotOptions {
+    /// In a project that's a git repository, each task works in a worktree of its own on a
+    /// new branch, so bots can work on one project at the same time.
+    #[serde(default)]
+    pub worktrees: bool,
+    /// Models a manager may pick for this bot's tasks, besides its own.
+    #[serde(default)]
+    pub models: Vec<String>,
+}
+
+fn options_key(bot_id: &str) -> String {
+    format!("bot.options.{bot_id}")
+}
+
+pub fn options(db: &Db, bot_id: &str) -> BotOptions {
+    db.meta(&options_key(bot_id))
+        .ok()
+        .flatten()
+        .and_then(|s| serde_json::from_str(&s).ok())
+        .unwrap_or_default()
+}
+
+/// A model id as AgentDeck passes it to an agent (an alias like `sonnet` or a full id).
+pub fn valid_model(m: &str) -> bool {
+    !m.is_empty()
+        && m.len() <= 128
+        && !m.starts_with('-')
+        && m.chars()
+            .all(|c| c.is_ascii_alphanumeric() || "-._:/[]@".contains(c))
+}
+
+pub fn set_options(db: &Db, bot_id: &str, o: &BotOptions) -> Result<BotOptions, String> {
+    let mut models: Vec<String> = Vec::new();
+    for m in &o.models {
+        let m = m.trim();
+        if m.is_empty() {
+            continue;
+        }
+        if !valid_model(m) {
+            return Err(format!("\"{m}\" isn't a model id"));
+        }
+        if !models.iter().any(|x| x == m) {
+            models.push(m.to_string());
+        }
+    }
+    let o = BotOptions {
+        worktrees: o.worktrees,
+        models,
+    };
+    db.set_meta(
+        &options_key(bot_id),
+        &serde_json::to_string(&o).unwrap_or_default(),
+    )
+    .map_err(|e| e.to_string())?;
+    Ok(o)
+}
 
 /// The first message of each of a bot's sessions: who it is, how tasks work, its workspace
 /// and its memory file, and (`manager`) that it can hand tasks to other bots.
@@ -792,6 +853,21 @@ impl Bots {
         project_id: Option<&str>,
         parent_id: Option<&str>,
     ) -> Result<BotTask, String> {
+        self.add_task_with(bot_id, text, source, project_id, parent_id, None, None)
+    }
+
+    /// As `add_task_from`, on a model and effort of its own (a manager's pick).
+    #[allow(clippy::too_many_arguments)]
+    pub fn add_task_with(
+        &self,
+        bot_id: &str,
+        text: &str,
+        source: &str,
+        project_id: Option<&str>,
+        parent_id: Option<&str>,
+        model: Option<&str>,
+        effort: Option<&str>,
+    ) -> Result<BotTask, String> {
         let text = text.trim();
         if text.is_empty() {
             return Err("Write the task first".into());
@@ -807,7 +883,7 @@ impl Bots {
         }
         let t = self
             .db
-            .add_bot_task(bot_id, text, source, project_id, parent_id)
+            .add_bot_task_with(bot_id, text, source, project_id, parent_id, model, effort)
             .map_err(|e| e.to_string())?;
         self.publish_task(&t);
         // The parent's count of handed-on tasks changed.
@@ -1022,22 +1098,91 @@ impl Bots {
                 p
             }
         };
-        let existing = self
-            .db
-            .bot_session(&bot.id, place)
-            .map_err(|e| e.to_string())?
-            .and_then(|(sid, briefed)| Some((self.db.session(&sid).ok().flatten()?, briefed)));
+        let model = task.model.clone().unwrap_or_else(|| bot.model.clone());
+        let effort = task.effort.clone().or_else(|| bot.effort.clone());
+        // Its own worktree: a fresh session there, on a new branch, just for this task.
+        let worktree = if place.is_some()
+            && options(&self.db, &bot.id).worktrees
+            && crate::git::root(&project.path).is_some()
+        {
+            let short: String = task.id.trim_start_matches("t-").chars().take(6).collect();
+            let (path, branch) =
+                crate::git::add_worktree(&project.path, &format!("{}-{short}", slug(&bot.name)))?;
+            self.db
+                .set_bot_task_worktree(&task.id, &path, &branch)
+                .map_err(|e| e.to_string())?;
+            Some((path, branch))
+        } else {
+            None
+        };
+        let existing = if worktree.is_some() {
+            None
+        } else {
+            self.db
+                .bot_session(&bot.id, place)
+                .map_err(|e| e.to_string())?
+                .and_then(|(sid, briefed)| Some((self.db.session(&sid).ok().flatten()?, briefed)))
+        };
         let (session, briefed) = match existing {
-            Some(x) => x,
+            Some((s, briefed)) => {
+                // The task asked for another model or effort (or the last one did): switch.
+                if s.model != model {
+                    if let Ok(Some(row)) =
+                        self.db
+                            .update_session(&s.id, None, None, None, Some(&model), None)
+                    {
+                        (self.sink)(Outbound::Session(row));
+                    }
+                    if self.agents.is_running(&s.id) {
+                        self.agents.set_model(&s.id, &model)?;
+                    }
+                }
+                if s.effort != effort {
+                    self.db
+                        .set_session_effort(&s.id, effort.as_deref())
+                        .map_err(|e| e.to_string())?;
+                    if self.agents.is_running(&s.id) {
+                        let _ = self.agents.set_effort(&s.id, effort.as_deref());
+                    }
+                }
+                (s, briefed)
+            }
+            None if worktree.is_some() => {
+                let (path, branch) = worktree.clone().unwrap_or_default();
+                let title = format!(
+                    "{} · {}",
+                    session_title(&bot.name, Some(project.name.as_str())),
+                    branch.trim_start_matches("agentdeck/")
+                );
+                let s = self
+                    .db
+                    .create_session(&project.id, &bot.provider, &model, &title)
+                    .map_err(|e| e.to_string())?;
+                if effort.is_some() {
+                    self.db
+                        .set_session_effort(&s.id, effort.as_deref())
+                        .map_err(|e| e.to_string())?;
+                }
+                self.db
+                    .set_session_profile(&s.id, bot.profile_id.as_deref())
+                    .map_err(|e| e.to_string())?;
+                let s = self
+                    .db
+                    .set_session_worktree(&s.id, Some(&path), Some(&branch))
+                    .map_err(|e| e.to_string())?
+                    .unwrap_or(s);
+                (self.sink)(Outbound::Session(s.clone()));
+                (s, false)
+            }
             None => {
                 let title = session_title(&bot.name, place.map(|_| project.name.as_str()));
                 let s = self
                     .db
-                    .create_session(&project.id, &bot.provider, &bot.model, &title)
+                    .create_session(&project.id, &bot.provider, &model, &title)
                     .map_err(|e| e.to_string())?;
-                if bot.effort.is_some() {
+                if effort.is_some() {
                     self.db
-                        .set_session_effort(&s.id, bot.effort.as_deref())
+                        .set_session_effort(&s.id, effort.as_deref())
                         .map_err(|e| e.to_string())?;
                 }
                 let s = self
@@ -1063,7 +1208,17 @@ impl Bots {
             .strip_prefix("bot:")
             .and_then(|id| self.db.bot(id).ok().flatten())
             .map(|b| b.name);
-        let header = task_header(task, &from, &project.path, crate::db::now_ms());
+        let folder = worktree
+            .as_ref()
+            .map(|(p, _)| p.clone())
+            .unwrap_or_else(|| project.path.clone());
+        let mut header = task_header(task, &from, &folder, crate::db::now_ms());
+        if let Some((_, branch)) = &worktree {
+            header.push_str(&format!(
+                "\n\n(This folder is a git worktree of {} made for this task, on the new branch {branch}. Commit your work on that branch. Don't switch branches, merge or push unless the task says so. Name the branch in your report.)",
+                project.path
+            ));
+        }
         let prompt = if briefed {
             format!("{header}\n\n(Your memory file: {memory}. Read it first and keep it current.)")
         } else {
@@ -1097,12 +1252,24 @@ impl Bots {
         if mine || bot.running_task_id.is_none() {
             self.set_needs(&bot.id, false);
         }
+        let used = self.usage(ev);
         if let (Some(tid), true) = (&bot.running_task_id, mine) {
-            let (status, result, error) = match end {
+            let (status, mut result, error) = match end {
                 TurnEnd::Reply(t) => ("done", Some(clip(&t)), None),
                 TurnEnd::NoReply => ("done", Some(String::new()), None),
                 TurnEnd::Failed(why) => ("failed", None, Some(why)),
             };
+            if let Some((i, o, cost)) = used {
+                let _ = self.db.set_bot_task_usage(tid, i, o, cost);
+            }
+            // Where its work is, for whoever reads the result.
+            if let (Some(r), Ok(Some(t))) = (result.as_mut(), self.db.bot_task(tid)) {
+                if let (Some(branch), Some(path)) = (&t.branch, &t.worktree) {
+                    if !r.contains(branch.as_str()) {
+                        r.push_str(&format!("\n\n(Branch {branch}, in {path}.)"));
+                    }
+                }
+            }
             if let Ok(Some(t)) =
                 self.db
                     .finish_bot_task(tid, status, result.as_deref(), error.as_deref())
@@ -1112,6 +1279,37 @@ impl Bots {
         }
         self.pump(&bot.id, Some(&ev.session_id));
         self.publish(&bot.id);
+    }
+
+    /// What a turn used, from Claude Code's result (its cost is the session's running total, so
+    /// a turn's is the difference from the last one).
+    fn usage(&self, ev: &StoredEvent) -> Option<(i64, i64, Option<f64>)> {
+        if ev.source != "claude" || !ev.kind.starts_with("result") {
+            return None;
+        }
+        let u = ev.payload.get("usage")?;
+        let n = |k: &str| u[k].as_i64().unwrap_or(0);
+        let tokens_in =
+            n("input_tokens") + n("cache_read_input_tokens") + n("cache_creation_input_tokens");
+        let tokens_out = n("output_tokens");
+        let cost = ev.payload["total_cost_usd"].as_f64().map(|total| {
+            let key = format!("cost.last.{}", ev.session_id);
+            let last = self
+                .db
+                .meta(&key)
+                .ok()
+                .flatten()
+                .and_then(|v| v.parse::<f64>().ok())
+                .unwrap_or(0.0);
+            let _ = self.db.set_meta(&key, &total.to_string());
+            // A new process starts counting from zero.
+            if total >= last {
+                total - last
+            } else {
+                total
+            }
+        });
+        Some((tokens_in, tokens_out, cost))
     }
 
     /// Requests from a bot's session while a task runs there: ordinary approvals are allowed,
@@ -1618,6 +1816,183 @@ mod tests {
 
     fn running_session(t: &T, bot: &str) -> String {
         t.bots.get(bot).unwrap().running_session_id.unwrap()
+    }
+
+    /// A real git repository with one commit, added as a project.
+    fn repo(t: &T, name: &str) -> String {
+        let dir = t.dir.path().join(name);
+        std::fs::create_dir_all(&dir).unwrap();
+        let git = |args: &[&str]| {
+            let ok = std::process::Command::new("git")
+                .args(args)
+                .current_dir(&dir)
+                .env("GIT_AUTHOR_NAME", "t")
+                .env("GIT_AUTHOR_EMAIL", "t@t")
+                .env("GIT_COMMITTER_NAME", "t")
+                .env("GIT_COMMITTER_EMAIL", "t@t")
+                .output()
+                .unwrap()
+                .status
+                .success();
+            assert!(ok, "git {args:?}");
+        };
+        git(&["init", "-q"]);
+        std::fs::write(dir.join("README.md"), "hi").unwrap();
+        git(&["add", "."]);
+        git(&["commit", "-q", "-m", "first"]);
+        t.db.add_project(name, &dir.canonicalize().unwrap().to_string_lossy())
+            .unwrap()
+            .id
+    }
+
+    #[test]
+    fn with_worktrees_each_task_gets_its_own_branch_so_bots_share_a_project() {
+        let t = setup();
+        let app = repo(&t, "app");
+        let a = t.bots.save("", &fields("Builder", None)).unwrap();
+        let b = t.bots.save("", &fields("Fixer", None)).unwrap();
+        for bot in [&a, &b] {
+            set_options(
+                &t.db,
+                &bot.id,
+                &BotOptions {
+                    worktrees: true,
+                    models: vec![],
+                },
+            )
+            .unwrap();
+        }
+        let ta = t
+            .bots
+            .add_task(&a.id, "Add the login page", "you", Some(&app))
+            .unwrap();
+        let tb = t
+            .bots
+            .add_task(&b.id, "Fix the footer", "you", Some(&app))
+            .unwrap();
+        let (ta, tb) = (
+            t.db.bot_task(&ta.id).unwrap().unwrap(),
+            t.db.bot_task(&tb.id).unwrap().unwrap(),
+        );
+        assert_eq!(ta.status, "running");
+        assert_eq!(tb.status, "running", "two bots on one project at once");
+        let (wa, wb) = (ta.worktree.clone().unwrap(), tb.worktree.clone().unwrap());
+        assert_ne!(wa, wb);
+        assert!(ta
+            .branch
+            .as_deref()
+            .unwrap()
+            .starts_with("agentdeck/builder-"));
+        assert!(std::path::Path::new(&wa).join("README.md").exists());
+        // Each runs in a session of its own there, told which branch it's on.
+        let sa = t.db.session(&running_session(&t, &a.id)).unwrap().unwrap();
+        assert_eq!(sa.worktree.as_deref(), Some(wa.as_str()));
+        assert_eq!(sa.branch, ta.branch);
+        let p = prompts(&t, &sa.id);
+        assert!(p[0].contains(&format!("Task from you in {wa} (")));
+        assert!(p[0].contains(&format!(
+            "on the new branch {}. Commit your work on that branch.",
+            ta.branch.as_deref().unwrap()
+        )));
+        // Its result says where the work is; the next task gets a fresh worktree.
+        t.bots.on_event(&end(&sa.id, "result/success", "Added it."));
+        let done = t.db.bot_task(&ta.id).unwrap().unwrap();
+        assert!(done.result.as_deref().unwrap().ends_with(&format!(
+            "(Branch {}, in {wa}.)",
+            ta.branch.as_deref().unwrap()
+        )));
+        let t2 = t
+            .bots
+            .add_task(&a.id, "Add logout", "you", Some(&app))
+            .unwrap();
+        let t2 = t.db.bot_task(&t2.id).unwrap().unwrap();
+        assert_ne!(t2.worktree, ta.worktree);
+        assert_eq!(
+            t.db.bot_for_session(&sa.id).unwrap().unwrap().id,
+            a.id,
+            "the task's session is still the bot's"
+        );
+        // In its own workspace (no project) there's no worktree.
+        let t3 = t.bots.add_task(&b.id, "Notes", "you", None).unwrap();
+        assert_eq!(t.db.bot_task(&t3.id).unwrap().unwrap().worktree, None);
+    }
+
+    #[test]
+    fn a_task_on_another_model_switches_the_session_and_back() {
+        let t = setup();
+        let b = t
+            .bots
+            .save("", &fields("Builder", Some(&t.project)))
+            .unwrap();
+        let first = t
+            .bots
+            .add_task_with(
+                &b.id,
+                "Hard one",
+                "you",
+                None,
+                None,
+                Some("opus"),
+                Some("high"),
+            )
+            .unwrap();
+        let sid = running_session(&t, &b.id);
+        let s = t.db.session(&sid).unwrap().unwrap();
+        assert_eq!(
+            (s.model.as_str(), s.effort.as_deref()),
+            ("opus", Some("high"))
+        );
+        assert_eq!(first.model.as_deref(), Some("opus"));
+        t.bots.on_event(&end(&sid, "result/success", "Done."));
+        t.db.update_session(&sid, Some("idle"), None, None, None, None)
+            .unwrap();
+        t.bots.add_task(&b.id, "Easy one", "you", None).unwrap();
+        let s = t.db.session(&running_session(&t, &b.id)).unwrap().unwrap();
+        assert_eq!(s.id, sid, "the same conversation");
+        assert_eq!(
+            (s.model.as_str(), s.effort.as_deref()),
+            (b.model.as_str(), b.effort.as_deref())
+        );
+    }
+
+    #[test]
+    fn what_a_task_used_is_kept_and_added_up() {
+        let t = setup();
+        let b = t.bots.save("", &fields("Builder", None)).unwrap();
+        let result = |sid: &str, total: f64| StoredEvent {
+            payload: json!({ "result": "ok", "is_error": false, "total_cost_usd": total,
+                "usage": { "input_tokens": 100, "cache_read_input_tokens": 1000, "cache_creation_input_tokens": 0, "output_tokens": 50 } }),
+            ..end(sid, "result/success", "ok")
+        };
+        let t1 = t.bots.add_task(&b.id, "One", "you", None).unwrap();
+        let sid = running_session(&t, &b.id);
+        t.bots.on_event(&result(&sid, 0.25));
+        t.db.update_session(&sid, Some("idle"), None, None, None, None)
+            .unwrap();
+        let t2 = t.bots.add_task(&b.id, "Two", "you", None).unwrap();
+        t.bots.on_event(&result(&sid, 0.40));
+        let (a, c) = (
+            t.db.bot_task(&t1.id).unwrap().unwrap(),
+            t.db.bot_task(&t2.id).unwrap().unwrap(),
+        );
+        assert_eq!((a.tokens_in, a.tokens_out), (Some(1100), Some(50)));
+        assert!((a.cost_usd.unwrap() - 0.25).abs() < 1e-9);
+        assert!(
+            (c.cost_usd.unwrap() - 0.15).abs() < 1e-9,
+            "Claude Code's total runs on; a turn is the difference"
+        );
+        let u = t.db.bot_usage(&b.id, 0).unwrap();
+        assert_eq!(
+            (u.tasks, u.done, u.measured, u.tokens_in, u.tokens_out),
+            (2, 2, 2, 2200, 100)
+        );
+        assert!((u.cost_usd - 0.40).abs() < 1e-9);
+        assert_eq!(
+            t.db.bot_usage(&b.id, crate::db::now_ms() + 1000)
+                .unwrap()
+                .tasks,
+            0
+        );
     }
 
     #[test]

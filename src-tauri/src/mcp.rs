@@ -144,7 +144,9 @@ pub fn tool_list() -> Value {
                 "properties": {
                     "bot": { "type": "string", "description": "The bot's name (as list_bots shows it) or id." },
                     "task": { "type": "string", "description": "What it should do, with everything it needs to know." },
-                    "project": { "type": "string", "description": "Optional: a project name or id from list_projects to work in, or \"workspace\" for the bot's own folder. Leave it out for the bot's default project." }
+                    "project": { "type": "string", "description": "Optional: a project name or id from list_projects to work in, or \"workspace\" for the bot's own folder. Leave it out for the bot's default project." },
+                    "model": { "type": "string", "description": "Optional: run this task on another model, one of the bot's model choices in list_bots. Leave it out for its usual model." },
+                    "effort": { "type": "string", "enum": crate::claude::EFFORTS, "description": "Optional: how hard it thinks (Claude Code and Codex bots). Leave it out for its usual effort." }
                 },
                 "required": ["bot", "task"],
                 "additionalProperties": false
@@ -1052,14 +1054,24 @@ impl Hub {
                 } else {
                     "idle".into()
                 };
+                let opts = crate::bots::options(&self.db, &b.id);
                 let mut v = json!({
                     "name": b.name,
                     "id": b.id,
                     "job": b.role,
                     "agent": crate::agents::label(&b.provider),
+                    "model": b.model,
                     "status": status,
                     "default_project": name_of(&b.project_id).unwrap_or_else(|| "its workspace".into()),
                 });
+                if !opts.models.is_empty() {
+                    let mut choices = vec![b.model.clone()];
+                    choices.extend(opts.models.iter().filter(|m| **m != b.model).cloned());
+                    v["model_choices"] = json!(choices);
+                }
+                if opts.worktrees {
+                    v["works_in_worktrees"] = json!(true);
+                }
                 if b.id == me.id {
                     v["you"] = json!(true);
                 }
@@ -1153,12 +1165,51 @@ impl Hub {
             None | Some("") => target.project_id.clone(),
             Some(p) => self.find_project(p)?,
         };
-        let t = bots.add_task_from(
+        // Another model only from the bot's choices; effort only where the agent has one.
+        let opts = crate::bots::options(&self.db, &target.id);
+        let model = match args.get("model").and_then(Value::as_str).map(str::trim) {
+            None | Some("") => None,
+            Some(m) if m.eq_ignore_ascii_case(&target.model) => None,
+            Some(m) => match opts.models.iter().find(|x| x.eq_ignore_ascii_case(m)) {
+                Some(x) => Some(x.clone()),
+                None => {
+                    let mut choices = vec![target.model.clone()];
+                    choices.extend(opts.models.iter().cloned());
+                    return Err(if opts.models.is_empty() {
+                        format!(
+                            "{} runs on {} only; leave model out.",
+                            target.name, target.model
+                        )
+                    } else {
+                        format!("{} can run on: {}.", target.name, choices.join(", "))
+                    });
+                }
+            },
+        };
+        let effort = match args.get("effort").and_then(Value::as_str).map(str::trim) {
+            None | Some("") => None,
+            Some(e) if !crate::claude::EFFORTS.contains(&e) => {
+                return Err(format!(
+                    "effort is one of: {}.",
+                    crate::claude::EFFORTS.join(", ")
+                ))
+            }
+            Some(_) if !matches!(target.provider.as_str(), "claude-code" | "codex") => {
+                return Err(format!(
+                    "{} has no effort setting; leave effort out.",
+                    target.name
+                ))
+            }
+            Some(e) => Some(e.to_string()),
+        };
+        let t = bots.add_task_with(
             &target.id,
             text,
             &format!("bot:{}", me.id),
             project.as_deref(),
             task,
+            model.as_deref(),
+            effort.as_deref(),
         )?;
         let place = match &t.project_id {
             Some(pid) => self
@@ -1172,6 +1223,9 @@ impl Hub {
         };
         let mut v =
             json!({ "task_id": t.id, "bot": target.name, "status": t.status, "works_in": place });
+        if let Some(m) = &model {
+            v["model"] = json!(m);
+        }
         if target.paused {
             v["note"] = json!(format!(
                 "{} is paused; the task waits in its queue until the user resumes it.",
@@ -1342,6 +1396,9 @@ impl Hub {
                         "bot": names.get(&t.bot_id).cloned().unwrap_or_else(|| "a deleted bot".into()),
                         "status": t.status,
                     });
+                    if let Some(b) = &t.branch {
+                        v["branch"] = json!(b);
+                    }
                     match t.status.as_str() {
                         "done" => v["result"] = json!(t.result.unwrap_or_default()),
                         "failed" => {
@@ -1819,6 +1876,84 @@ mod tests {
         .unwrap_err()
         .contains("yourself"));
         assert_eq!(t.db.bot_task(&task.id).unwrap().unwrap().children, 5);
+    }
+
+    #[test]
+    fn a_manager_picks_the_model_from_the_bots_choices() {
+        let t = setup();
+        let lead = bot(&t, "Lead", "claude-code");
+        let coder = bot(&t, "Coder", "claude-code");
+        let gem = bot(&t, "Gem", "gemini-cli");
+        let (_task, token) = working(&t, &lead, "Ship it");
+        // No choices: its own model only.
+        let e = call(
+            &t,
+            &token,
+            "delegate_task",
+            json!({ "bot": "Coder", "task": "x", "model": "opus" }),
+        )
+        .unwrap_err();
+        assert!(e.contains("runs on"), "{e}");
+        crate::bots::set_options(
+            &t.db,
+            &coder.id,
+            &crate::bots::BotOptions {
+                worktrees: true,
+                models: vec!["opus".into(), "sonnet".into()],
+            },
+        )
+        .unwrap();
+        let list = call(&t, &token, "list_bots", json!({})).unwrap();
+        let c = list["bots"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|b| b["name"] == "Coder")
+            .unwrap()
+            .clone();
+        assert_eq!(c["model_choices"], json!([coder.model, "opus", "sonnet"]));
+        assert_eq!(c["works_in_worktrees"], json!(true));
+        let d = call(
+            &t,
+            &token,
+            "delegate_task",
+            json!({ "bot": "Coder", "task": "Hard part", "model": "OPUS", "effort": "high" }),
+        )
+        .unwrap();
+        assert_eq!(d["model"], "opus");
+        let child =
+            t.db.bot_task(d["task_id"].as_str().unwrap())
+                .unwrap()
+                .unwrap();
+        assert_eq!(
+            (child.model.as_deref(), child.effort.as_deref()),
+            (Some("opus"), Some("high"))
+        );
+        let e = call(
+            &t,
+            &token,
+            "delegate_task",
+            json!({ "bot": "Coder", "task": "x", "model": "gpt-9" }),
+        )
+        .unwrap_err();
+        assert!(e.contains("opus, sonnet"), "{e}");
+        let e = call(
+            &t,
+            &token,
+            "delegate_task",
+            json!({ "bot": "Coder", "task": "x", "effort": "turbo" }),
+        )
+        .unwrap_err();
+        assert!(e.contains("effort is one of"), "{e}");
+        let e = call(
+            &t,
+            &token,
+            "delegate_task",
+            json!({ "bot": "Gem", "task": "x", "effort": "high" }),
+        )
+        .unwrap_err();
+        assert!(e.contains("no effort setting"), "{e}");
+        let _ = gem;
     }
 
     #[test]
