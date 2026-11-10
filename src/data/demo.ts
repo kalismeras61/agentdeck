@@ -745,6 +745,13 @@ export const demoBots: Bot[] = [
 
 const task = (id: string, botId: string, text: string, status: BotTask["status"], created: number, extra: Partial<BotTask> = {}): BotTask => ({
   id,
+  model: null,
+  effort: null,
+  worktree: null,
+  branch: null,
+  tokensIn: null,
+  tokensOut: null,
+  costUsd: null,
   botId,
   text,
   source: "you",

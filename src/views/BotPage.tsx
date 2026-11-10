@@ -16,6 +16,7 @@ import {
   Play,
   Plus,
   Repeat,
+  GitBranch,
   Send,
   Zap,
   RotateCcw,
@@ -41,6 +42,8 @@ import { useStore } from "../state/store";
 import { TextEditor } from "./setup/TextEditor";
 import { PlacePicker } from "../components/bots/PlacePicker";
 import { usePlaceName } from "../hooks/usePlaceName";
+import { BotUsage } from "../components/bots/BotUsage";
+import { dollars, tokens } from "../lib/usage";
 import { TriggersTab } from "../components/bots/TriggersTab";
 import { ScheduleEditor } from "../components/bots/ScheduleEditor";
 import { ViewHeader } from "./ViewHeader";
@@ -487,6 +490,7 @@ function BotSidePanel({ bot }: { bot: Bot }) {
         </Tabs.List>
       </div>
       <Tabs.Content value="queue" className="scroll-quiet min-h-0 flex-1 overflow-y-auto focus-visible:outline-offset-[-2px]">
+        <BotUsage bot={bot} />
         <QueueTab bot={bot} tasks={tasks} />
       </Tabs.Content>
       <Tabs.Content value="schedules" className="scroll-quiet min-h-0 flex-1 overflow-y-auto focus-visible:outline-offset-[-2px]">
@@ -756,6 +760,12 @@ function RecentTask({ task }: { task: BotTask }) {
             <span className="inline-flex min-w-0 items-center gap-1 text-fg-3">
               · <TaskPlace task={task} from={false} />
             </span>
+            {task.model && <span className="text-fg-3">· {task.model}</span>}
+            {task.costUsd != null && (
+              <span className="tabular-nums text-fg-3" title={t("{in} in · {out} out", { in: tokens(task.tokensIn ?? 0), out: tokens(task.tokensOut ?? 0) })}>
+                · {dollars(task.costUsd)}
+              </span>
+            )}
           </span>
         </span>
       </button>
@@ -775,6 +785,14 @@ function RecentTask({ task }: { task: BotTask }) {
           {fromBotId(task.source) && (
             <p className="mt-1.5 flex text-[11.5px] text-fg-3">
               <FromBot botId={fromBotId(task.source)!} link />
+            </p>
+          )}
+          {task.branch && (
+            <p className="mt-1.5 flex min-w-0 items-center gap-1.5 text-[11.5px] text-fg-3">
+              <GitBranch size={12} className="shrink-0" />
+              <span dir="ltr" className="truncate font-mono">
+                {task.branch}
+              </span>
             </p>
           )}
           <TaskChildren task={task} />

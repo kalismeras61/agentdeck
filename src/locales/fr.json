@@ -1565,5 +1565,18 @@
   "Your own: a command": "Le vôtre : une commande",
   "Your own: an address": "Le vôtre : une adresse",
   "Only a label one of these people adds fires it. Empty: the repository's owner. Private repositories need the GitHub connection.": "Seule une étiquette posée par l'une de ces personnes le déclenche. Vide : le propriétaire du dépôt. Les dépôts privés ont besoin de la connexion GitHub.",
-  "Opens websites in a browser window of its own, reads them, clicks and types. It doesn't see your browser's sign-ins. Each step waits for you unless you let it act without asking, and then it could also send what it read to any site. Needs Node.js (npx).": "Ouvre des sites dans sa propre fenêtre de navigateur, les lit, clique et tape. Il ne voit pas vos connexions du navigateur. Chaque étape vous attend, sauf si vous le laissez agir sans demander ; il pourrait alors aussi envoyer ce qu'il a lu à n'importe quel site. Nécessite Node.js (npx)."
+  "Opens websites in a browser window of its own, reads them, clicks and types. It doesn't see your browser's sign-ins. Each step waits for you unless you let it act without asking, and then it could also send what it read to any site. Needs Node.js (npx).": "Ouvre des sites dans sa propre fenêtre de navigateur, les lit, clique et tape. Il ne voit pas vos connexions du navigateur. Chaque étape vous attend, sauf si vous le laissez agir sans demander ; il pourrait alors aussi envoyer ce qu'il a lu à n'importe quel site. Nécessite Node.js (npx).",
+  "{in} in · {out} out": "{in} en entrée · {out} en sortie",
+  "{in} in · {out} out · ≈ {cost} at API prices": "{in} en entrée · {out} en sortie · ≈ {cost} au prix de l'API",
+  "{n} tasks · {done} done · {failed} failed": "{n} tâches · {done} terminées · {failed} échouées",
+  "24 hours": "24 heures",
+  "30 days": "30 jours",
+  "7 days": "7 jours",
+  "A bot that hands it work picks per task: a quicker model for simple work, a stronger one for hard work.": "Le bot qui lui confie du travail choisit pour chaque tâche : un modèle plus rapide pour le simple, un plus puissant pour le difficile.",
+  "A manager may also run its tasks on": "Un manager peut aussi exécuter ses tâches avec",
+  "Each task in its own worktree": "Chaque tâche dans son propre worktree",
+  "In a project that's a git repository, every task gets a fresh worktree on a new branch, so several bots can work on one project at once. You (or a reviewer bot) merge the branch.": "Dans un projet qui est un dépôt git, chaque tâche obtient un nouveau worktree sur une nouvelle branche, pour que plusieurs bots travaillent sur un même projet en même temps. Vous (ou un bot relecteur) fusionnez la branche.",
+  "No tasks finished": "Aucune tâche terminée",
+  "This agent doesn't report what a task used.": "Cet agent n'indique pas ce qu'une tâche a consommé.",
+  "Usage": "Consommation"
 }

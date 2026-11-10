@@ -1518,5 +1518,18 @@
   "Your own: a command": "Kendi sunucun: bir komut",
   "Your own: an address": "Kendi sunucun: bir adres",
   "Only a label one of these people adds fires it. Empty: the repository's owner. Private repositories need the GitHub connection.": "Yalnızca bu kişilerden birinin eklediği etiket tetikler. Boşsa: deponun sahibi. Özel depolar için GitHub bağlantısı gerekir.",
-  "Opens websites in a browser window of its own, reads them, clicks and types. It doesn't see your browser's sign-ins. Each step waits for you unless you let it act without asking, and then it could also send what it read to any site. Needs Node.js (npx).": "Web sitelerini kendi tarayıcı penceresinde açar, okur, tıklar ve yazar. Tarayıcındaki oturumlarını görmez. Sormadan çalışmasına izin vermezsen her adım seni bekler; izin verirsen okuduklarını herhangi bir siteye de gönderebilir. Node.js (npx) gerekir."
+  "Opens websites in a browser window of its own, reads them, clicks and types. It doesn't see your browser's sign-ins. Each step waits for you unless you let it act without asking, and then it could also send what it read to any site. Needs Node.js (npx).": "Web sitelerini kendi tarayıcı penceresinde açar, okur, tıklar ve yazar. Tarayıcındaki oturumlarını görmez. Sormadan çalışmasına izin vermezsen her adım seni bekler; izin verirsen okuduklarını herhangi bir siteye de gönderebilir. Node.js (npx) gerekir.",
+  "{in} in · {out} out": "{in} giriş · {out} çıkış",
+  "{in} in · {out} out · ≈ {cost} at API prices": "{in} giriş · {out} çıkış · API fiyatıyla ≈ {cost}",
+  "{n} tasks · {done} done · {failed} failed": "{n} görev · {done} bitti · {failed} başarısız",
+  "24 hours": "24 saat",
+  "30 days": "30 gün",
+  "7 days": "7 gün",
+  "A bot that hands it work picks per task: a quicker model for simple work, a stronger one for hard work.": "Ona iş veren bot, modeli her görev için seçer: basit işe hızlı bir model, zor işe daha güçlü biri.",
+  "A manager may also run its tasks on": "Bir yönetici görevlerini şu modellerde de çalıştırabilir",
+  "Each task in its own worktree": "Her görev kendi worktree'sinde",
+  "In a project that's a git repository, every task gets a fresh worktree on a new branch, so several bots can work on one project at once. You (or a reviewer bot) merge the branch.": "Git deposu olan bir projede her görev yeni bir dalda, yepyeni bir worktree'de çalışır; böylece birkaç bot aynı projede aynı anda çalışabilir. Dalı sen (ya da bir inceleme botu) birleştirirsin.",
+  "No tasks finished": "Biten görev yok",
+  "This agent doesn't report what a task used.": "Bu ajan bir görevin ne kadar kullandığını bildirmiyor.",
+  "Usage": "Kullanım"
 }

@@ -7,7 +7,7 @@ import { normalizeFor } from "../lib/normalize";
 import type { Bot, BotInput, BotSchedule, BotScheduleInput, BotTask, FlowRow, ModelProfile, RelayRow, StartFlow, StartRelay, Workflow } from "../lib/live";
 import { childrenOf, mergeSchedule, mergeTask, soonest } from "../lib/bots";
 import type { ProviderId } from "../lib/events";
-import { connectionsApi, errorText, liveApi, pickFolder, remoteApi, type LiveProject, type LiveProvider, type LiveSessionRow } from "../lib/live";
+import { botExtrasApi, connectionsApi, errorText, liveApi, pickFolder, remoteApi, type LiveProject, type LiveProvider, type LiveSessionRow, type BotOptions } from "../lib/live";
 
 export type AppView = "workspace" | "overview" | "review" | "permissions" | "gallery" | "settings" | "setup" | "git" | "welcome" | "bot";
 export type ContextTab = "files" | "changes" | "preview" | "activity";
@@ -233,7 +233,7 @@ interface Actions {
   loadBotTasks: (botId: string) => Promise<void>;
   /** Returns an error to show, or null. */
   /** connections: the bot's connections (ids), set after it's saved. */
-  saveBot: (input: BotInput, connections?: string[]) => Promise<string | null>;
+  saveBot: (input: BotInput, connections?: string[], options?: BotOptions) => Promise<string | null>;
   deleteBot: (botId: string) => Promise<string | null>;
   /** projectId null: the task works in the bot's workspace. */
   addBotTask: (botId: string, text: string, projectId: string | null, source?: string) => Promise<string | null>;
@@ -1205,11 +1205,12 @@ export const useStore = create<UiState & Actions>()(
             /* keeps the last list */
           }
         },
-        saveBot: async (input, connections) => {
+        saveBot: async (input, connections, options) => {
           if (!liveApi.available) return t("Bots run on this Mac. Open AgentDeck on your Mac to make one.");
           try {
             const b = await liveApi.saveBot(input);
             if (connections) await connectionsApi.setForBot(b.id, connections);
+            if (options) await botExtrasApi.setOptions(b.id, options);
             get().upsertBot(b);
             if (!input.id) get().openBot(b.id);
             return null;
@@ -1262,6 +1263,13 @@ export const useStore = create<UiState & Actions>()(
               projectId,
               sessionId: null,
               children: 0,
+              model: null,
+              effort: null,
+              worktree: null,
+              branch: null,
+              tokensIn: null,
+              tokensOut: null,
+              costUsd: null,
             });
             const b = get().bots[botId];
             if (b) get().upsertBot({ ...b, queued: b.queued + 1 });

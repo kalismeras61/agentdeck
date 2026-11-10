@@ -1471,5 +1471,18 @@
   "Your own: a command": "カスタム：コマンド",
   "Your own: an address": "カスタム：アドレス",
   "Only a label one of these people adds fires it. Empty: the repository's owner. Private repositories need the GitHub connection.": "これらの人が付けたラベルだけで起動します。空欄：リポジトリのオーナー。非公開リポジトリには GitHub の連携が必要です。",
-  "Opens websites in a browser window of its own, reads them, clicks and types. It doesn't see your browser's sign-ins. Each step waits for you unless you let it act without asking, and then it could also send what it read to any site. Needs Node.js (npx).": "専用のブラウザウィンドウでサイトを開き、読み、クリックし、入力します。あなたのブラウザのログインは見えません。確認なしで操作することを許可しない限り各ステップはあなたを待ちます。許可すると、読んだ内容を任意のサイトに送ることもできてしまいます。Node.js（npx）が必要です。"
+  "Opens websites in a browser window of its own, reads them, clicks and types. It doesn't see your browser's sign-ins. Each step waits for you unless you let it act without asking, and then it could also send what it read to any site. Needs Node.js (npx).": "専用のブラウザウィンドウでサイトを開き、読み、クリックし、入力します。あなたのブラウザのログインは見えません。確認なしで操作することを許可しない限り各ステップはあなたを待ちます。許可すると、読んだ内容を任意のサイトに送ることもできてしまいます。Node.js（npx）が必要です。",
+  "{in} in · {out} out": "入力 {in} · 出力 {out}",
+  "{in} in · {out} out · ≈ {cost} at API prices": "入力 {in} · 出力 {out} · API 価格で約 {cost}",
+  "{n} tasks · {done} done · {failed} failed": "タスク {n} 件 · 完了 {done} · 失敗 {failed}",
+  "24 hours": "24 時間",
+  "30 days": "30 日",
+  "7 days": "7 日",
+  "A bot that hands it work picks per task: a quicker model for simple work, a stronger one for hard work.": "仕事を渡すボットがタスクごとに選びます：簡単な作業には速いモデル、難しい作業には強いモデル。",
+  "A manager may also run its tasks on": "マネージャーはこのボットのタスクを次のモデルでも実行できます",
+  "Each task in its own worktree": "タスクごとに専用の worktree",
+  "In a project that's a git repository, every task gets a fresh worktree on a new branch, so several bots can work on one project at once. You (or a reviewer bot) merge the branch.": "git リポジトリのプロジェクトでは、各タスクが新しいブランチの新しい worktree で動くので、複数のボットが同じプロジェクトを同時に進められます。ブランチのマージはあなた（またはレビュー用ボット）が行います。",
+  "No tasks finished": "完了したタスクはありません",
+  "This agent doesn't report what a task used.": "このエージェントはタスクの使用量を報告しません。",
+  "Usage": "使用量"
 }

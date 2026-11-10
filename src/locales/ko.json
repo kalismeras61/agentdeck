@@ -1471,5 +1471,18 @@
   "Your own: a command": "직접 설정: 명령",
   "Your own: an address": "직접 설정: 주소",
   "Only a label one of these people adds fires it. Empty: the repository's owner. Private repositories need the GitHub connection.": "이 사람들 중 누군가가 붙인 레이블만 실행시킵니다. 비워 두면: 저장소 소유자. 비공개 저장소에는 GitHub 연결이 필요합니다.",
-  "Opens websites in a browser window of its own, reads them, clicks and types. It doesn't see your browser's sign-ins. Each step waits for you unless you let it act without asking, and then it could also send what it read to any site. Needs Node.js (npx).": "자체 브라우저 창에서 웹사이트를 열어 읽고, 클릭하고, 입력합니다. 브라우저의 로그인은 보지 못합니다. 묻지 않고 실행하도록 허용하지 않으면 매 단계가 승인을 기다리며, 허용하면 읽은 내용을 어느 사이트로든 보낼 수도 있습니다. Node.js(npx)가 필요합니다."
+  "Opens websites in a browser window of its own, reads them, clicks and types. It doesn't see your browser's sign-ins. Each step waits for you unless you let it act without asking, and then it could also send what it read to any site. Needs Node.js (npx).": "자체 브라우저 창에서 웹사이트를 열어 읽고, 클릭하고, 입력합니다. 브라우저의 로그인은 보지 못합니다. 묻지 않고 실행하도록 허용하지 않으면 매 단계가 승인을 기다리며, 허용하면 읽은 내용을 어느 사이트로든 보낼 수도 있습니다. Node.js(npx)가 필요합니다.",
+  "{in} in · {out} out": "입력 {in} · 출력 {out}",
+  "{in} in · {out} out · ≈ {cost} at API prices": "입력 {in} · 출력 {out} · API 가격 기준 약 {cost}",
+  "{n} tasks · {done} done · {failed} failed": "작업 {n}개 · 완료 {done} · 실패 {failed}",
+  "24 hours": "24시간",
+  "30 days": "30일",
+  "7 days": "7일",
+  "A bot that hands it work picks per task: a quicker model for simple work, a stronger one for hard work.": "일을 맡기는 봇이 작업마다 고릅니다: 간단한 일엔 빠른 모델, 어려운 일엔 더 강한 모델.",
+  "A manager may also run its tasks on": "매니저가 이 봇의 작업을 다음 모델로도 실행할 수 있음",
+  "Each task in its own worktree": "작업마다 별도 worktree",
+  "In a project that's a git repository, every task gets a fresh worktree on a new branch, so several bots can work on one project at once. You (or a reviewer bot) merge the branch.": "git 저장소인 프로젝트에서는 작업마다 새 브랜치의 새 worktree가 만들어져, 여러 봇이 한 프로젝트에서 동시에 일할 수 있습니다. 브랜치 병합은 직접(또는 리뷰 봇이) 합니다.",
+  "No tasks finished": "완료된 작업 없음",
+  "This agent doesn't report what a task used.": "이 에이전트는 작업 사용량을 알려 주지 않습니다.",
+  "Usage": "사용량"
 }

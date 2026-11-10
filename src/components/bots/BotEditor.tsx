@@ -5,14 +5,15 @@ import { useEffect, useMemo, useState } from "react";
 import { liveProviders, providerLabel } from "../../data/demo";
 import { BOT_COLORS, BOT_MARK, canDelegate, COLOR_NAMES, nameTaken, workspaceFolder } from "../../lib/bots";
 import { t } from "../../lib/i18n";
-import { connectionsApi, errorText, liveApi, pickFolder, type BotColor, type LiveProvider } from "../../lib/live";
+import { botExtrasApi, connectionsApi, errorText, liveApi, pickFolder, type BotColor, type BotOptions, type LiveProvider } from "../../lib/live";
+import { modelName, useModels } from "../../lib/models";
 import { TEMPLATES } from "../../lib/connections";
 import { useConnections } from "../../views/ConnectionsSettings";
 import { detectProviders } from "../../lib/native";
 import { withoutHidden } from "../../lib/setup";
 import { useStore } from "../../state/store";
 import { ModelMenu } from "../ModelMenu";
-import { AgentMark, cx } from "../ui";
+import { AgentMark, cx, Switch } from "../ui";
 
 const field =
   "mt-1 w-full rounded-lg border border-line bg-surface px-2.5 text-[13px] text-fg outline-none placeholder:text-fg-3 focus-visible:border-[color-mix(in_srgb,var(--violet)_60%,var(--border))] focus-visible:shadow-[0_0_0_3px_var(--violet-soft)]";
@@ -86,14 +87,17 @@ function EditorForm({ botId, projectId, onDone }: { botId: string | null; projec
   const [busy, setBusy] = useState(false);
   const { list: connections } = useConnections();
   const [conns, setConns] = useState<string[] | null>(bot ? null : []);
+  const [options, setOptions] = useState<BotOptions | null>(bot ? null : { worktrees: false, models: [] });
   const [template, setTemplate] = useState<string | null>(null);
   const picked = TEMPLATES.find((x) => x.id === template);
   useEffect(() => {
     if (!bot || !liveApi.available) {
       setConns([]);
+      setOptions({ worktrees: false, models: [] });
       return;
     }
     connectionsApi.forBot(bot.id).then(setConns, () => setConns([]));
+    botExtrasApi.options(bot.id).then(setOptions, () => setOptions({ worktrees: false, models: [] }));
   }, [bot?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const agents = useMemo(() => withoutHidden((installed ?? []) as LiveProvider[], agyEnabled).filter((p) => p !== "api"), [installed, agyEnabled]);
@@ -156,6 +160,7 @@ function EditorForm({ botId, projectId, onDone }: { botId: string | null; projec
             color,
             },
             conns ?? undefined,
+            options ?? undefined,
           );
           setBusy(false);
           if (err) setError(err);
@@ -309,6 +314,18 @@ function EditorForm({ botId, projectId, onDone }: { botId: string | null; projec
             </div>
           </div>
         </div>
+        {!profile && options && <ModelChoices provider={provider} own={model} picked={options.models} onChange={(models) => setOptions({ ...options, models })} />}
+        {options && (
+          <div className="flex items-start justify-between gap-4 rounded-lg border border-line-soft px-3 py-2.5">
+            <div className="min-w-0">
+              <p className="text-[13px] text-fg">{t("Each task in its own worktree")}</p>
+              <p className="mt-0.5 text-[11.5px] leading-[1.5] text-fg-3">
+                {t("In a project that's a git repository, every task gets a fresh worktree on a new branch, so several bots can work on one project at once. You (or a reviewer bot) merge the branch.")}
+              </p>
+            </div>
+            <Switch label={t("Each task in its own worktree")} checked={options.worktrees} onChange={(v) => setOptions({ ...options, worktrees: v })} />
+          </div>
+        )}
         {!canDelegate(provider) && (
           <p className="-mt-1.5 text-[11.5px] leading-[1.5] text-fg-3">
             {t("{agent} can't hand work to other bots. Other bots can still hand work to it.", { agent: agentName })}
@@ -404,5 +421,39 @@ function EditorForm({ botId, projectId, onDone }: { botId: string | null; projec
         </div>
       </form>
     </>
+  );
+}
+
+/** The models a managing bot may run this bot's tasks on, besides its own. */
+function ModelChoices({ provider, own, picked, onChange }: { provider: string; own: string; picked: string[]; onChange: (m: string[]) => void }) {
+  const { list } = useModels(provider, liveApi.available);
+  const all = (list?.models ?? []).map((m) => m.id).filter((id) => id && id !== "default" && id !== own);
+  const ids = [...all, ...picked.filter((p) => !all.includes(p))];
+  if (ids.length === 0) return null;
+  return (
+    <div className="text-[12px] text-fg-2">
+      {t("A manager may also run its tasks on")}
+      <div className="mt-1 flex flex-wrap gap-1.5">
+        {ids.map((id) => {
+          const on = picked.includes(id);
+          return (
+            <button
+              key={id}
+              type="button"
+              aria-pressed={on}
+              onClick={() => onChange(on ? picked.filter((p) => p !== id) : [...picked, id])}
+              className={cx(
+                "h-7 rounded-lg border px-2.5 text-[12px]",
+                on ? "border-[color-mix(in_srgb,var(--violet)_55%,var(--border))] bg-violet-soft text-violet-text" : "border-line text-fg-2 hover:bg-elevated hover:text-fg",
+              )}
+            >
+              {on && <Check size={11} className="me-1 inline" />}
+              {modelName(list?.models, id)}
+            </button>
+          );
+        })}
+      </div>
+      <p className="mt-1 text-[11.5px] leading-[1.5] text-fg-3">{t("A bot that hands it work picks per task: a quicker model for simple work, a stronger one for hard work.")}</p>
+    </div>
   );
 }

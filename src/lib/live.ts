@@ -249,7 +249,39 @@ export interface BotTask {
   sessionId: string | null;
   /** How many tasks it handed to other bots. */
   children: number;
+  /** The model and effort it ran on when a manager picked them (null: the bot's own). */
+  model: string | null;
+  effort: string | null;
+  /** The git worktree and branch it worked in, when it had its own. */
+  worktree: string | null;
+  branch: string | null;
+  /** What its turn used, when the agent reports it (Claude Code does); cost at API prices. */
+  tokensIn: number | null;
+  tokensOut: number | null;
+  costUsd: number | null;
 }
+
+/** A bot's options: a worktree per task, and the models a manager may run its tasks on. */
+export interface BotOptions {
+  worktrees: boolean;
+  models: string[];
+}
+
+export interface BotUsage {
+  tasks: number;
+  done: number;
+  failed: number;
+  measured: number;
+  tokensIn: number;
+  tokensOut: number;
+  costUsd: number;
+}
+
+export const botExtrasApi = {
+  options: (botId: string) => call<BotOptions>("bot_options", { botId }),
+  setOptions: (botId: string, options: BotOptions) => call<BotOptions>("set_bot_options", { botId, options }),
+  usage: (botId: string) => call<{ day: BotUsage; week: BotUsage; month: BotUsage }>("bot_usage", { botId }),
+};
 
 /** What the bot editor saves; no id makes a new bot. */
 export interface BotInput {

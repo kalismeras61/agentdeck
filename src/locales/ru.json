@@ -1612,5 +1612,18 @@
   "Your own: a command": "Свой: команда",
   "Your own: an address": "Свой: адрес",
   "Only a label one of these people adds fires it. Empty: the repository's owner. Private repositories need the GitHub connection.": "Срабатывает, только если метку поставил один из этих людей. Пусто: владелец репозитория. Для приватных репозиториев нужно подключение GitHub.",
-  "Opens websites in a browser window of its own, reads them, clicks and types. It doesn't see your browser's sign-ins. Each step waits for you unless you let it act without asking, and then it could also send what it read to any site. Needs Node.js (npx).": "Открывает сайты в собственном окне браузера, читает их, нажимает и вводит текст. Ваши входы в браузере ему не видны. Каждый шаг ждёт вас, если не разрешить действовать без вопросов; тогда он сможет и отправить прочитанное на любой сайт. Нужен Node.js (npx)."
+  "Opens websites in a browser window of its own, reads them, clicks and types. It doesn't see your browser's sign-ins. Each step waits for you unless you let it act without asking, and then it could also send what it read to any site. Needs Node.js (npx).": "Открывает сайты в собственном окне браузера, читает их, нажимает и вводит текст. Ваши входы в браузере ему не видны. Каждый шаг ждёт вас, если не разрешить действовать без вопросов; тогда он сможет и отправить прочитанное на любой сайт. Нужен Node.js (npx).",
+  "{in} in · {out} out": "{in} на вход · {out} на выход",
+  "{in} in · {out} out · ≈ {cost} at API prices": "{in} на вход · {out} на выход · ≈ {cost} по ценам API",
+  "{n} tasks · {done} done · {failed} failed": "Задач: {n} · готово: {done} · не удалось: {failed}",
+  "24 hours": "24 часа",
+  "30 days": "30 дней",
+  "7 days": "7 дней",
+  "A bot that hands it work picks per task: a quicker model for simple work, a stronger one for hard work.": "Бот, который даёт ему работу, выбирает модель для каждой задачи: быструю для простого, сильную для сложного.",
+  "A manager may also run its tasks on": "Менеджер может запускать его задачи и на этих моделях",
+  "Each task in its own worktree": "Каждая задача в своём worktree",
+  "In a project that's a git repository, every task gets a fresh worktree on a new branch, so several bots can work on one project at once. You (or a reviewer bot) merge the branch.": "В проекте с git-репозиторием каждая задача получает новый worktree на новой ветке, так что несколько ботов могут работать над одним проектом одновременно. Ветку сливаете вы (или бот-ревьюер).",
+  "No tasks finished": "Нет завершённых задач",
+  "This agent doesn't report what a task used.": "Этот агент не сообщает, сколько потратила задача.",
+  "Usage": "Расход"
 }

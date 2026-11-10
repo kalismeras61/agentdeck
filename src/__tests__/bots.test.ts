@@ -57,6 +57,13 @@ const bot = (over: Partial<Bot> = {}): Bot => ({
 
 const task = (id: string, status: BotTask["status"], over: Partial<BotTask> = {}): BotTask => ({
   id,
+  model: null,
+  effort: null,
+  worktree: null,
+  branch: null,
+  tokensIn: null,
+  tokensOut: null,
+  costUsd: null,
   botId: "b-1",
   text: `Task ${id}`,
   source: "you",

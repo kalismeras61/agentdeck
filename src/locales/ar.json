@@ -1706,5 +1706,18 @@
   "Your own: a command": "خاص بك: أمر",
   "Your own: an address": "خاص بك: عنوان",
   "Only a label one of these people adds fires it. Empty: the repository's owner. Private repositories need the GitHub connection.": "لا يطلقه إلا تصنيف يضيفه أحد هؤلاء الأشخاص. فارغ: مالك المستودع. تحتاج المستودعات الخاصة إلى اتصال GitHub.",
-  "Opens websites in a browser window of its own, reads them, clicks and types. It doesn't see your browser's sign-ins. Each step waits for you unless you let it act without asking, and then it could also send what it read to any site. Needs Node.js (npx).": "يفتح المواقع في نافذة متصفح خاصة به، ويقرؤها وينقر ويكتب. لا يرى تسجيلات دخولك في المتصفح. تنتظرك كل خطوة ما لم تسمح له بالعمل دون أن يسأل، وعندها قد يرسل ما قرأه إلى أي موقع. يحتاج إلى Node.js (npx)."
+  "Opens websites in a browser window of its own, reads them, clicks and types. It doesn't see your browser's sign-ins. Each step waits for you unless you let it act without asking, and then it could also send what it read to any site. Needs Node.js (npx).": "يفتح المواقع في نافذة متصفح خاصة به، ويقرؤها وينقر ويكتب. لا يرى تسجيلات دخولك في المتصفح. تنتظرك كل خطوة ما لم تسمح له بالعمل دون أن يسأل، وعندها قد يرسل ما قرأه إلى أي موقع. يحتاج إلى Node.js (npx).",
+  "{in} in · {out} out": "{in} مدخلات · {out} مخرجات",
+  "{in} in · {out} out · ≈ {cost} at API prices": "{in} مدخلات · {out} مخرجات · ≈ {cost} بأسعار API",
+  "{n} tasks · {done} done · {failed} failed": "{n} مهام · {done} منجزة · {failed} فاشلة",
+  "24 hours": "24 ساعة",
+  "30 days": "30 يومًا",
+  "7 days": "7 أيام",
+  "A bot that hands it work picks per task: a quicker model for simple work, a stronger one for hard work.": "البوت الذي يكلّفه بالعمل يختار لكل مهمة: نموذجًا أسرع للعمل البسيط وأقوى للعمل الصعب.",
+  "A manager may also run its tasks on": "يمكن للمدير أيضًا تشغيل مهامه على",
+  "Each task in its own worktree": "كل مهمة في worktree خاص بها",
+  "In a project that's a git repository, every task gets a fresh worktree on a new branch, so several bots can work on one project at once. You (or a reviewer bot) merge the branch.": "في مشروع هو مستودع git، تحصل كل مهمة على worktree جديد في فرع جديد، فيمكن لعدة بوتات العمل على مشروع واحد في الوقت نفسه. أنت (أو بوت مراجعة) تدمج الفرع.",
+  "No tasks finished": "لا مهام منتهية",
+  "This agent doesn't report what a task used.": "هذا الوكيل لا يبلّغ عمّا استهلكته المهمة.",
+  "Usage": "الاستهلاك"
 }

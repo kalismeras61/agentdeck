@@ -2,6 +2,16 @@
 
 Updated 2026-11-03. All five milestones are built and tested on Linux with the real `claude`, `codex` and `gemini` CLIs against local mock APIs; milestone 3 was also confirmed on a Mac with a real signed-in Claude Code. Grok Build is implemented but untested (its installer isn't reachable from the test environment).
 
+## Orchestration across models (0.7.0)
+
+| What | How it's checked |
+|---|---|
+| A manager picks a model (from the bot's choices) and effort per task; refused outside them | `a_manager_picks_the_model_from_the_bots_choices` |
+| The session switches to the task's model and effort, and back for the next task | `a_task_on_another_model_switches_the_session_and_back` |
+| A worktree and branch per task, so two bots run on one repository at once; result names the branch | `with_worktrees_each_task_gets_its_own_branch_so_bots_share_a_project` (a real git repository) |
+| Tokens and cost per task from Claude Code, summed per bot | `what_a_task_used_is_kept_and_added_up` |
+| Not yet tried with a real manager on Fable/Opus handing work to real builders | |
+
 ## Connections and triggers for bots (0.6.0)
 
 | What | How it's checked |

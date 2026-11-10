@@ -1471,5 +1471,18 @@
   "Your own: a command": "自定义：命令",
   "Your own: an address": "自定义：地址",
   "Only a label one of these people adds fires it. Empty: the repository's owner. Private repositories need the GitHub connection.": "只有这些人添加的标签才会触发。留空：仓库所有者。私有仓库需要 GitHub 连接。",
-  "Opens websites in a browser window of its own, reads them, clicks and types. It doesn't see your browser's sign-ins. Each step waits for you unless you let it act without asking, and then it could also send what it read to any site. Needs Node.js (npx).": "在自己的浏览器窗口中打开网站，阅读、点击和输入。看不到你浏览器里的登录。除非你允许它不经询问就操作，否则每一步都会等你；允许后它也可能把读到的内容发送到任何网站。需要 Node.js（npx）。"
+  "Opens websites in a browser window of its own, reads them, clicks and types. It doesn't see your browser's sign-ins. Each step waits for you unless you let it act without asking, and then it could also send what it read to any site. Needs Node.js (npx).": "在自己的浏览器窗口中打开网站，阅读、点击和输入。看不到你浏览器里的登录。除非你允许它不经询问就操作，否则每一步都会等你；允许后它也可能把读到的内容发送到任何网站。需要 Node.js（npx）。",
+  "{in} in · {out} out": "输入 {in} · 输出 {out}",
+  "{in} in · {out} out · ≈ {cost} at API prices": "输入 {in} · 输出 {out} · 按 API 价格约 {cost}",
+  "{n} tasks · {done} done · {failed} failed": "{n} 个任务 · {done} 个完成 · {failed} 个失败",
+  "24 hours": "24 小时",
+  "30 days": "30 天",
+  "7 days": "7 天",
+  "A bot that hands it work picks per task: a quicker model for simple work, a stronger one for hard work.": "给它派活的机器人会按任务选模型：简单的用更快的模型，难的用更强的模型。",
+  "A manager may also run its tasks on": "管理者还可以让它的任务运行在",
+  "Each task in its own worktree": "每个任务使用独立的 worktree",
+  "In a project that's a git repository, every task gets a fresh worktree on a new branch, so several bots can work on one project at once. You (or a reviewer bot) merge the branch.": "在 git 仓库项目中，每个任务都会在新分支上获得一个全新的 worktree，这样多个机器人可以同时处理同一个项目。由你（或审查机器人）合并该分支。",
+  "No tasks finished": "没有已完成的任务",
+  "This agent doesn't report what a task used.": "这个代理不报告任务的用量。",
+  "Usage": "用量"
 }
