@@ -231,3 +231,49 @@ export function demoFilePair(path: string): GitFilePair {
     binary: false,
   };
 }
+
+/* ---------------------------------------------------------------- messages and feed */
+
+export function demoMessages(now = Date.now()): import("../lib/teamchat").TeamMessages {
+  const ayse = { name: "Ayşe Yılmaz", email: "ayse@acme.dev" };
+  const mert = { name: "Mert Kaya", email: "mert@acme.dev" };
+  const me = { name: "You", email: "you@acme.dev" };
+  return {
+    me,
+    read: ["m1", "m2", "m3"],
+    messages: [
+      { id: "m1", thread: "m1", from: me, to: "mert@acme.dev", kind: "question", text: "Does the payment client retry on 502 too, or only on timeouts? Checkout shows a spinner forever when the gateway returns 502.", branch: "feature/checkout-v2", agent: "Claude Code", createdAt: now - 95 * MIN },
+      { id: "m2", thread: "m1", from: mert, to: "you@acme.dev", kind: "answer", text: "Only timeouts for now. 502 throws PaymentGatewayError right away (lib/payment/client.dart:88). I'll add 502/503 to the retry list on fix/payment-timeout today.", branch: "feature/checkout-v2", agent: "Gemini CLI", createdAt: now - 70 * MIN },
+      { id: "m3", thread: "m3", from: ayse, to: "*", kind: "note", text: "Heads up: I'm moving the brand colors to lib/theme/colors.dart. If your branch touches colors, rebase after my merge this afternoon.", branch: null, agent: null, createdAt: now - 3 * HOUR },
+      { id: "m4", thread: "m4", from: ayse, to: "you@acme.dev", kind: "question", text: "The address step uses AddressForm from lib/checkout — is the postcode validation in there or in the API? I want the login screen to use the same validator.", branch: "feature/login-redesign", agent: "Claude Code", createdAt: now - 9 * MIN },
+      { id: "m5", thread: "m5", from: mert, to: "you@acme.dev", kind: "review", text: "Could you review fix/payment-timeout? Retry is in, with tests for timeouts and 502.", branch: "fix/payment-timeout", agent: null, createdAt: now - 22 * MIN },
+    ],
+  };
+}
+
+export function demoFeed(now = Date.now()): import("../lib/teamchat").FeedEvent[] {
+  const e = (id: number, ago: number, kind: import("../lib/teamchat").FeedEvent["kind"], actor: string, branch: string | null, other: string | null, n: number | null, text = "", notify = false, link: string | null = null) => ({
+    id,
+    projectId: "shop-app",
+    ts: now - ago,
+    kind,
+    actor,
+    branch,
+    other,
+    n,
+    text,
+    link,
+    notify,
+  });
+  return [
+    e(9, 9 * MIN, "message", "Ayşe Yılmaz (Claude Code)", "feature/login-redesign", "question", null, "The address step uses AddressForm from lib/checkout — is the postcode validation in there or in the API?", true, "m4"),
+    e(8, 22 * MIN, "review", "Mert Kaya", "fix/payment-timeout", "review", null, "Could you review fix/payment-timeout? Retry is in, with tests for timeouts and 502.", true, "m5"),
+    e(7, 25 * MIN, "push", "Mert Kaya", "fix/payment-timeout", null, 2),
+    e(6, 26 * MIN, "overlap", "Mert Kaya", "fix/payment-timeout", "feature/checkout-v2", null, "", true),
+    e(5, 48 * MIN, "push", "Ayşe Yılmaz", "feature/login-redesign", null, 3),
+    e(4, 2 * HOUR, "base", "Deniz Şahin", "origin/main", "behind", 4, "", true),
+    e(3, 3 * HOUR, "merged", "Zeynep Arslan", "chore/lints", "origin/main", null),
+    e(2, 5 * HOUR, "branch_new", "Ayşe Yılmaz", "feature/login-redesign", null, null),
+    e(1, 26 * HOUR, "branch_new", "Zeynep Arslan", "chore/deps", null, null),
+  ];
+}

@@ -59,8 +59,8 @@ export const teamApi = {
   fetch: (projectId: string, days: number) => call<TeamOverview>("team_fetch", { projectId, days, tzOffset: tzOffset() }),
   presencePreview: (projectId: string) => call<Presence>("team_presence_preview", { projectId }),
   setSharing: (projectId: string, on: boolean, days: number) => call<TeamOverview>("team_set_sharing", { projectId, on, days }),
-  /** Shares again in every project you share; returns how many worked. */
-  heartbeat: () => call<number>("team_heartbeat", { tzOffset: tzOffset() }),
+  /** Fetches followed projects and shares again where you share; returns the new feed events. */
+  heartbeat: () => call<import("./teamchat").FeedEvent[]>("team_heartbeat", { tzOffset: tzOffset() }),
   branch: (projectId: string, branch: string, base: string) => call<BranchDetail>("team_branch", { projectId, branch, base }),
   checkout: (projectId: string, branch: string) => call<ReviewCheckout>("team_review_checkout", { projectId, branch }),
   update: (projectId: string, path: string) => call<ReviewCheckout>("team_review_update", { projectId, path }),

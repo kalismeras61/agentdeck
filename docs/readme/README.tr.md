@@ -95,11 +95,15 @@ Ekip görünümü (⌘⇧U) projenin kendi git remote'unu okur; sunucu ya da hes
 - **Dal değiştirmeden okuyun.** Bir dal seçin; commit'lerini ve ayrıldığı noktaya göre her dosyanın diff'ini görün.
 - **Çalıştırmak için yerele çekin.** *Yerele çek*, dalı projenin yanındaki ayrı bir klasöre koyar (`<proje>.worktrees/review-<dal>`), çalışma kopyanıza dokunulmaz. Ekip arkadaşınız yeniden push edince *Güncelle* ile ileri sarılır.
 - **Bir ajana inceletin.** *Claude Code ile incele* (veya varsayılan ajanınız) dalı çeker ve orada inceleme isteği hazır bir oturum açar.
+- **Aktivite ve bildirimler.** Aktivite sekmesi son baktığınızdan beri olanları listeler: yeni dallar, push'lar, birleştirmeler, ana dalın sizin dallarınızın önüne geçmesi ve bir ekip arkadaşının dalının sizin dosyalarınıza dokunmaya başlaması. Önemli olanlar, Ekip görünümü kapalıyken bile bildirim olarak gelir.
+- **Mesajlar ve birbiriyle konuşan ajanlar.** Bir ekip arkadaşınıza soru sorun, herkese not bırakın ya da dalınız için inceleme isteyin. Ajanlarınız da `ask_teammate` ile aynısını yapabilir (ve cevabı bekleyebilir); ekip arkadaşınız tek tıkla kendi ajanına kendi kodundan cevaplatabilir. Giden her mesaj sizin onayınızı bekler. Nasıl çalıştığı ve neye güvendiği: [docs/TEAM.md](../TEAM.md).
 - **Süre.** Süre sekmesi ajanlarınızın ne kadar çalıştığını, sizi ne kadar beklediğini (bir onay, bir cevap) ve sizin onlarla ne kadar zaman geçirdiğinizi gün ve dal bazında, oturum oturum gösterir; *CSV olarak kopyala* bir zaman çizelgesi verir. Ajan ve bekleme süresi oturum durumlarından ölçülür; sizin süreniz mesajlarınızdan ve onaylarınızdan tahmin edilir. Çalışmasını paylaşan ekip arkadaşları dal başına sürelerini de paylaşır; her dalda bu hafta kimin ne kadar zaman harcadığı görünür.
 
 ![Ekip görünümü: ekip arkadaşları ve ajanları, aynı dosyalara dokunan dallar ve bir dalın diff'i](../screenshots/readme/team.png)
 
 ![Süre sekmesi: gün ve dal bazında ajanların çalışması, sizi beklemesi ve sizin süreniz](../screenshots/readme/time.png)
+
+![Mesajlar: bir ekip arkadaşının ajanı soru soruyor, sizin ajanınız kendi kodunuzdan cevaplayabiliyor](../screenshots/readme/messages.png)
 
 ### Tüm komutlar parmaklarınızın ucunda
 

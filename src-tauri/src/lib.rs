@@ -33,6 +33,7 @@ mod secrets;
 mod setup;
 mod shellenv;
 mod team;
+mod teamchat;
 mod telegram;
 mod time;
 mod triggers;
@@ -545,6 +546,9 @@ async fn team_overview(
 ) -> CmdResult<team::TeamOverview> {
     let d = repo_dir(&state.db, &project_id, None)?;
     let db = state.db.clone();
+    // Opening the Team view follows the project: it's fetched in the background from then on.
+    db.set_meta(&team_key(&project_id, "follow"), "1")
+        .map_err(err)?;
     tauri::async_runtime::spawn_blocking(move || {
         team_state(&db, &project_id, &d, days.unwrap_or(30), None)
     })
@@ -565,27 +569,219 @@ async fn team_fetch(
     let db = state.db.clone();
     tz_of(&db, tz_offset)?;
     tauri::async_runtime::spawn_blocking(move || {
-        let mut problem = team::fetch(&d).err();
-        if problem.is_none() {
-            db.set_meta(
-                &team_key(&project_id, "fetched"),
-                &team::now_ms().to_string(),
-            )
-            .map_err(err)?;
-            if db
-                .meta(&team_key(&project_id, "share"))
-                .map_err(err)?
-                .as_deref()
-                == Some("1")
-            {
-                let p = team_presence_of(&db, &project_id, &d)?;
-                problem = team::publish(&d, &p, true).err();
-            }
-        }
+        let (problem, _) = team_sync(&db, &project_id, &d)?;
         team_state(&db, &project_id, &d, days.unwrap_or(30), problem)
     })
     .await
     .map_err(err)?
+}
+
+/// Fetches a project's remote, records what changed in its feed, and shares your presence again
+/// when you share. Returns why the fetch or share failed (if it did) and the new feed events.
+fn team_sync(
+    db: &Db,
+    project_id: &str,
+    dir: &str,
+) -> CmdResult<(Option<String>, Vec<teamchat::FeedEvent>)> {
+    use teamchat::Transport;
+    let root = git::root(dir).ok_or("This project isn't a git repository")?;
+    let tr = teamchat::GitTransport {
+        root: root.clone(),
+        push: true,
+    };
+    if let Err(e) = tr.fetch() {
+        return Ok((Some(e), Vec::new()));
+    }
+    db.set_meta(
+        &team_key(project_id, "fetched"),
+        &team::now_ms().to_string(),
+    )
+    .map_err(err)?;
+    let o = team::overview(dir, 30)?;
+    let messages = teamchat::mine(tr.messages(), &o.me.email);
+    let events = teamchat::update_feed(db, project_id, &o, &messages);
+    let mut problem = None;
+    if db
+        .meta(&team_key(project_id, "share"))
+        .map_err(err)?
+        .as_deref()
+        == Some("1")
+    {
+        let p = team_presence_of(db, project_id, dir)?;
+        problem = tr.publish_presence(&p).err();
+    }
+    Ok((problem, events))
+}
+
+/// The project's feed, newest first.
+#[tauri::command]
+fn team_feed(
+    state: State<'_, AppState>,
+    project_id: String,
+    limit: Option<i64>,
+) -> CmdResult<Vec<teamchat::FeedEvent>> {
+    Ok(teamchat::feed(
+        &state.db,
+        &project_id,
+        limit.unwrap_or(200).clamp(1, 500),
+    ))
+}
+
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct TeamMessages {
+    me: team::Person,
+    messages: Vec<teamchat::Message>,
+    read: Vec<String>,
+}
+
+/// Messages between you and teammates in a project (from what was last fetched).
+#[tauri::command]
+async fn team_messages(state: State<'_, AppState>, project_id: String) -> CmdResult<TeamMessages> {
+    use teamchat::Transport;
+    let d = repo_dir(&state.db, &project_id, None)?;
+    let db = state.db.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let root = git::root(&d).ok_or("This project isn't a git repository")?;
+        let me = team::me(&root);
+        let tr = teamchat::GitTransport { root, push: false };
+        Ok(TeamMessages {
+            messages: teamchat::mine(tr.messages(), &me.email),
+            read: teamchat::read_ids(&db, &project_id).into_iter().collect(),
+            me,
+        })
+    })
+    .await
+    .map_err(err)?
+}
+
+/// Sends a message: a new conversation (no thread) or an answer in one. `to`: an email, or "*"
+/// for everyone. Needs "Share my work" on: that's how you join the team.
+#[tauri::command]
+#[allow(clippy::too_many_arguments)]
+async fn team_send(
+    state: State<'_, AppState>,
+    project_id: String,
+    to: String,
+    text: String,
+    kind: String,
+    thread: Option<String>,
+    branch: Option<String>,
+) -> CmdResult<teamchat::Message> {
+    use teamchat::Transport;
+    let d = repo_dir(&state.db, &project_id, None)?;
+    let db = state.db.clone();
+    if db
+        .meta(&team_key(&project_id, "share"))
+        .map_err(err)?
+        .as_deref()
+        != Some("1")
+    {
+        return Err("Turn on “Share my work” first: that's how you join your team here.".into());
+    }
+    let text = text.trim().to_string();
+    if text.is_empty() {
+        return Err("Write a message first".into());
+    }
+    if !matches!(kind.as_str(), "question" | "answer" | "note" | "review") {
+        return Err("Unknown kind of message".into());
+    }
+    if let Some(b) = &branch {
+        git::check_rev(b)?;
+    }
+    tauri::async_runtime::spawn_blocking(move || {
+        let root = git::root(&d).ok_or("This project isn't a git repository")?;
+        let me = team::me(&root);
+        let id = teamchat::new_id();
+        let m = teamchat::Message {
+            thread: thread
+                .filter(|t| !t.is_empty())
+                .unwrap_or_else(|| id.clone()),
+            id,
+            from: me.clone(),
+            to: if to == "*" {
+                to
+            } else {
+                to.trim().to_lowercase()
+            },
+            kind,
+            text: text.chars().take(8000).collect(),
+            branch,
+            agent: None,
+            created_at: team::now_ms(),
+        };
+        teamchat::GitTransport { root, push: true }.send(&me, m.clone())?;
+        teamchat::mark_read(&db, &project_id, std::slice::from_ref(&m.id)).map_err(err)?;
+        Ok(m)
+    })
+    .await
+    .map_err(err)?
+}
+
+#[tauri::command]
+fn team_mark_read(
+    state: State<'_, AppState>,
+    project_id: String,
+    ids: Vec<String>,
+) -> CmdResult<()> {
+    teamchat::mark_read(&state.db, &project_id, &ids[..ids.len().min(500)]).map_err(err)
+}
+
+/// Starts a session that answers a teammate's message: it reads the code, then answers with
+/// reply_to_teammate, which you approve before anything is sent.
+#[tauri::command]
+async fn team_answer_session(
+    state: State<'_, AppState>,
+    project_id: String,
+    thread: String,
+    provider: String,
+    model: String,
+    effort: Option<String>,
+) -> CmdResult<SessionRow> {
+    if !mcp::supports(&provider) {
+        return Err(format!(
+            "{} can't use AgentDeck's team tools. Pick Claude Code, Codex or Gemini CLI.",
+            agents::label(&provider)
+        ));
+    }
+    let model = check_agent(&state.db, &provider, &model, None)?;
+    let effort = check_effort(&provider, effort.as_deref())?;
+    let p = state
+        .db
+        .project(&project_id)
+        .map_err(err)?
+        .ok_or("Project not found")?;
+    let who = {
+        let d = p.path.clone();
+        let t = thread.clone();
+        tauri::async_runtime::spawn_blocking(move || {
+            use teamchat::Transport;
+            let root = git::root(&d)?;
+            teamchat::GitTransport { root, push: false }
+                .messages()
+                .into_iter()
+                .find(|m| m.thread == t)
+                .map(|m| m.from.name)
+        })
+        .await
+        .map_err(err)?
+        .unwrap_or_else(|| "a teammate".into())
+    };
+    let s = state
+        .db
+        .create_session(&project_id, &provider, &model, &format!("Answer {who}"))
+        .map_err(err)?;
+    if effort.is_some() {
+        state
+            .db
+            .set_session_effort(&s.id, effort.as_deref())
+            .map_err(err)?;
+    }
+    state
+        .db
+        .session(&s.id)
+        .map_err(err)?
+        .ok_or_else(|| "Session not found".into())
 }
 
 /// Exactly what sharing would put on the remote, shown before it's turned on.
@@ -633,22 +829,25 @@ async fn team_set_sharing(
 /// Shares your presence again in every project you share (called every few minutes and when
 /// your sessions change). Projects that fail are skipped quietly; the Team view says why.
 #[tauri::command]
-async fn team_heartbeat(state: State<'_, AppState>, tz_offset: Option<i64>) -> CmdResult<u32> {
+async fn team_heartbeat(
+    state: State<'_, AppState>,
+    tz_offset: Option<i64>,
+) -> CmdResult<Vec<teamchat::FeedEvent>> {
     let db = state.db.clone();
     tz_of(&db, tz_offset)?;
     tauri::async_runtime::spawn_blocking(move || {
-        let mut n = 0;
+        let mut out = Vec::new();
         for p in db.list_projects().map_err(err)? {
-            if db.meta(&team_key(&p.id, "share")).map_err(err)?.as_deref() != Some("1") {
+            let share = db.meta(&team_key(&p.id, "share")).map_err(err)?.as_deref() == Some("1");
+            let follow = db.meta(&team_key(&p.id, "follow")).map_err(err)?.as_deref() == Some("1");
+            if !(share || follow) || p.hidden {
                 continue;
             }
-            if let Ok(pr) = team_presence_of(&db, &p.id, &p.path) {
-                if team::publish(&p.path, &pr, true).is_ok() {
-                    n += 1;
-                }
+            if let Ok((_, events)) = team_sync(&db, &p.id, &p.path) {
+                out.extend(events);
             }
         }
-        Ok(n)
+        Ok(out)
     })
     .await
     .map_err(err)?
@@ -3015,6 +3214,11 @@ pub fn run() {
             team_review_remove,
             team_review_session,
             time_report,
+            team_feed,
+            team_messages,
+            team_send,
+            team_mark_read,
+            team_answer_session,
             term_sign_in,
             allow_antigravity_rules,
             agent_approvals,

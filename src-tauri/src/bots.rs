@@ -1348,6 +1348,13 @@ impl Bots {
         };
         // Its own agentdeck tools (handing work to other bots) never wait for the user.
         let v = match crate::mcp::requested_tool(ev) {
+            // Writing to teammates sends what the bot knows off this Mac: always the user's call.
+            Some(t) if crate::teamchat::is_send_tool(t) => {
+                unattended::request_id(ev).map(|request_id| Verdict::Hold {
+                    request_id,
+                    why: "It wants to send a message to a teammate".into(),
+                })
+            }
             Some(_) => unattended::request_id(ev).map(|request_id| Verdict::Allow { request_id }),
             // A connection's tool: reading is allowed, changing waits (unless it may act alone).
             None => crate::connections::verdict(&self.db, ev, &bot.id)

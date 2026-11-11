@@ -1,4 +1,4 @@
-import { AlertTriangle, Bot, Check, ChevronRight, Clock, CloudOff, Copy, Download, FolderGit2, GitBranch, GitCommitHorizontal, Radio, RefreshCw, Search, Trash2, Users } from "lucide-react";
+import { AlertTriangle, Bot, Check, ChevronRight, Clock, GitPullRequestArrow, MessageSquare, Radio as Pulse, CloudOff, Copy, Download, FolderGit2, GitBranch, GitCommitHorizontal, Radio, RefreshCw, Search, Trash2, Users } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { AgentMark, cx, StatusDot, Switch } from "../components/ui";
 import { demoBranchDetail, demoFilePair, demoTeam } from "../data/teamDemo";
@@ -34,6 +34,10 @@ import { hm, lastDays, sharedIn, sum, timeApi, total, type TimeRow } from "../li
 import { demoTimeRows } from "../data/teamDemo";
 import { MonacoDiff } from "./review/MonacoDiff";
 import { TimeTab } from "./team/TimeTab";
+import { ActivityTab } from "./team/ActivityTab";
+import { MessagesTab } from "./team/MessagesTab";
+import { chatApi, threads, unreadCount, type FeedEvent, type MessageKind, type TeamMessages } from "../lib/teamchat";
+import { demoFeed, demoMessages } from "../data/teamDemo";
 import { ViewHeader } from "./ViewHeader";
 
 const DAYS = 30;
@@ -182,7 +186,19 @@ export function TeamView() {
   const [copied, setCopied] = useState(false);
   const [share, setShare] = useState<Presence | null>(null);
   const [open, setOpen] = useState<Record<string, boolean>>({ people: true, reviews: true, overlaps: true });
-  const [tab, setTab] = useState<"branches" | "time">("branches");
+  const [tab, setTab] = useState<"branches" | "activity" | "messages" | "time">("branches");
+  const [feed, setFeed] = useState<FeedEvent[] | null>(() => (demo ? demoFeed() : null));
+  const [chat, setChat] = useState<TeamMessages | null>(() => (demo ? demoMessages() : null));
+  const [focusThread, setFocusThread] = useState<string | null>(null);
+  const [draftMsg, setDraftMsg] = useState<{ to: string; kind: MessageKind; branch: string } | null>(null);
+  const setTeamUnread = useStore((s) => s.setTeamUnread);
+  const loadChat = useCallback(() => {
+    if (demo || !projectId) return;
+    chatApi.feed(projectId).then(setFeed).catch(() => setFeed([]));
+    chatApi.messages(projectId).then(setChat).catch(() => setChat(null));
+  }, [demo, projectId]);
+  const unread = useMemo(() => (chat ? unreadCount(threads(chat.messages, chat.me.email, new Set(chat.read))) : 0), [chat]);
+  useEffect(() => setTeamUnread(unread), [unread, setTeamUnread]);
   // Your own tracked time, the last 7 days, for the branch panel.
   const [myTime, setMyTime] = useState<TimeRow[]>(() => (demo ? demoTimeRows() : []));
   useEffect(() => {
@@ -200,20 +216,25 @@ export function TeamView() {
       setLoading(true);
       setError(null);
       (fetch ? teamApi.fetch(projectId, DAYS) : teamApi.overview(projectId, DAYS))
-        .then(setO)
+        .then((x) => {
+          setO(x);
+          loadChat();
+        })
         .catch((e: unknown) => {
           setO(null);
           setError(errorText(e));
         })
         .finally(() => setLoading(false));
     },
-    [demo, projectId],
+    [demo, projectId, loadChat],
   );
 
   // What's known right away, then a fetch; then every few minutes while the view is open.
   useEffect(() => {
     setPicked(null);
     setPerson(null);
+    setFeed(demo ? demoFeed() : null);
+    setChat(demo ? demoMessages() : null);
     load(false);
     load(true);
     const id = window.setInterval(() => load(true), POLL_MS);
@@ -406,10 +427,12 @@ export function TeamView() {
           <div role="tablist" aria-label={t("Team")} className="no-drag flex rounded-lg border border-line-soft p-0.5">
             {(
               [
-                ["branches", t("Branches"), GitBranch],
-                ["time", t("Time"), Clock],
+                ["branches", t("Branches"), GitBranch, 0],
+                ["activity", t("Activity"), Pulse, 0],
+                ["messages", t("Messages"), MessageSquare, unread],
+                ["time", t("Time"), Clock, 0],
               ] as const
-            ).map(([id, label, Icon]) => (
+            ).map(([id, label, Icon, badge]) => (
               <button
                 key={id}
                 type="button"
@@ -420,6 +443,7 @@ export function TeamView() {
               >
                 <Icon size={12} />
                 {label}
+                {badge > 0 && <span className="rounded-full bg-violet-strong px-1.5 text-[10px] font-medium tabular-nums text-white">{badge}</span>}
               </button>
             ))}
           </div>
@@ -472,7 +496,41 @@ export function TeamView() {
         </div>
       )}
 
-      {tab === "time" ? (
+      {tab === "activity" ? (
+        <ActivityTab
+          feed={feed}
+          onBranch={(short) => {
+            const b = o?.branches.find((x) => x.short === short || x.name === short);
+            if (b) {
+              setTab("branches");
+              setFilter("all");
+              setPicked(b.name);
+            }
+          }}
+          onThread={(id) => {
+            setFocusThread(id);
+            setTab("messages");
+          }}
+        />
+      ) : tab === "messages" ? (
+        <MessagesTab
+          projectId={projectId}
+          data={chat}
+          people={team.filter((p) => !p.me).map((p) => ({ name: p.name, email: p.email }))}
+          branches={(o?.branches ?? []).filter((b) => b.local && !b.localOnly).map((b) => b.short)}
+          sharing={!!o?.sharing}
+          demo={demo}
+          focus={focusThread}
+          draft={draftMsg}
+          onChanged={loadChat}
+          onReview={(short) => {
+            const b = o?.branches.find((x) => x.short === short);
+            if (b) void reviewWithAgent(b);
+            else setNotice(t("Fetch first: {branch} isn't here yet.", { branch: short }));
+          }}
+          onNotice={setNotice}
+        />
+      ) : tab === "time" ? (
         <TimeTab projectId={projectId} presence={o?.presence ?? []} me={o?.me.email ?? ""} />
       ) : error && !o ? (
         <div className="m-auto max-w-[52ch] px-8 text-center">
@@ -773,6 +831,19 @@ export function TeamView() {
                       >
                         <Bot size={13} />
                         {busy === `agent:${branch.name}` ? t("Preparing…") : t("Review with {agent}", { agent: providerLabel[defaultProvider] })}
+                      </button>
+                    )}
+                    {branch.local && !branch.localOnly && branch.ahead > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setDraftMsg({ to: "*", kind: "review", branch: branch.short });
+                          setTab("messages");
+                        }}
+                        className="flex h-7 items-center gap-1.5 rounded-lg border border-line px-2.5 text-[12px] text-fg-2 hover:bg-elevated hover:text-fg"
+                      >
+                        <GitPullRequestArrow size={13} />
+                        {t("Ask for a review")}
                       </button>
                     )}
                     {branch.checkedOut && (

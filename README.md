@@ -93,11 +93,15 @@ The Team view (⌘⇧U) reads the project's own git remote, so there's no server
 - **Read any branch without switching.** Pick a branch for its commits and a diff of every file against where it forked.
 - **Check it out to run it.** *Check out locally* puts the branch in its own folder next to the project (`<project>.worktrees/review-<branch>`), so your working copy isn't touched. When the teammate pushes again, *Update* fast-forwards it.
 - **Let an agent review it.** *Review with Claude Code* (or your default agent) checks it out and opens a session there with a review request ready to send.
+- **Activity and notifications.** The Activity tab lists what happened since you last looked: new branches, pushes, merges, the base moving ahead of your branches, and a teammate's branch starting to touch files yours changes. The important ones arrive as notifications, even with the Team view closed.
+- **Messages, and agents that talk to each other.** Ask a teammate a question, send a note to everyone, or ask for a review of your branch. Your agents can do the same with `ask_teammate` (and wait for the answer), and a teammate can let their agent answer from their code with one click. Every outgoing message waits for your approval. How it works and what it trusts: [docs/TEAM.md](docs/TEAM.md).
 - **Time.** The Time tab shows how long your agents worked, how long they waited for you (an approval, an answer) and how long you spent with them, per day and per branch, down to each session; *Copy as CSV* gives a timesheet. Agent and waiting time are measured from each session's status; your time is estimated from your messages and approvals. Teammates who share their work share their time per branch too, and every branch shows who spent how long on it this week.
 
 ![The Team view: teammates and their agents, branches that touch the same files, and a branch's diff](docs/screenshots/readme/team.png)
 
 ![The Time tab: agents working, waiting for you and your time per day and per branch](docs/screenshots/readme/time.png)
+
+![Messages: a teammate's agent asks a question, and your agent can answer it from your code](docs/screenshots/readme/messages.png)
 
 ### Every command at your fingertips
 

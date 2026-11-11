@@ -81,6 +81,7 @@ export function Sidebar() {
   const setWorkspace = useStore((s) => s.setWorkspace);
   const toggleSidebar = useStore((s) => s.toggleSidebar);
   const view = useStore((s) => s.view);
+  const teamUnread = useStore((s) => s.teamUnread);
   const setView = useStore((s) => s.setView);
   const openSetup = useStore((s) => s.openSetup);
   const openGit = useStore((s) => s.openGit);
@@ -315,7 +316,7 @@ export function Sidebar() {
           shortcut={`${MOD}⇧A`}
         />
         <NavItem view="git" current={view} onSelect={() => openGit(null)} icon={GitGraph} label="Git" shortcut={`${MOD}⇧H`} />
-        <NavItem view="team" current={view} onSelect={setView} icon={Users} label={t("Team")} shortcut={`${MOD}⇧U`} />
+        <NavItem view="team" current={view} onSelect={setView} icon={Users} label={t("Team")} count={teamUnread || undefined} attention={teamUnread > 0} shortcut={`${MOD}⇧U`} />
         <NavItem view="setup" current={view} onSelect={() => openSetup(null)} icon={BookOpenText} label={t("Agent setup")} shortcut={`${MOD}⇧E`} />
         <NavItem view="gallery" current={view} onSelect={setView} icon={Shapes} label={t("Output gallery")} shortcut={`${MOD}⇧G`} />
       </ul>

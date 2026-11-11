@@ -233,11 +233,13 @@ mod tests {
         }
     }
 
-    fn maps() -> (
+    type Maps = (
         HashMap<String, String>,
         HashSet<String>,
         HashMap<String, Option<String>>,
-    ) {
+    );
+
+    fn maps() -> Maps {
         let projects = HashMap::from([
             ("a".to_string(), "p1".to_string()),
             ("b".to_string(), "p1".to_string()),

@@ -44,3 +44,15 @@ export async function notifyStatus(prev: string | undefined, row: LiveSessionRow
     /* notifications are best effort */
   }
 }
+
+/** A system notification with a title and a line, when AgentDeck isn't focused. */
+export async function notifyText(title: string, body: string) {
+  if (typeof document !== "undefined" && document.hasFocus()) return;
+  try {
+    if (!(await ensurePermission())) return;
+    const n = await import("@tauri-apps/plugin-notification");
+    n.sendNotification({ title, body: body.slice(0, 180) });
+  } catch {
+    /* notifications are best effort */
+  }
+}

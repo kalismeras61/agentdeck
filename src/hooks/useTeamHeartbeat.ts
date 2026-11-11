@@ -1,20 +1,36 @@
 import { useEffect } from "react";
+import { t } from "../lib/i18n";
+import { notifyText } from "../lib/notify";
 import { teamApi } from "../lib/team";
+import { feedLine, type FeedEvent } from "../lib/teamchat";
 import { useStore } from "../state/store";
 
-/** How often your presence is shared again while AgentDeck runs (teammates see you as online). */
-const EVERY_MS = 4 * 60_000;
+/** How often followed projects are fetched and your presence shared again. */
+const EVERY_MS = 2 * 60_000;
+
+/** Tells you about what matters in the team (a message to you, a branch touching yours…). */
+function announce(events: FeedEvent[]) {
+  const important = events.filter((e) => e.notify);
+  const msgs = important.filter((e) => e.kind === "message" || e.kind === "review").length;
+  if (msgs) useStore.setState((s) => ({ teamUnread: s.teamUnread + msgs }));
+  for (const e of important.slice(0, 3)) void notifyText(t("Team"), e.text && (e.kind === "message" || e.kind === "review") ? `${feedLine(e)}: ${e.text}` : feedLine(e));
+  if (important.length > 3) void notifyText(t("Team"), t("{n} more updates in the Team view", { n: important.length - 3 }));
+}
 /** After a session starts, stops or waits for you, share that soon, but not on every change. */
 const SETTLE_MS = 15_000;
 
 /**
- * Keeps your presence fresh in every project where you turned on "Share my work". The desktop
- * app does nothing for projects you don't share, so this is cheap when sharing is off.
+ * Fetches the projects you follow (opened in the Team view) and keeps your presence fresh where
+ * you share your work; announces what matters. Nothing happens for projects you never opened there.
  */
 export function useTeamHeartbeat() {
   useEffect(() => {
     if (!teamApi.available) return;
-    const beat = () => void teamApi.heartbeat().catch(() => {});
+    const beat = () =>
+      void teamApi
+        .heartbeat()
+        .then(announce)
+        .catch(() => {});
     const first = window.setTimeout(beat, 20_000);
     const id = window.setInterval(beat, EVERY_MS);
     let timer: number | undefined;

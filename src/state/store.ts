@@ -105,6 +105,9 @@ interface Actions {
   newSession: (projectId?: string, provider?: ProviderId, profileId?: string, worktree?: boolean) => void;
   /** Project (and folder: a worktree, or null for the project folder) shown in the Git view. */
   gitTarget: { projectId: string | null; dir: string | null };
+  /** Unread team messages (Team view), for the sidebar. */
+  teamUnread: number;
+  setTeamUnread: (n: number) => void;
   openGit: (projectId: string | null, dir?: string | null) => void;
   /** A session without a project: it runs in ~/AgentDeck/Chats. */
   newChat: (provider?: ProviderId, profileId?: string) => void;
@@ -466,6 +469,8 @@ export const useStore = create<UiState & Actions>()(
           }
         },
         gitTarget: { projectId: null, dir: null },
+        teamUnread: 0,
+        setTeamUnread: (n) => set({ teamUnread: n }),
         openGit: (projectId, dir) => set({ view: "git", gitTarget: { projectId, dir: dir ?? null } }),
         newSession: (projectId, provider, profileId, worktree) => {
           const st = get();

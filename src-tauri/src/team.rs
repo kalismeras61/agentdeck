@@ -523,6 +523,11 @@ pub fn fetch(dir: &str) -> Result<(), String> {
             &remote,
             &format!("+refs/heads/*:refs/remotes/{remote}/*"),
             &format!("+{PRESENCE_NS}/*:{PRESENCE_NS}/*"),
+            &format!(
+                "+{}/*:{}/*",
+                crate::teamchat::OUTBOX_NS,
+                crate::teamchat::OUTBOX_NS
+            ),
         ],
     )
     .map(|_| ())
@@ -576,27 +581,115 @@ pub fn parse_presence(bytes: &[u8]) -> Option<Presence> {
     Some(p)
 }
 
+/// A file in the tree of the commit a ref points at (presence, outbox), if it's there.
+pub fn read_ref_file(root: &str, r: &str, file: &str) -> Option<Vec<u8>> {
+    let o = Command::new("git")
+        .arg("-C")
+        .arg(root)
+        .args(["show", &format!("{r}:{file}")])
+        .env("PATH", crate::claude::augmented_path())
+        .stdin(Stdio::null())
+        .stderr(Stdio::null())
+        .output()
+        .ok()?;
+    o.status.success().then_some(o.stdout)
+}
+
+/// Points `r` at a new parentless commit holding one file, then (when asked) pushes it over
+/// the remote's copy: these refs hold only the latest state, never a history.
+pub fn write_ref_file(
+    root: &str,
+    r: &str,
+    file: &str,
+    body: &[u8],
+    who: &Person,
+    message: &str,
+    push: bool,
+) -> Result<(), String> {
+    if who.email.trim().is_empty() {
+        return Err("Git doesn't know who you are in this repository. Set it with git config user.name and git config user.email, then try again.".into());
+    }
+    let blob = git_input(root, &["hash-object", "-w", "--stdin"], body)?;
+    let tree = git_input(
+        root,
+        &["mktree"],
+        format!("100644 blob {blob}\t{file}\n").as_bytes(),
+    )?;
+    let commit = git_input(
+        root,
+        &[
+            "-c",
+            &format!(
+                "user.name={}",
+                if who.name.is_empty() {
+                    "AgentDeck"
+                } else {
+                    &who.name
+                }
+            ),
+            "-c",
+            &format!("user.email={}", who.email),
+            "commit-tree",
+            &tree,
+            "-m",
+            message,
+        ],
+        b"",
+    )?;
+    git::git(root, &["update-ref", r, &commit])?;
+    if push {
+        let remote = remote_of(root).ok_or("This repository has no remote to share through")?;
+        git::git(
+            root,
+            &["push", "--quiet", "--force", &remote, &format!("{r}:{r}")],
+        )
+        .map_err(|e| format!("Couldn't push to {remote}: {e}"))?;
+    }
+    Ok(())
+}
+
+/// Teammates as the agents' `team_members` tool describes them.
+pub fn people_of(o: &TeamOverview) -> Vec<serde_json::Value> {
+    let me = o.me.email.to_lowercase();
+    let mut by: std::collections::BTreeMap<String, serde_json::Value> = Default::default();
+    for b in o.branches.iter().filter(|b| b.ahead > 0) {
+        for a in &b.authors {
+            if a.email == me {
+                continue;
+            }
+            let e = by.entry(a.email.clone()).or_insert_with(|| {
+                serde_json::json!({ "name": a.name, "email": a.email, "online": false, "branches": [], "agents": [] })
+            });
+            if let Some(list) = e["branches"].as_array_mut() {
+                list.push(serde_json::json!({ "branch": b.short, "commits": a.commits, "files": b.files.iter().take(30).collect::<Vec<_>>() }));
+            }
+        }
+    }
+    let now = now_ms();
+    for p in o.presence.iter().filter(|p| p.email != me) {
+        let e = by.entry(p.email.clone()).or_insert_with(
+            || serde_json::json!({ "name": p.name, "email": p.email, "branches": [] }),
+        );
+        e["online"] = (now - p.updated_at < 10 * 60_000).into();
+        e["onBranch"] = p.branch.clone().into();
+        e["agents"] = p
+            .sessions
+            .iter()
+            .take(10)
+            .map(crate::teamchat::session_line)
+            .collect::<Vec<_>>()
+            .into();
+    }
+    by.into_values().collect()
+}
+
 pub fn read_presence(root: &str) -> Vec<Presence> {
     let refs =
         git::git(root, &["for-each-ref", "--format=%(refname)", PRESENCE_NS]).unwrap_or_default();
     let mut out: Vec<Presence> = refs
         .lines()
         .filter(|r| r.starts_with(PRESENCE_NS))
-        .filter_map(|r| {
-            let o = Command::new("git")
-                .arg("-C")
-                .arg(root)
-                .args(["show", &format!("{r}:{PRESENCE_FILE}")])
-                .env("PATH", crate::claude::augmented_path())
-                .stdin(Stdio::null())
-                .stderr(Stdio::null())
-                .output()
-                .ok()?;
-            o.status
-                .success()
-                .then_some(o.stdout)
-                .and_then(|b| parse_presence(&b))
-        })
+        .filter_map(|r| read_ref_file(root, r, PRESENCE_FILE).and_then(|b| parse_presence(&b)))
         .collect();
     out.sort_by_key(|p| std::cmp::Reverse(p.updated_at));
     out.dedup_by(|a, b| a.email == b.email);
@@ -607,49 +700,20 @@ pub fn read_presence(root: &str) -> Vec<Presence> {
 /// `push` false only writes it locally (tests, and when you're offline the next push catches up).
 pub fn publish(dir: &str, presence: &Presence, push: bool) -> Result<(), String> {
     let root = root_of(dir)?;
-    if presence.email.trim().is_empty() {
-        return Err("Git doesn't know who you are in this repository. Set it with git config user.name and git config user.email, then share again.".into());
-    }
-    let key = presence_key(&presence.email);
     let json = serde_json::to_vec_pretty(presence).map_err(|e| e.to_string())?;
-    let blob = git_input(&root, &["hash-object", "-w", "--stdin"], &json)?;
-    let tree = git_input(
+    let who = Person {
+        name: presence.name.clone(),
+        email: presence.email.clone(),
+    };
+    write_ref_file(
         &root,
-        &["mktree"],
-        format!("100644 blob {blob}\t{PRESENCE_FILE}\n").as_bytes(),
-    )?;
-    let commit = git_input(
-        &root,
-        &[
-            "-c",
-            &format!(
-                "user.name={}",
-                if presence.name.is_empty() {
-                    "AgentDeck"
-                } else {
-                    &presence.name
-                }
-            ),
-            "-c",
-            &format!("user.email={}", presence.email),
-            "commit-tree",
-            &tree,
-            "-m",
-            "AgentDeck presence",
-        ],
-        b"",
-    )?;
-    let r = format!("{PRESENCE_NS}/{key}");
-    git::git(&root, &["update-ref", &r, &commit])?;
-    if push {
-        let remote = remote_of(&root).ok_or("This repository has no remote to share through")?;
-        git::git(
-            &root,
-            &["push", "--quiet", "--force", &remote, &format!("{r}:{r}")],
-        )
-        .map_err(|e| format!("Couldn't push to {remote}: {e}"))?;
-    }
-    Ok(())
+        &format!("{PRESENCE_NS}/{}", presence_key(&presence.email)),
+        PRESENCE_FILE,
+        &json,
+        &who,
+        "AgentDeck presence",
+        push,
+    )
 }
 
 /// Takes your presence off the remote and out of this repository.
@@ -840,15 +904,15 @@ pub fn overview(dir: &str, days: u32) -> Result<TeamOverview, String> {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
 
-    fn run(dir: &Path, args: &[&str]) {
+    pub(crate) fn run(dir: &Path, args: &[&str]) {
         let s = dir.to_string_lossy();
         git::git(&s, args).unwrap_or_else(|e| panic!("git {args:?}: {e}"));
     }
 
-    fn commit(dir: &Path, file: &str, text: &str, msg: &str) {
+    pub(crate) fn commit(dir: &Path, file: &str, text: &str, msg: &str) {
         std::fs::create_dir_all(dir.join(file).parent().unwrap()).unwrap();
         std::fs::write(dir.join(file), text).unwrap();
         run(dir, &["add", "."]);
@@ -856,7 +920,7 @@ mod tests {
     }
 
     /// A bare "server" repository and two teammates' clones of it.
-    fn team() -> (tempfile::TempDir, std::path::PathBuf, std::path::PathBuf) {
+    pub(crate) fn team() -> (tempfile::TempDir, std::path::PathBuf, std::path::PathBuf) {
         let d = tempfile::tempdir().unwrap();
         let server = d.path().join("server.git");
         run(

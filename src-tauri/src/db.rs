@@ -649,7 +649,14 @@ impl Db {
                session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
                status TEXT NOT NULL, branch TEXT, start INTEGER NOT NULL, end INTEGER);
              CREATE INDEX IF NOT EXISTS session_time_start ON session_time(start);
-             CREATE INDEX IF NOT EXISTS session_time_open ON session_time(session_id) WHERE end IS NULL;",
+             CREATE INDEX IF NOT EXISTS session_time_open ON session_time(session_id) WHERE end IS NULL;
+             CREATE TABLE IF NOT EXISTS team_inbox (
+               id TEXT PRIMARY KEY, project_id TEXT NOT NULL, state TEXT NOT NULL, at INTEGER NOT NULL);
+             CREATE TABLE IF NOT EXISTS team_feed (
+               id INTEGER PRIMARY KEY AUTOINCREMENT, project_id TEXT NOT NULL, ts INTEGER NOT NULL,
+               kind TEXT NOT NULL, actor TEXT NOT NULL, branch TEXT, text TEXT NOT NULL, link TEXT,
+               notify INTEGER NOT NULL DEFAULT 0, other TEXT, n INTEGER);
+             CREATE INDEX IF NOT EXISTS team_feed_project ON team_feed(project_id, id);",
         )?;
         // v10: a task's own model and effort, its worktree, and what it used.
         for (col, ty) in [
@@ -753,6 +760,14 @@ impl Db {
              CREATE INDEX IF NOT EXISTS bot_schedules_due ON bot_schedules(enabled, next_run_at);
              CREATE INDEX IF NOT EXISTS bot_tasks_parent ON bot_tasks(parent_id);",
         )
+    }
+
+    /// Runs `f` with the connection, for modules that keep tables of their own (teamchat).
+    pub fn with_conn<T>(
+        &self,
+        f: impl FnOnce(&Connection) -> rusqlite::Result<T>,
+    ) -> rusqlite::Result<T> {
+        f(&self.conn())
     }
 
     fn conn(&self) -> std::sync::MutexGuard<'_, Connection> {
