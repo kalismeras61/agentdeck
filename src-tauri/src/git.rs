@@ -76,6 +76,36 @@ pub fn root(dir: &str) -> Option<String> {
         .filter(|s| !s.is_empty())
 }
 
+/// The branch checked out in `dir` (or the repository it's in), read from git's own files
+/// without running git: cheap enough to call on every status change. None: detached or no repo.
+pub fn head_branch(dir: &str) -> Option<String> {
+    let mut d = Some(Path::new(dir));
+    while let Some(here) = d {
+        let dot = here.join(".git");
+        let gitdir = if dot.is_dir() {
+            Some(dot)
+        } else if dot.is_file() {
+            // A worktree or submodule: ".git" says where its git folder is.
+            std::fs::read_to_string(&dot).ok().and_then(|s| {
+                s.trim()
+                    .strip_prefix("gitdir:")
+                    .map(|p| here.join(p.trim()))
+            })
+        } else {
+            None
+        };
+        if let Some(g) = gitdir {
+            let head = std::fs::read_to_string(g.join("HEAD")).ok()?;
+            return head
+                .trim()
+                .strip_prefix("ref: refs/heads/")
+                .map(str::to_owned);
+        }
+        d = here.parent();
+    }
+    None
+}
+
 #[derive(Serialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct Branch {

@@ -1,4 +1,4 @@
-import { AlertTriangle, Bot, Check, ChevronRight, CloudOff, Copy, Download, FolderGit2, GitBranch, GitCommitHorizontal, Radio, RefreshCw, Search, Trash2, Users } from "lucide-react";
+import { AlertTriangle, Bot, Check, ChevronRight, Clock, CloudOff, Copy, Download, FolderGit2, GitBranch, GitCommitHorizontal, Radio, RefreshCw, Search, Trash2, Users } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { AgentMark, cx, StatusDot, Switch } from "../components/ui";
 import { demoBranchDetail, demoFilePair, demoTeam } from "../data/teamDemo";
@@ -30,7 +30,10 @@ import {
   type TeamOverview,
 } from "../lib/team";
 import { useStore } from "../state/store";
+import { hm, lastDays, sharedIn, sum, timeApi, total, type TimeRow } from "../lib/time";
+import { demoTimeRows } from "../data/teamDemo";
 import { MonacoDiff } from "./review/MonacoDiff";
+import { TimeTab } from "./team/TimeTab";
 import { ViewHeader } from "./ViewHeader";
 
 const DAYS = 30;
@@ -179,6 +182,17 @@ export function TeamView() {
   const [copied, setCopied] = useState(false);
   const [share, setShare] = useState<Presence | null>(null);
   const [open, setOpen] = useState<Record<string, boolean>>({ people: true, reviews: true, overlaps: true });
+  const [tab, setTab] = useState<"branches" | "time">("branches");
+  // Your own tracked time, the last 7 days, for the branch panel.
+  const [myTime, setMyTime] = useState<TimeRow[]>(() => (demo ? demoTimeRows() : []));
+  useEffect(() => {
+    if (demo) return;
+    timeApi
+      .report(7)
+      .then(setMyTime)
+      .catch(() => setMyTime([]));
+  }, [demo, picked]);
+  const week = useMemo(() => lastDays(7), []);
 
   const load = useCallback(
     (fetch: boolean) => {
@@ -324,6 +338,23 @@ export function TeamView() {
     );
   }
 
+  /** Someone's tracked time over the last 7 days: yours from this Mac, theirs from what they share. */
+  const weekOf = (p: Person) =>
+    total(p.me ? sum(myTime.filter((r) => week.includes(r.day) && (demo || r.projectId === projectId))) : sum(sharedIn(p.presence?.time, week)));
+  /** Time on a branch over the last 7 days, per person. */
+  const timeOn = (b: TeamBranch) => {
+    const names = [b.short, b.local].filter(Boolean) as string[];
+    const out: { name: string; email: string; ms: ReturnType<typeof sum> }[] = [];
+    const mine = sum(myTime.filter((r) => week.includes(r.day) && (demo || r.projectId === projectId) && names.includes(r.branch ?? "") ));
+    if (total(mine) > 0) out.push({ name: t("you"), email: o?.me.email ?? "", ms: mine });
+    for (const pr of o?.presence ?? []) {
+      if (pr.email === o?.me.email) continue;
+      const ms = sum(sharedIn(pr.time, week).filter((r) => names.includes(r.branch)));
+      if (total(ms) > 0) out.push({ name: pr.name, email: pr.email, ms });
+    }
+    return out;
+  };
+
   const personRow = (p: Person) => {
     const active = person === p.email;
     const live = p.online ? (p.presence?.sessions ?? []).filter((s) => Date.now() - s.updatedAt < 6 * 3_600_000).slice(0, 4) : [];
@@ -344,6 +375,7 @@ export function TeamView() {
               {p.me && <span className="shrink-0 rounded bg-violet-soft px-1 text-[10px] text-violet-text">{t("you")}</span>}
             </span>
             <span className="block truncate text-[11px] text-fg-3">
+              {weekOf(p) > 0 && <span className="tabular-nums">{t("{time} this week", { time: hm(weekOf(p)) })} · </span>}
               {p.working > 0
                 ? tn(p.working, "{n} agent working", "{n} agents working")
                 : p.branches.length
@@ -367,7 +399,32 @@ export function TeamView() {
 
   return (
     <div className="flex h-full flex-col">
-      <ViewHeader title={t("Team")} sub={o?.remoteUrl ?? undefined}>
+      <ViewHeader
+        title={t("Team")}
+        sub={o?.remoteUrl ?? undefined}
+        after={
+          <div role="tablist" aria-label={t("Team")} className="no-drag flex rounded-lg border border-line-soft p-0.5">
+            {(
+              [
+                ["branches", t("Branches"), GitBranch],
+                ["time", t("Time"), Clock],
+              ] as const
+            ).map(([id, label, Icon]) => (
+              <button
+                key={id}
+                type="button"
+                role="tab"
+                aria-selected={tab === id}
+                onClick={() => setTab(id)}
+                className={cx("flex h-6 items-center gap-1.5 rounded-md px-2 text-[12px]", tab === id ? "bg-elevated text-fg" : "text-fg-3 hover:text-fg")}
+              >
+                <Icon size={12} />
+                {label}
+              </button>
+            ))}
+          </div>
+        }
+      >
         {!demo && (
           <label className="flex items-center gap-2 text-[12.5px] text-fg-3">
             {t("Project")}
@@ -415,7 +472,9 @@ export function TeamView() {
         </div>
       )}
 
-      {error && !o ? (
+      {tab === "time" ? (
+        <TimeTab projectId={projectId} presence={o?.presence ?? []} me={o?.me.email ?? ""} />
+      ) : error && !o ? (
         <div className="m-auto max-w-[52ch] px-8 text-center">
           <FolderGit2 size={22} className="mx-auto text-fg-3" />
           <p className="mt-3 text-[14px] text-fg">{t("{name} isn't a git repository", { name: project?.name ?? "" })}</p>
@@ -633,6 +692,31 @@ export function TeamView() {
                       <span className="text-blue">{t("Your copy: {up} to push, {down} to pull", { up: branch.unpushed, down: branch.unpulled })}</span>
                     )}
                   </p>
+                  {timeOn(branch).length > 0 && (
+                    <div className="rounded-lg border border-line-soft px-2.5 py-1.5">
+                      <p className="mb-0.5 flex items-center gap-1 text-[11px] font-medium text-fg-3">
+                        <Clock size={11} />
+                        {t("Time on it, last 7 days")}
+                      </p>
+                      {timeOn(branch).map((x) => (
+                        <p key={x.email + x.name} className="flex items-center gap-2 py-0.5 text-[11.5px]">
+                          <span className="min-w-0 flex-1 truncate text-fg-2">{x.name}</span>
+                          <span className="tabular-nums text-fg-3" title={t("Agents working")}>
+                            <span aria-hidden className="me-1 inline-block h-1.5 w-1.5 rounded-full" style={{ background: "var(--chart-agent)" }} />
+                            {hm(x.ms.agentMs)}
+                          </span>
+                          <span className="tabular-nums text-fg-3" title={t("Waiting for you")}>
+                            <span aria-hidden className="me-1 inline-block h-1.5 w-1.5 rounded-full" style={{ background: "var(--chart-waiting)" }} />
+                            {hm(x.ms.waitingMs)}
+                          </span>
+                          <span className="tabular-nums text-fg-3" title={t("Your time")}>
+                            <span aria-hidden className="me-1 inline-block h-1.5 w-1.5 rounded-full" style={{ background: "var(--chart-you)" }} />
+                            {hm(x.ms.youMs)}
+                          </span>
+                        </p>
+                      ))}
+                    </div>
+                  )}
                   {liveOn(branch).length > 0 && (
                     <div className="rounded-lg border border-line-soft px-2.5 py-1.5">
                       <p className="mb-0.5 text-[11px] font-medium text-fg-3">{t("On it now")}</p>

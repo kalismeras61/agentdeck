@@ -110,6 +110,9 @@ pub struct Presence {
     pub worktrees: Vec<String>,
     #[serde(default)]
     pub sessions: Vec<PresenceSession>,
+    /// Time spent per branch and day (agents working, waiting, you), the last two weeks.
+    #[serde(default)]
+    pub time: Vec<crate::time::BranchDay>,
     pub updated_at: i64,
 }
 
@@ -565,6 +568,11 @@ pub fn parse_presence(bytes: &[u8]) -> Option<Presence> {
             updated_at: s.updated_at,
         })
         .collect();
+    p.time = std::mem::take(&mut p.time)
+        .into_iter()
+        .take(400)
+        .filter_map(crate::time::clean_branch_day)
+        .collect();
     Some(p)
 }
 
@@ -1002,6 +1010,13 @@ mod tests {
                 branch: Some("agentdeck/claude-code-1a2b".into()),
                 status: "running".into(),
                 updated_at: 5,
+            }],
+            time: vec![crate::time::BranchDay {
+                branch: "feature/login-ui".into(),
+                day: "2026-11-11".into(),
+                agent_ms: 3_600_000,
+                waiting_ms: 60_000,
+                you_ms: 900_000,
             }],
             updated_at: now_ms(),
         };

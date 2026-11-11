@@ -5,6 +5,7 @@
  */
 import { isTauri } from "./native";
 import type { GitChangedFile, GitCommit, LiveProvider, LiveSessionRow } from "./live";
+import { tzOffset, type BranchDay } from "./time";
 
 export type TeamAuthor = { name: string; email: string; commits: number; last: number };
 export type TeamBranch = {
@@ -27,7 +28,8 @@ export type TeamBranch = {
   unpulled: number;
 };
 export type PresenceSession = { title: string; agent: string; branch: string | null; status: "idle" | "running" | "waiting" | "error"; updatedAt: number };
-export type Presence = { version: number; name: string; email: string; branch: string | null; worktrees: string[]; sessions: PresenceSession[]; updatedAt: number };
+/** time: per branch and day, the last two weeks (version 2 and later). */
+export type Presence = { version: number; name: string; email: string; branch: string | null; worktrees: string[]; sessions: PresenceSession[]; time?: BranchDay[]; updatedAt: number };
 export type ReviewCheckout = { path: string; branch: string; upstream: string | null; behind: number; ahead: number; dirty: boolean };
 export type TeamOverview = {
   root: string;
@@ -54,11 +56,11 @@ export const teamApi = {
   available: isTauri,
   overview: (projectId: string, days: number) => call<TeamOverview>("team_overview", { projectId, days }),
   /** Fetches the remote first; a failed fetch comes back as syncError, not as an error. */
-  fetch: (projectId: string, days: number) => call<TeamOverview>("team_fetch", { projectId, days }),
+  fetch: (projectId: string, days: number) => call<TeamOverview>("team_fetch", { projectId, days, tzOffset: tzOffset() }),
   presencePreview: (projectId: string) => call<Presence>("team_presence_preview", { projectId }),
   setSharing: (projectId: string, on: boolean, days: number) => call<TeamOverview>("team_set_sharing", { projectId, on, days }),
   /** Shares again in every project you share; returns how many worked. */
-  heartbeat: () => call<number>("team_heartbeat"),
+  heartbeat: () => call<number>("team_heartbeat", { tzOffset: tzOffset() }),
   branch: (projectId: string, branch: string, base: string) => call<BranchDetail>("team_branch", { projectId, branch, base }),
   checkout: (projectId: string, branch: string) => call<ReviewCheckout>("team_review_checkout", { projectId, branch }),
   update: (projectId: string, path: string) => call<ReviewCheckout>("team_review_update", { projectId, path }),

@@ -453,6 +453,22 @@ pub struct Db {
     conn: Mutex<Connection>,
 }
 
+/// The statuses whose time is tracked.
+fn tracked(status: &str) -> bool {
+    status == "running" || status == "waiting"
+}
+
+/// A stretch of time a session spent working ("running") or waiting for you ("waiting").
+#[derive(Debug, Clone, PartialEq)]
+pub struct TimeSpan {
+    pub session_id: String,
+    pub project_id: String,
+    pub status: String,
+    pub branch: Option<String>,
+    pub start: i64,
+    pub end: i64,
+}
+
 pub fn now_ms() -> i64 {
     std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
@@ -626,6 +642,15 @@ impl Db {
              CREATE INDEX IF NOT EXISTS bot_tasks_queue ON bot_tasks(bot_id, status, queued_at);",
         )?;
         Self::migrate_v9(&conn)?;
+        // Time tracking: one row per stretch a session spent working ("running") or waiting for
+        // you ("waiting"), with the branch it was on. An open stretch has no end yet.
+        conn.execute_batch(
+            "CREATE TABLE IF NOT EXISTS session_time (
+               session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+               status TEXT NOT NULL, branch TEXT, start INTEGER NOT NULL, end INTEGER);
+             CREATE INDEX IF NOT EXISTS session_time_start ON session_time(start);
+             CREATE INDEX IF NOT EXISTS session_time_open ON session_time(session_id) WHERE end IS NULL;",
+        )?;
         // v10: a task's own model and effort, its worktree, and what it used.
         for (col, ty) in [
             ("model", "TEXT"),
@@ -1029,6 +1054,9 @@ impl Db {
         model: Option<&str>,
         provider_session_id: Option<&str>,
     ) -> rusqlite::Result<Option<SessionRow>> {
+        if let Some(st) = status {
+            self.track_status(id, st)?;
+        }
         {
             let c = self.conn();
             c.execute(
@@ -1052,6 +1080,86 @@ impl Db {
             )?;
         }
         self.session(id)
+    }
+
+    /// Closes the session's open time stretch when its status changes, and opens one when it
+    /// starts working or waiting for you.
+    fn track_status(&self, id: &str, status: &str) -> rusqlite::Result<()> {
+        let now = now_ms();
+        // status, worktree, branch, project folder
+        type Row = (String, Option<String>, Option<String>, Option<String>);
+        let row: Option<Row> = self
+            .conn()
+            .query_row(
+                "SELECT s.status, s.worktree, s.branch, p.path FROM sessions s LEFT JOIN projects p ON p.id = s.project_id WHERE s.id = ?1",
+                params![id],
+                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)),
+            )
+            .optional()?;
+        let Some((old, worktree, branch, path)) = row else {
+            return Ok(());
+        };
+        let open: Option<String> = self
+            .conn()
+            .query_row(
+                "SELECT status FROM session_time WHERE session_id = ?1 AND end IS NULL",
+                params![id],
+                |r| r.get(0),
+            )
+            .optional()?;
+        if old == status && open.as_deref() == tracked(status).then_some(status) {
+            return Ok(());
+        }
+        self.conn().execute(
+            "UPDATE session_time SET end = MAX(start, ?2) WHERE session_id = ?1 AND end IS NULL",
+            params![id, now],
+        )?;
+        if tracked(status) {
+            // The worktree's branch, or what the project folder has checked out right now.
+            let branch = match worktree.filter(|w| !w.is_empty()) {
+                Some(w) => branch.or_else(|| crate::git::head_branch(&w)),
+                None => path.as_deref().and_then(crate::git::head_branch),
+            };
+            self.conn().execute(
+                "INSERT INTO session_time(session_id, status, branch, start, end) VALUES (?1, ?2, ?3, ?4, NULL)",
+                params![id, status, branch, now],
+            )?;
+        }
+        Ok(())
+    }
+
+    /// Time stretches that overlap [since, now], open ones ending now.
+    pub fn time_spans(&self, since: i64) -> rusqlite::Result<Vec<TimeSpan>> {
+        let now = now_ms();
+        let c = self.conn();
+        let mut st = c.prepare(
+            "SELECT t.session_id, s.project_id, t.status, t.branch, t.start, COALESCE(t.end, ?2)
+             FROM session_time t JOIN sessions s ON s.id = t.session_id
+             WHERE COALESCE(t.end, ?2) > ?1 ORDER BY t.start",
+        )?;
+        let rows = st.query_map(params![since, now], |r| {
+            Ok(TimeSpan {
+                session_id: r.get(0)?,
+                project_id: r.get(1)?,
+                status: r.get(2)?,
+                branch: r.get(3)?,
+                start: r.get(4)?,
+                end: r.get(5)?,
+            })
+        })?;
+        rows.collect()
+    }
+
+    /// When you wrote to, approved for or answered an agent since `since`: (session, time).
+    pub fn interactions(&self, since: i64) -> rusqlite::Result<Vec<(String, i64)>> {
+        let c = self.conn();
+        let mut st = c.prepare(
+            "SELECT e.session_id, e.ts FROM events e
+             WHERE e.ts > ?1 AND e.kind IN ('user_message', 'permission_decision', 'question_answered')
+             ORDER BY e.ts",
+        )?;
+        let rows = st.query_map(params![since], |r| Ok((r.get(0)?, r.get(1)?)))?;
+        rows.collect()
     }
 
     pub fn delete_session(&self, id: &str) -> rusqlite::Result<()> {
@@ -1746,6 +1854,12 @@ impl Db {
             "UPDATE bot_tasks SET status = 'queued', started_at = NULL WHERE status = 'running'",
             [],
         )?;
+        // Stretches left open when AgentDeck closed end at the session's last event, not now.
+        self.conn().execute(
+            "UPDATE session_time SET end = MAX(start, COALESCE((SELECT MAX(ts) FROM events e WHERE e.session_id = session_time.session_id), start))
+             WHERE end IS NULL",
+            [],
+        )?;
         let ids: Vec<String> = {
             let c = self.conn();
             let mut st =
@@ -1909,6 +2023,7 @@ impl Db {
     }
 
     pub fn update_session_agent_id_clear(&self, id: &str) -> rusqlite::Result<Option<SessionRow>> {
+        self.track_status(id, "idle")?;
         self.conn().execute(
             "UPDATE sessions SET provider_session_id = NULL, status = 'idle', updated_at = ?2 WHERE id = ?1",
             params![id, now_ms()],
@@ -2393,5 +2508,104 @@ mod tests {
             db.bot_schedule(&s.id).unwrap().is_none(),
             "schedules go with their bot"
         );
+    }
+
+    #[test]
+    fn working_and_waiting_time_is_tracked_with_the_branch() {
+        let d = tempfile::tempdir().unwrap();
+        let repo = d.path().join("app");
+        std::fs::create_dir_all(repo.join(".git")).unwrap();
+        std::fs::write(repo.join(".git/HEAD"), "ref: refs/heads/feature/login\n").unwrap();
+        std::fs::create_dir_all(repo.join("src")).unwrap();
+        let db = Db::open(&d.path().join("t.db")).unwrap();
+        // The project is a subfolder of the repository: its branch is still found.
+        let p = db
+            .add_project("app", &repo.join("src").to_string_lossy())
+            .unwrap();
+        let s = db
+            .create_session(&p.id, "claude-code", "default", "x")
+            .unwrap();
+
+        db.update_session(&s.id, Some("running"), None, None, None, None)
+            .unwrap();
+        // The same status again doesn't start a new stretch.
+        db.update_session(&s.id, Some("running"), Some("…"), None, None, None)
+            .unwrap();
+        db.update_session(&s.id, Some("waiting"), None, None, None, None)
+            .unwrap();
+        db.update_session(&s.id, Some("idle"), None, None, None, None)
+            .unwrap();
+        let spans = db.time_spans(0).unwrap();
+        assert_eq!(
+            spans.iter().map(|x| x.status.as_str()).collect::<Vec<_>>(),
+            ["running", "waiting"]
+        );
+        assert!(spans
+            .iter()
+            .all(|x| x.branch.as_deref() == Some("feature/login") && x.end >= x.start));
+
+        // A worktree session uses its own branch.
+        let w = db.create_session(&p.id, "codex", "default", "y").unwrap();
+        db.set_session_worktree(
+            &w.id,
+            Some("/nowhere/app.worktrees/codex-1"),
+            Some("agentdeck/codex-1"),
+        )
+        .unwrap();
+        db.update_session(&w.id, Some("running"), None, None, None, None)
+            .unwrap();
+        let open = db
+            .time_spans(0)
+            .unwrap()
+            .into_iter()
+            .find(|x| x.session_id == w.id)
+            .unwrap();
+        assert_eq!(open.branch.as_deref(), Some("agentdeck/codex-1"));
+
+        // AgentDeck closed while it worked: the stretch ends at its last event, not at the restart.
+        db.append_event(&w.id, "codex", "assistant", &serde_json::json!({}))
+            .unwrap();
+        db.conn()
+            .execute(
+                "UPDATE session_time SET start = start - 600000 WHERE end IS NULL",
+                [],
+            )
+            .unwrap();
+        let last: i64 = db
+            .conn()
+            .query_row(
+                "SELECT MAX(ts) FROM events WHERE session_id = ?1",
+                params![w.id],
+                |r| r.get(0),
+            )
+            .unwrap();
+        db.recover_after_restart().unwrap();
+        let closed = db
+            .time_spans(0)
+            .unwrap()
+            .into_iter()
+            .find(|x| x.session_id == w.id)
+            .unwrap();
+        assert_eq!(closed.end, last);
+        assert!(
+            db.conn()
+                .query_row(
+                    "SELECT COUNT(*) FROM session_time WHERE end IS NULL",
+                    [],
+                    |r| r.get::<_, i64>(0)
+                )
+                .unwrap()
+                == 0
+        );
+
+        // Your messages are read back for your time.
+        db.append_event(
+            &s.id,
+            "agentdeck",
+            "user_message",
+            &serde_json::json!({"text": "hi"}),
+        )
+        .unwrap();
+        assert_eq!(db.interactions(0).unwrap().len(), 1);
     }
 }

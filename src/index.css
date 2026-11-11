@@ -24,6 +24,10 @@
   --text-2: #9ca3b8;
   --text-3: #8a91a7;
   --violet: #8b5cf6;
+  /* Time chart series (validated with the dataviz palette checks): agents, waiting, you. */
+  --chart-agent: #8b5cf6;
+  --chart-waiting: #ec4899;
+  --chart-you: #3b82f6;
   --violet-soft: rgb(139 92 246 / 0.14);
   --violet-text: #c4b5fd;
   /* Filled buttons: white label needs ≥4.5:1, which the #8b5cf6 accent alone doesn't reach. */
@@ -62,6 +66,9 @@
   --text-2: #4f566b;
   --text-3: #5a6176;
   --violet: #7c3aed;
+  --chart-agent: #7c3aed;
+  --chart-waiting: #db2777;
+  --chart-you: #2563eb;
   --violet-soft: rgb(124 58 237 / 0.1);
   --violet-text: #6d28d9;
   --violet-strong: #6d28d9;

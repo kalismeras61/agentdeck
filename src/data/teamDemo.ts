@@ -1,9 +1,60 @@
 /** Sample team for the web preview's Team view: labeled as demo data wherever it shows. */
 import type { GitFilePair } from "../lib/live";
 import type { BranchDetail, TeamBranch, TeamOverview } from "../lib/team";
+import { lastDays, type BranchDay, type TimeRow } from "../lib/time";
 
 const MIN = 60_000;
 const HOUR = 60 * MIN;
+
+/** Sample sessions behind the demo time rows: id → title. */
+export const DEMO_TIME_SESSIONS: Record<string, string> = {
+  "demo-checkout": "Address step for checkout",
+  "demo-cart": "Keep the cart offline",
+  "demo-review": "Review fix/payment-timeout",
+  "demo-tests": "Fix the flaky checkout tests",
+};
+
+/** A steady, made-up working pattern: the same every time for a given day. */
+function wave(day: string, salt: number, max: number): number {
+  let h = salt;
+  for (const c of day) h = (h * 33 + c.charCodeAt(0)) >>> 0;
+  return Math.round(((h % 1000) / 1000) * max);
+}
+
+export function demoTimeRows(now = Date.now()): TimeRow[] {
+  const days = lastDays(30, now);
+  const rows: TimeRow[] = [];
+  days.forEach((day, i) => {
+    const weekend = new Date(day + "T12:00:00").getDay() % 6 === 0;
+    if (weekend && i % 3) return;
+    const scale = weekend ? 0.3 : 1;
+    const sessions: [string, string, number][] = [
+      ["demo-checkout", "feature/checkout-v2", 1],
+      ["demo-cart", "spike/offline-cart", i % 2],
+      ["demo-review", "fix/payment-timeout", i % 4 === 0 ? 1 : 0],
+      ["demo-tests", "feature/checkout-v2", i % 3 === 1 ? 1 : 0],
+    ];
+    sessions.forEach(([sessionId, branch, on], k) => {
+      if (!on) return;
+      rows.push({
+        projectId: "shop-app",
+        sessionId,
+        branch,
+        day,
+        agentMs: Math.round(scale * (25 * MIN + wave(day, k + 1, 110 * MIN))),
+        waitingMs: Math.round(scale * (2 * MIN + wave(day, k + 7, 18 * MIN))),
+        youMs: Math.round(scale * (8 * MIN + wave(day, k + 13, 40 * MIN))),
+      });
+    });
+  });
+  return rows;
+}
+
+function demoShared(now: number, branch: string, salt: number): BranchDay[] {
+  return lastDays(14, now)
+    .filter((d) => new Date(d + "T12:00:00").getDay() % 6 !== 0)
+    .map((day) => ({ branch, day, agentMs: 30 * MIN + wave(day, salt, 150 * MIN), waitingMs: 3 * MIN + wave(day, salt + 1, 20 * MIN), youMs: 10 * MIN + wave(day, salt + 2, 60 * MIN) }));
+}
 
 function branch(b: Partial<TeamBranch> & Pick<TeamBranch, "name" | "short" | "subject" | "author" | "email" | "time">): TeamBranch {
   return {
@@ -115,6 +166,7 @@ export function demoTeam(now = Date.now()): TeamOverview {
         branch: "main",
         worktrees: ["feature/login-redesign"],
         updatedAt: now - 1 * MIN,
+        time: demoShared(now, "feature/login-redesign", 3),
         sessions: [
           { title: "Redesign the login screen", agent: "Claude Code", branch: "feature/login-redesign", status: "running", updatedAt: now - MIN },
           { title: "Write tests for the validators", agent: "Codex", branch: "feature/login-redesign", status: "waiting", updatedAt: now - 4 * MIN },
@@ -127,6 +179,7 @@ export function demoTeam(now = Date.now()): TeamOverview {
         branch: "fix/payment-timeout",
         worktrees: [],
         updatedAt: now - 3 * MIN,
+        time: demoShared(now, "fix/payment-timeout", 11),
         sessions: [{ title: "Why does the payment time out on 3G?", agent: "Gemini CLI", branch: "fix/payment-timeout", status: "idle", updatedAt: now - 20 * MIN }],
       },
       {

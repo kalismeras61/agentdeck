@@ -34,6 +34,7 @@ mod setup;
 mod shellenv;
 mod team;
 mod telegram;
+mod time;
 mod triggers;
 mod unattended;
 mod updates;
@@ -379,6 +380,92 @@ fn team_key(project_id: &str, what: &str) -> String {
     format!("team.{what}.{project_id}")
 }
 
+/// The interface's UTC offset in minutes, remembered so presence shared in the background uses
+/// your local days.
+fn tz_of(db: &Db, given: Option<i64>) -> CmdResult<i64> {
+    match given {
+        Some(tz) if (-14 * 60..=14 * 60).contains(&tz) => {
+            db.set_meta("tz_offset", &tz.to_string()).map_err(err)?;
+            Ok(tz)
+        }
+        _ => Ok(db
+            .meta("tz_offset")
+            .map_err(err)?
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(0)),
+    }
+}
+
+/// Tracked time since `since`, by project, session, branch and local day.
+fn time_rows(db: &Db, since: i64, tz: i64) -> CmdResult<Vec<time::TimeRow>> {
+    let projects = db.list_projects().map_err(err)?;
+    let hidden: std::collections::HashSet<String> = projects
+        .iter()
+        .filter(|p| p.hidden)
+        .map(|p| p.id.clone())
+        .collect();
+    use std::collections::HashMap;
+    let path_of: HashMap<String, String> = projects
+        .iter()
+        .map(|p| (p.id.clone(), p.path.clone()))
+        .collect();
+    let sessions = db.list_sessions().map_err(err)?;
+    let project_of: HashMap<String, String> = sessions
+        .iter()
+        .map(|s| (s.id.clone(), s.project_id.clone()))
+        .collect();
+    let humans = sessions
+        .iter()
+        .filter(|s| !hidden.contains(&s.project_id))
+        .map(|s| s.id.clone())
+        .collect();
+    let mut heads: HashMap<String, Option<String>> = HashMap::new();
+    let branch_now = sessions
+        .iter()
+        .map(|s| {
+            let b = match (&s.worktree, &s.branch) {
+                (Some(w), b) if !w.is_empty() => b.clone().or_else(|| git::head_branch(w)),
+                _ => heads
+                    .entry(s.project_id.clone())
+                    .or_insert_with(|| path_of.get(&s.project_id).and_then(|p| git::head_branch(p)))
+                    .clone(),
+            };
+            (s.id.clone(), b)
+        })
+        .collect();
+    let spans = db.time_spans(since).map_err(err)?;
+    // Your earlier message sets how much the first one in range counts.
+    let inter = db.interactions(since - time::FOCUS_GAP_MS).map_err(err)?;
+    Ok(time::report(
+        &spans,
+        &inter,
+        &project_of,
+        &humans,
+        &branch_now,
+        since,
+        tz,
+    ))
+}
+
+/// Time spent with agents over the last `days` days (today included), in local days.
+#[tauri::command]
+async fn time_report(
+    state: State<'_, AppState>,
+    days: u32,
+    tz_offset: Option<i64>,
+) -> CmdResult<Vec<time::TimeRow>> {
+    let db = state.db.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let tz = tz_of(&db, tz_offset)?;
+        let now = team::now_ms();
+        let today = (now + tz * 60_000).div_euclid(time::DAY_MS);
+        let since = (today - days.clamp(1, 400) as i64 + 1) * time::DAY_MS - tz * 60_000;
+        time_rows(&db, since, tz)
+    })
+    .await
+    .map_err(err)?
+}
+
 /// What you share with your team about a project: who you are (git's user.name and email), the
 /// branch the project folder is on, your worktrees' branches and your recent sessions there.
 fn team_presence_of(db: &Db, project_id: &str, dir: &str) -> CmdResult<team::Presence> {
@@ -403,8 +490,12 @@ fn team_presence_of(db: &Db, project_id: &str, dir: &str) -> CmdResult<team::Pre
         .filter_map(|w| w.branch)
         .take(30)
         .collect();
+    let tz = tz_of(db, None)?;
+    let since = team::now_ms() - 14 * time::DAY_MS;
+    let time = time::branch_days(&time_rows(db, since, tz)?, project_id, 200);
     Ok(team::Presence {
-        version: 1,
+        version: 2,
+        time,
         name: me.name,
         email: me.email,
         branch: current.clone(),
@@ -468,9 +559,11 @@ async fn team_fetch(
     state: State<'_, AppState>,
     project_id: String,
     days: Option<u32>,
+    tz_offset: Option<i64>,
 ) -> CmdResult<team::TeamOverview> {
     let d = repo_dir(&state.db, &project_id, None)?;
     let db = state.db.clone();
+    tz_of(&db, tz_offset)?;
     tauri::async_runtime::spawn_blocking(move || {
         let mut problem = team::fetch(&d).err();
         if problem.is_none() {
@@ -540,8 +633,9 @@ async fn team_set_sharing(
 /// Shares your presence again in every project you share (called every few minutes and when
 /// your sessions change). Projects that fail are skipped quietly; the Team view says why.
 #[tauri::command]
-async fn team_heartbeat(state: State<'_, AppState>) -> CmdResult<u32> {
+async fn team_heartbeat(state: State<'_, AppState>, tz_offset: Option<i64>) -> CmdResult<u32> {
     let db = state.db.clone();
+    tz_of(&db, tz_offset)?;
     tauri::async_runtime::spawn_blocking(move || {
         let mut n = 0;
         for p in db.list_projects().map_err(err)? {
@@ -2920,6 +3014,7 @@ pub fn run() {
             team_review_update,
             team_review_remove,
             team_review_session,
+            time_report,
             term_sign_in,
             allow_antigravity_rules,
             agent_approvals,
