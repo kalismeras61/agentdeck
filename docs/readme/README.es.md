@@ -50,7 +50,7 @@ Las capturas e imágenes que un agente toma o consulta (una captura del simulado
 
 ### Aprueba, deniega o deja que pregunte
 
-Los comandos y las ediciones que necesitan tu visto bueno aparecen como tarjetas que indican qué se va a ejecutar, dónde, a qué afecta y qué riesgo tiene. El modo plan permite que un agente lea y proponga antes de cambiar nada. Cuando un agente tiene una pregunta (AskUserQuestion de Claude Code, request_user_input de Codex), recibes un formulario de verdad: elige una opción, varias o escribe la tuya.
+Los comandos y las ediciones que necesitan tu visto bueno aparecen como tarjetas que indican qué se va a ejecutar, dónde, a qué afecta y qué riesgo tiene. El modo plan permite que un agente lea y proponga antes de cambiar nada. Cada agente tiene además un nivel de aprobación, en el compositor y en Ajustes: preguntar siempre, dejar pasar las ediciones de archivos, Auto (las ediciones y los comandos normales siguen adelante; los arriesgados y todo lo que está fuera del proyecto te siguen esperando) o todo. Cuando un agente tiene una pregunta (AskUserQuestion de Claude Code, request_user_input de Codex), recibes un formulario de verdad: elige una opción, varias o escribe la tuya.
 
 ![Un agente haciendo dos preguntas, una de opción única y otra de opción múltiple](../screenshots/readme/question.png)
 
@@ -162,7 +162,7 @@ macOS 12 o posterior, Apple Silicon o Intel.
 
 - Cada agente se ejecuta como un proceso hijo en la carpeta de la sesión, con el entorno de tu shell de inicio de sesión.
 - Su salida se guarda tal cual y luego se normaliza en un único flujo de eventos (mensajes, llamadas a herramientas, diffs, aprobaciones, preguntas, planes) que se valida antes de mostrar nada. Todo lo que esté mal formado se muestra como un error claro y nunca se ejecuta.
-- Las aprobaciones solo las respondes tú, o un flujo de trabajo en el caso de solicitudes normales; nada peligroso se aprueba automáticamente.
+- Las aprobaciones las respondes tú, un flujo de trabajo o un bot en el caso de solicitudes normales, o el nivel de aprobación que elegiste para un agente. No se aprueba nada peligroso por ti a menos que pongas un agente en «Todo».
 - El frontend no tiene acceso al shell: solo puede llamar a los comandos propios y acotados de AgentDeck.
 
 ## Compilar desde el código fuente

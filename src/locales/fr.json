@@ -1578,5 +1578,15 @@
   "In a project that's a git repository, every task gets a fresh worktree on a new branch, so several bots can work on one project at once. You (or a reviewer bot) merge the branch.": "Dans un projet qui est un dépôt git, chaque tâche obtient un nouveau worktree sur une nouvelle branche, pour que plusieurs bots travaillent sur un même projet en même temps. Vous (ou un bot relecteur) fusionnez la branche.",
   "No tasks finished": "Aucune tâche terminée",
   "This agent doesn't report what a task used.": "Cet agent n'indique pas ce qu'une tâche a consommé.",
-  "Usage": "Consommation"
+  "Usage": "Consommation",
+  "Allowed by your approval setting": "Autorisé par votre réglage d'approbation",
+  "Applies right away to every {agent} session you run, including requests already waiting. Bots and workflows keep their own rules.": "S'applique tout de suite à chaque session {agent} que vous lancez, y compris aux demandes en attente. Les bots et workflows gardent leurs propres règles.",
+  "Ask every time": "Demander à chaque fois",
+  "Click again to turn it on for every {agent} session.": "Cliquez à nouveau pour l'activer dans toutes les sessions {agent}.",
+  "Edits and ordinary commands go ahead. Risky ones (deleting, pushing, deploying, secrets, sudo…) and anything outside the project wait for you.": "Les modifications et les commandes ordinaires passent. Les risquées (suppression, push, déploiement, secrets, sudo…) et tout ce qui sort du projet vous attendent.",
+  "Edits inside the project go ahead; commands and everything else wait for you.": "Les modifications dans le projet passent ; les commandes et tout le reste vous attendent.",
+  "Every edit and command waits for your OK.": "Chaque modification et commande attend votre accord.",
+  "Nothing waits: deletions, pushes and deploys run without asking. Only for projects you can afford to lose work in.": "Rien n'attend : suppressions, pushs et déploiements s'exécutent sans demander. Seulement pour des projets où vous pouvez vous permettre de perdre du travail.",
+  "What {agent} may do without asking you": "Ce que {agent} peut faire sans vous demander",
+  "What {agent} may do without asking you. Questions and plans always wait for you.": "Ce que {agent} peut faire sans vous demander. Les questions et les plans vous attendent toujours."
 }

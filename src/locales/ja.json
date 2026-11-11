@@ -1484,5 +1484,15 @@
   "In a project that's a git repository, every task gets a fresh worktree on a new branch, so several bots can work on one project at once. You (or a reviewer bot) merge the branch.": "git リポジトリのプロジェクトでは、各タスクが新しいブランチの新しい worktree で動くので、複数のボットが同じプロジェクトを同時に進められます。ブランチのマージはあなた（またはレビュー用ボット）が行います。",
   "No tasks finished": "完了したタスクはありません",
   "This agent doesn't report what a task used.": "このエージェントはタスクの使用量を報告しません。",
-  "Usage": "使用量"
+  "Usage": "使用量",
+  "Allowed by your approval setting": "承認設定により許可",
+  "Applies right away to every {agent} session you run, including requests already waiting. Bots and workflows keep their own rules.": "あなたが実行するすべての{agent}セッションにすぐ適用され、待機中のリクエストも対象です。ボットとワークフローは独自のルールに従います。",
+  "Ask every time": "毎回確認する",
+  "Click again to turn it on for every {agent} session.": "もう一度クリックすると、すべての{agent}セッションで有効になります。",
+  "Edits and ordinary commands go ahead. Risky ones (deleting, pushing, deploying, secrets, sudo…) and anything outside the project wait for you.": "編集と通常のコマンドはそのまま進みます。危険なもの（削除、プッシュ、デプロイ、シークレット、sudo…）とプロジェクト外のものはあなたを待ちます。",
+  "Edits inside the project go ahead; commands and everything else wait for you.": "プロジェクト内の編集はそのまま進みます。コマンドとその他はすべてあなたを待ちます。",
+  "Every edit and command waits for your OK.": "すべての編集とコマンドがあなたの承認を待ちます。",
+  "Nothing waits: deletions, pushes and deploys run without asking. Only for projects you can afford to lose work in.": "何も待ちません：削除、プッシュ、デプロイも確認なしで実行します。作業を失っても構わないプロジェクト専用です。",
+  "What {agent} may do without asking you": "{agent}が確認なしでできること",
+  "What {agent} may do without asking you. Questions and plans always wait for you.": "{agent}が確認なしでできること。質問とプランは常にあなたを待ちます。"
 }

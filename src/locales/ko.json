@@ -1484,5 +1484,15 @@
   "In a project that's a git repository, every task gets a fresh worktree on a new branch, so several bots can work on one project at once. You (or a reviewer bot) merge the branch.": "git 저장소인 프로젝트에서는 작업마다 새 브랜치의 새 worktree가 만들어져, 여러 봇이 한 프로젝트에서 동시에 일할 수 있습니다. 브랜치 병합은 직접(또는 리뷰 봇이) 합니다.",
   "No tasks finished": "완료된 작업 없음",
   "This agent doesn't report what a task used.": "이 에이전트는 작업 사용량을 알려 주지 않습니다.",
-  "Usage": "사용량"
+  "Usage": "사용량",
+  "Allowed by your approval setting": "승인 설정에 따라 허용됨",
+  "Applies right away to every {agent} session you run, including requests already waiting. Bots and workflows keep their own rules.": "실행하는 모든 {agent} 세션에 바로 적용되며, 이미 대기 중인 요청도 포함됩니다. 봇과 워크플로는 각자의 규칙을 따릅니다.",
+  "Ask every time": "매번 묻기",
+  "Click again to turn it on for every {agent} session.": "모든 {agent} 세션에서 켜려면 다시 클릭하세요.",
+  "Edits and ordinary commands go ahead. Risky ones (deleting, pushing, deploying, secrets, sudo…) and anything outside the project wait for you.": "편집과 일반 명령은 바로 진행됩니다. 위험한 작업(삭제, 푸시, 배포, 비밀 정보, sudo…)과 프로젝트 밖의 모든 것은 승인을 기다립니다.",
+  "Edits inside the project go ahead; commands and everything else wait for you.": "프로젝트 안의 편집은 바로 진행되고, 명령과 그 밖의 모든 것은 승인을 기다립니다.",
+  "Every edit and command waits for your OK.": "모든 편집과 명령이 승인을 기다립니다.",
+  "Nothing waits: deletions, pushes and deploys run without asking. Only for projects you can afford to lose work in.": "아무것도 기다리지 않습니다: 삭제, 푸시, 배포도 묻지 않고 실행됩니다. 작업을 잃어도 괜찮은 프로젝트에서만 쓰세요.",
+  "What {agent} may do without asking you": "{agent}이(가) 묻지 않고 할 수 있는 일",
+  "What {agent} may do without asking you. Questions and plans always wait for you.": "{agent}이(가) 묻지 않고 할 수 있는 일. 질문과 계획은 항상 기다립니다."
 }

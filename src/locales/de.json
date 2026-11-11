@@ -1531,5 +1531,15 @@
   "In a project that's a git repository, every task gets a fresh worktree on a new branch, so several bots can work on one project at once. You (or a reviewer bot) merge the branch.": "In einem Projekt, das ein Git-Repository ist, bekommt jede Aufgabe einen frischen Worktree auf einem neuen Branch, sodass mehrere Bots gleichzeitig an einem Projekt arbeiten können. Den Branch führst du (oder ein Review-Bot) zusammen.",
   "No tasks finished": "Keine Aufgaben abgeschlossen",
   "This agent doesn't report what a task used.": "Dieser Agent meldet nicht, was eine Aufgabe verbraucht hat.",
-  "Usage": "Verbrauch"
+  "Usage": "Verbrauch",
+  "Allowed by your approval setting": "Durch deine Freigabe-Einstellung erlaubt",
+  "Applies right away to every {agent} session you run, including requests already waiting. Bots and workflows keep their own rules.": "Gilt sofort für jede {agent}-Sitzung, die du startest, auch für bereits wartende Anfragen. Bots und Workflows behalten ihre eigenen Regeln.",
+  "Ask every time": "Jedes Mal fragen",
+  "Click again to turn it on for every {agent} session.": "Erneut klicken, um es für jede {agent}-Sitzung einzuschalten.",
+  "Edits and ordinary commands go ahead. Risky ones (deleting, pushing, deploying, secrets, sudo…) and anything outside the project wait for you.": "Änderungen und gewöhnliche Befehle laufen ohne Rückfrage. Riskante (Löschen, Pushen, Deployen, Geheimnisse, sudo…) und alles außerhalb des Projekts warten auf dich.",
+  "Edits inside the project go ahead; commands and everything else wait for you.": "Änderungen im Projekt laufen ohne Rückfrage; Befehle und alles andere warten auf dich.",
+  "Every edit and command waits for your OK.": "Jede Änderung und jeder Befehl wartet auf dein OK.",
+  "Nothing waits: deletions, pushes and deploys run without asking. Only for projects you can afford to lose work in.": "Nichts wartet: Löschen, Pushes und Deploys laufen ohne Rückfrage. Nur für Projekte, bei denen du Arbeit verlieren kannst.",
+  "What {agent} may do without asking you": "Was {agent} ohne Rückfrage tun darf",
+  "What {agent} may do without asking you. Questions and plans always wait for you.": "Was {agent} ohne Rückfrage tun darf. Fragen und Pläne warten immer auf dich."
 }

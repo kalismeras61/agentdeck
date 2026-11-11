@@ -7,6 +7,7 @@ import { AgentMark, cx, Kbd, Switch } from "../components/ui";
 import { liveProviders, providerLabel } from "../data/demo";
 import { ModelMenu } from "../components/ModelMenu";
 import { AgyApprovalsMenu } from "../components/AgyApprovals";
+import { ApprovalsMenu } from "../components/Approvals";
 import { usePermissions } from "../hooks/useDerived";
 import { getParsed } from "../hooks/useSession";
 import type { ProviderId } from "../lib/events";
@@ -355,6 +356,14 @@ export function Settings() {
                               </dd>
                             </>
                           )}
+                        </>
+                      )}
+                      {id !== "antigravity" && (
+                        <>
+                          <dt className="text-fg-3">{t("Approvals")}</dt>
+                          <dd>
+                            <ApprovalsMenu provider={id} side="bottom" />
+                          </dd>
                         </>
                       )}
                       {(id === "gemini-cli" || id === "grok-build") && (

@@ -42,6 +42,8 @@ export type SessionMode = "default" | "plan";
 export type LiveProvider = "claude-code" | "codex" | "gemini-cli" | "grok-build" | "kimi-code" | "antigravity" | "api";
 
 export type AgyApprovals = "edits" | "auto" | "all";
+/** How much an agent may do without asking in your own sessions. */
+export type AgentApprovals = "ask" | "edits" | "auto" | "all";
 
 /* git */
 export type GitBranch = { name: string; hash: string; current: boolean; upstream: string | null; ahead: number; behind: number; worktree: string | null };
@@ -428,6 +430,10 @@ export const liveApi = {
   respond: (sessionId: string, requestId: string, decision: string) => call<void>("respond_permission", { sessionId, requestId, decision }),
   interrupt: (sessionId: string) => call<void>("interrupt_session", { sessionId }),
   stop: (sessionId: string) => call<void>("stop_session", { sessionId }),
+  /** Every agent's approval level, by provider (Antigravity has its own, below). */
+  agentApprovals: () => call<Record<string, AgentApprovals>>("agent_approvals"),
+  /** Sets one; returns how many waiting requests it answered. */
+  setAgentApprovals: (provider: string, level: AgentApprovals) => call<number>("set_agent_approvals", { provider, level }),
   /** How much Antigravity may do without asking: "edits" | "auto" | "all". */
   antigravityApprovals: () => call<AgyApprovals>("antigravity_approvals"),
   setAntigravityApprovals: (level: AgyApprovals, sessionId?: string) => call<AgyApprovals>("set_antigravity_approvals", { level, sessionId: sessionId ?? null }),

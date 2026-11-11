@@ -1719,5 +1719,15 @@
   "In a project that's a git repository, every task gets a fresh worktree on a new branch, so several bots can work on one project at once. You (or a reviewer bot) merge the branch.": "في مشروع هو مستودع git، تحصل كل مهمة على worktree جديد في فرع جديد، فيمكن لعدة بوتات العمل على مشروع واحد في الوقت نفسه. أنت (أو بوت مراجعة) تدمج الفرع.",
   "No tasks finished": "لا مهام منتهية",
   "This agent doesn't report what a task used.": "هذا الوكيل لا يبلّغ عمّا استهلكته المهمة.",
-  "Usage": "الاستهلاك"
+  "Usage": "الاستهلاك",
+  "Allowed by your approval setting": "مسموح حسب إعداد الموافقات لديك",
+  "Applies right away to every {agent} session you run, including requests already waiting. Bots and workflows keep their own rules.": "يُطبَّق فورًا على كل جلسة {agent} تشغّلها، بما فيها الطلبات المنتظرة. تحتفظ البوتات ومسارات العمل بقواعدها الخاصة.",
+  "Ask every time": "اسأل في كل مرة",
+  "Click again to turn it on for every {agent} session.": "انقر مجددًا لتفعيله لكل جلسات {agent}.",
+  "Edits and ordinary commands go ahead. Risky ones (deleting, pushing, deploying, secrets, sudo…) and anything outside the project wait for you.": "تمضي التعديلات والأوامر العادية دون سؤال. أما الخطِرة (الحذف والدفع والنشر والأسرار وsudo…) وكل ما هو خارج المشروع فتنتظرك.",
+  "Edits inside the project go ahead; commands and everything else wait for you.": "تمضي التعديلات داخل المشروع دون سؤال؛ أما الأوامر وكل ما عداها فتنتظرك.",
+  "Every edit and command waits for your OK.": "كل تعديل وأمر ينتظر موافقتك.",
+  "Nothing waits: deletions, pushes and deploys run without asking. Only for projects you can afford to lose work in.": "لا شيء ينتظر: الحذف والدفع والنشر تعمل دون سؤال. فقط للمشاريع التي يمكنك تحمّل خسارة العمل فيها.",
+  "What {agent} may do without asking you": "ما يمكن لـ {agent} فعله دون أن يسألك",
+  "What {agent} may do without asking you. Questions and plans always wait for you.": "ما يمكن لـ {agent} فعله دون أن يسألك. الأسئلة والخطط تنتظرك دائمًا."
 }

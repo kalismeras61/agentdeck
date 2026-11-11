@@ -50,7 +50,7 @@ Bildschirmfotos und Bilder, die ein Agent aufnimmt oder sich ansieht (ein Screen
 
 ### Freigeben, ablehnen oder fragen lassen
 
-Befehle und Bearbeitungen, die dein OK brauchen, erscheinen als Karten, die zeigen, was ausgeführt wird, wo, was es betrifft und wie riskant es ist. Im Planmodus kann ein Agent lesen und Vorschläge machen, bevor er irgendetwas ändert. Hat ein Agent eine Frage (AskUserQuestion bei Claude Code, request_user_input bei Codex), bekommst du ein echtes Formular: Wähle eine Option, mehrere oder schreib deine eigene Antwort.
+Befehle und Bearbeitungen, die dein OK brauchen, erscheinen als Karten, die zeigen, was ausgeführt wird, wo, was es betrifft und wie riskant es ist. Im Planmodus kann ein Agent lesen und Vorschläge machen, bevor er irgendetwas ändert. Jeder Agent hat außerdem eine Freigabestufe, im Eingabefeld und in den Einstellungen: jedes Mal fragen, Dateiänderungen durchlassen, Auto (gewöhnliche Änderungen und Befehle laufen, riskante und alles außerhalb des Projekts warten weiter) oder alles. Hat ein Agent eine Frage (AskUserQuestion bei Claude Code, request_user_input bei Codex), bekommst du ein echtes Formular: Wähle eine Option, mehrere oder schreib deine eigene Antwort.
 
 ![Ein Agent stellt zwei Fragen, eine mit Einfach- und eine mit Mehrfachauswahl](../screenshots/readme/question.png)
 
@@ -162,7 +162,7 @@ macOS 12 oder neuer, Apple Silicon oder Intel.
 
 - Jeder Agent läuft als Kindprozess im Ordner der Sitzung, mit der Umgebung deiner Login-Shell.
 - Seine Ausgabe wird unverändert gespeichert, dann in einen einheitlichen Event-Stream normalisiert (Nachrichten, Tool-Aufrufe, Diffs, Freigaben, Fragen, Pläne) und validiert, bevor irgendetwas dargestellt wird. Alles Fehlerhafte wird als klarer Fehler angezeigt, nie ausgeführt.
-- Freigaben erteilst nur du – oder bei gewöhnlichen Anfragen ein Workflow; nichts Gefährliches wird automatisch freigegeben.
+- Freigaben erteilst du, bei gewöhnlichen Anfragen ein Workflow oder Bot, oder die Freigabestufe, die du für einen Agenten gewählt hast. Nichts Gefährliches wird für dich freigegeben, solange du keinen Agenten auf „Alles“ stellst.
 - Das Frontend hat keinen Shell-Zugriff: Es kann nur die eigenen, eng gefassten Befehle von AgentDeck aufrufen.
 
 ## Aus dem Quellcode bauen

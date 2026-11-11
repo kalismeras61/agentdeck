@@ -13,6 +13,7 @@ import { useStore } from "../state/store";
 import { useRelayFor } from "./blocks/Relay";
 import { ModelMenu } from "./ModelMenu";
 import { AgyApprovalsMenu } from "./AgyApprovals";
+import { ApprovalsMenu, hasApprovals } from "./Approvals";
 import { PlanLimitsLine } from "./PlanLimits";
 import { AgentMark, cx, IconButton, Kbd, Tip } from "./ui";
 
@@ -418,6 +419,7 @@ export function Composer({ session }: { session: Session }) {
               <span className="px-2 text-xs text-fg-3">{t("Model choice not supported")}</span>
             )}
             {session.live && session.provider === "antigravity" && <AgyApprovalsMenu sessionId={session.id} />}
+            {session.live && hasApprovals(session.provider) && <ApprovalsMenu provider={session.provider} />}
             {canPlan && (
               <Tip
                 label={

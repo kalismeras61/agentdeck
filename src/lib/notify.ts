@@ -5,6 +5,8 @@ const LABEL: Record<string, string> = { "claude-code": "Claude Code", codex: "Co
 
 let allowed: boolean | null = null;
 
+const WAIT_BEFORE_ASKING_MS = 1500;
+
 async function ensurePermission(): Promise<boolean> {
   if (allowed !== null) return allowed;
   const n = await import("@tauri-apps/plugin-notification");
@@ -29,6 +31,11 @@ export async function notifyStatus(prev: string | undefined, row: LiveSessionRow
   if (typeof document !== "undefined" && document.hasFocus()) return;
   const msg = notificationFor(prev, row, useStore.getState().notifications);
   if (!msg) return;
+  // A request your approval level (or a bot or workflow) answers right away isn't worth a ping.
+  if (row.status === "waiting") {
+    await new Promise((r) => setTimeout(r, WAIT_BEFORE_ASKING_MS));
+    if (useStore.getState().sessions.find((x) => x.id === row.id)?.status !== "waiting") return;
+  }
   try {
     if (!(await ensurePermission())) return;
     const n = await import("@tauri-apps/plugin-notification");

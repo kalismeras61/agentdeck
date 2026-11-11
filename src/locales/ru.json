@@ -1625,5 +1625,15 @@
   "In a project that's a git repository, every task gets a fresh worktree on a new branch, so several bots can work on one project at once. You (or a reviewer bot) merge the branch.": "В проекте с git-репозиторием каждая задача получает новый worktree на новой ветке, так что несколько ботов могут работать над одним проектом одновременно. Ветку сливаете вы (или бот-ревьюер).",
   "No tasks finished": "Нет завершённых задач",
   "This agent doesn't report what a task used.": "Этот агент не сообщает, сколько потратила задача.",
-  "Usage": "Расход"
+  "Usage": "Расход",
+  "Allowed by your approval setting": "Разрешено вашей настройкой подтверждений",
+  "Applies right away to every {agent} session you run, including requests already waiting. Bots and workflows keep their own rules.": "Действует сразу во всех ваших сессиях {agent}, включая уже ожидающие запросы. У ботов и рабочих процессов свои правила.",
+  "Ask every time": "Спрашивать каждый раз",
+  "Click again to turn it on for every {agent} session.": "Нажмите ещё раз, чтобы включить для всех сессий {agent}.",
+  "Edits and ordinary commands go ahead. Risky ones (deleting, pushing, deploying, secrets, sudo…) and anything outside the project wait for you.": "Правки и обычные команды выполняются без вопроса. Рискованные (удаление, push, деплой, секреты, sudo…) и всё за пределами проекта ждут вас.",
+  "Edits inside the project go ahead; commands and everything else wait for you.": "Правки внутри проекта выполняются без вопроса; команды и всё остальное ждут вас.",
+  "Every edit and command waits for your OK.": "Каждая правка и команда ждёт вашего подтверждения.",
+  "Nothing waits: deletions, pushes and deploys run without asking. Only for projects you can afford to lose work in.": "Ничего не ждёт: удаление, push и деплой выполняются без вопроса. Только для проектов, где потеря работы допустима.",
+  "What {agent} may do without asking you": "Что {agent} может делать, не спрашивая вас",
+  "What {agent} may do without asking you. Questions and plans always wait for you.": "Что {agent} может делать, не спрашивая вас. Вопросы и планы всегда ждут вас."
 }

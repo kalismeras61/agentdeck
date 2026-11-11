@@ -2,6 +2,14 @@
 
 Updated 2026-11-03. All five milestones are built and tested on Linux with the real `claude`, `codex` and `gemini` CLIs against local mock APIs; milestone 3 was also confirmed on a Mac with a real signed-in Claude Code. Grok Build is implemented but untested (its installer isn't reachable from the test environment).
 
+## Approval levels per agent (0.7.1)
+
+| What | How it's checked |
+|---|---|
+| Ask, file edits, Auto (risky and outside-the-project requests wait) and everything, per agent; questions and plans always wait; plan mode, bots and workflows keep their rules | `each_level_lets_through_what_it_says`, `edits_of_other_agents_are_recognized` |
+| A new level answers the requests already waiting | `only_requests_nobody_answered_are_waiting` |
+| Not yet tried on a Mac with real agents | |
+
 ## Orchestration across models (0.7.0)
 
 | What | How it's checked |

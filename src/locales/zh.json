@@ -1484,5 +1484,15 @@
   "In a project that's a git repository, every task gets a fresh worktree on a new branch, so several bots can work on one project at once. You (or a reviewer bot) merge the branch.": "在 git 仓库项目中，每个任务都会在新分支上获得一个全新的 worktree，这样多个机器人可以同时处理同一个项目。由你（或审查机器人）合并该分支。",
   "No tasks finished": "没有已完成的任务",
   "This agent doesn't report what a task used.": "这个代理不报告任务的用量。",
-  "Usage": "用量"
+  "Usage": "用量",
+  "Allowed by your approval setting": "已按你的审批设置允许",
+  "Applies right away to every {agent} session you run, including requests already waiting. Bots and workflows keep their own rules.": "立即应用到你运行的每个 {agent} 会话，包括已在等待的请求。机器人和工作流保留各自的规则。",
+  "Ask every time": "每次都询问",
+  "Click again to turn it on for every {agent} session.": "再次点击可为所有 {agent} 会话开启。",
+  "Edits and ordinary commands go ahead. Risky ones (deleting, pushing, deploying, secrets, sudo…) and anything outside the project wait for you.": "编辑和普通命令直接执行。有风险的（删除、推送、部署、密钥、sudo…）以及项目之外的一切都会等你确认。",
+  "Edits inside the project go ahead; commands and everything else wait for you.": "项目内的编辑直接执行；命令和其他一切都会等你确认。",
+  "Every edit and command waits for your OK.": "每次编辑和命令都等你确认。",
+  "Nothing waits: deletions, pushes and deploys run without asking. Only for projects you can afford to lose work in.": "什么都不等：删除、推送和部署都不询问直接执行。只适合丢了也无妨的项目。",
+  "What {agent} may do without asking you": "{agent} 无需询问你就能做的事",
+  "What {agent} may do without asking you. Questions and plans always wait for you.": "{agent} 无需询问你就能做的事。提问和计划始终等你处理。"
 }

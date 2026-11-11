@@ -1578,5 +1578,15 @@
   "In a project that's a git repository, every task gets a fresh worktree on a new branch, so several bots can work on one project at once. You (or a reviewer bot) merge the branch.": "En un proyecto que es un repositorio git, cada tarea recibe un worktree nuevo en una rama nueva, así que varios bots pueden trabajar a la vez en un proyecto. Tú (o un bot revisor) fusionas la rama.",
   "No tasks finished": "Ninguna tarea terminada",
   "This agent doesn't report what a task used.": "Este agente no informa de lo que usó una tarea.",
-  "Usage": "Uso"
+  "Usage": "Uso",
+  "Allowed by your approval setting": "Permitido por tu ajuste de aprobaciones",
+  "Applies right away to every {agent} session you run, including requests already waiting. Bots and workflows keep their own rules.": "Se aplica al momento a cada sesión de {agent} que ejecutas, incluidas las solicitudes que ya esperan. Los bots y flujos de trabajo mantienen sus propias reglas.",
+  "Ask every time": "Preguntar siempre",
+  "Click again to turn it on for every {agent} session.": "Haz clic de nuevo para activarlo en todas las sesiones de {agent}.",
+  "Edits and ordinary commands go ahead. Risky ones (deleting, pushing, deploying, secrets, sudo…) and anything outside the project wait for you.": "Las ediciones y los comandos normales siguen adelante. Los arriesgados (borrar, hacer push, desplegar, secretos, sudo…) y todo lo que está fuera del proyecto te esperan.",
+  "Edits inside the project go ahead; commands and everything else wait for you.": "Las ediciones dentro del proyecto siguen adelante; los comandos y todo lo demás te esperan.",
+  "Every edit and command waits for your OK.": "Cada edición y comando espera tu visto bueno.",
+  "Nothing waits: deletions, pushes and deploys run without asking. Only for projects you can afford to lose work in.": "Nada espera: borrados, pushes y despliegues se ejecutan sin preguntar. Solo para proyectos en los que puedas permitirte perder trabajo.",
+  "What {agent} may do without asking you": "Lo que {agent} puede hacer sin preguntarte",
+  "What {agent} may do without asking you. Questions and plans always wait for you.": "Lo que {agent} puede hacer sin preguntarte. Las preguntas y los planes siempre te esperan."
 }

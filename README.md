@@ -48,7 +48,7 @@ Screenshots and images an agent takes or looks at (a simulator screenshot, a ren
 
 ### Approve, deny, or let it ask
 
-Commands and edits that need your OK appear as cards that say what will run, where, what it affects and how risky it is. Plan mode lets an agent read and propose before it changes anything. When an agent has a question (Claude Code's AskUserQuestion, Codex's request_user_input), you get a real form: pick an option, several, or write your own.
+Commands and edits that need your OK appear as cards that say what will run, where, what it affects and how risky it is. Plan mode lets an agent read and propose before it changes anything. Each agent also has an approval level, in the composer and in Settings: ask every time, let file edits go ahead, Auto (ordinary edits and commands go ahead, risky ones and anything outside the project still wait), or everything. When an agent has a question (Claude Code's AskUserQuestion, Codex's request_user_input), you get a real form: pick an option, several, or write your own.
 
 ![An agent asking two questions, one single-choice and one multiple-choice](docs/screenshots/readme/question.png)
 
@@ -160,7 +160,7 @@ macOS 12 or later, Apple Silicon or Intel.
 
 - Each agent runs as a child process in the session's folder, with your login shell's environment.
 - Their output is stored as-is, then normalized into one event stream (messages, tool calls, diffs, approvals, questions, plans) and validated before anything is rendered. Anything malformed is shown as a clear error, never executed.
-- Approvals are answered only by you, or by a workflow for ordinary requests; nothing dangerous is auto-approved.
+- Approvals are answered by you, by a workflow or bot for ordinary requests, or by the approval level you chose for an agent. Nothing dangerous is approved for you unless you set an agent to Everything.
 - The frontend has no shell access: it can only call AgentDeck's own narrow commands.
 
 ## Build from source

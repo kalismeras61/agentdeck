@@ -50,7 +50,7 @@ Ajanın aldığı ya da baktığı ekran görüntüleri ve görseller (bir simü
 
 ### Onaylayın, reddedin ya da sormasına izin verin
 
-Onayınızı gerektiren komutlar ve düzenlemeler, neyin nerede çalışacağını, neyi etkileyeceğini ve ne kadar riskli olduğunu gösteren kartlar olarak karşınıza çıkar. Plan modu, ajanın hiçbir şeyi değiştirmeden önce okuyup öneri sunmasını sağlar. Ajanın bir sorusu olduğunda (Claude Code'un AskUserQuestion'ı, Codex'in request_user_input'u) gerçek bir form görürsünüz: bir seçenek seçin, birkaçını işaretleyin ya da kendi yanıtınızı yazın.
+Onayınızı gerektiren komutlar ve düzenlemeler, neyin nerede çalışacağını, neyi etkileyeceğini ve ne kadar riskli olduğunu gösteren kartlar olarak karşınıza çıkar. Plan modu, ajanın hiçbir şeyi değiştirmeden önce okuyup öneri sunmasını sağlar. Her ajanın ayrıca, mesaj kutusunda ve Ayarlar'da seçilen bir onay seviyesi vardır: her seferinde sor, dosya düzenlemelerinin ilerlemesine izin ver, Auto (sıradan düzenlemeler ve komutlar ilerler, riskli olanlar ve proje dışındaki her şey yine sizi bekler) ya da her şey. Ajanın bir sorusu olduğunda (Claude Code'un AskUserQuestion'ı, Codex'in request_user_input'u) gerçek bir form görürsünüz: bir seçenek seçin, birkaçını işaretleyin ya da kendi yanıtınızı yazın.
 
 ![İki soru soran bir ajan: biri tek seçimli, diğeri çok seçimli](../screenshots/readme/question.png)
 
@@ -162,7 +162,7 @@ macOS 12 veya üzeri, Apple Silicon ya da Intel.
 
 - Her ajan, oturumun klasöründe ve login shell'inizin ortamıyla bir alt süreç olarak çalışır.
 - Ajanların çıktısı önce olduğu gibi saklanır, ardından tek bir olay akışına (mesajlar, araç çağrıları, diff'ler, onaylar, sorular, planlar) dönüştürülür ve ekranda herhangi bir şey gösterilmeden önce doğrulanır. Hatalı biçimlendirilmiş her şey anlaşılır bir hata olarak gösterilir, asla çalıştırılmaz.
-- Onay isteklerini yalnızca siz yanıtlarsınız; sıradan istekler için bir iş akışı da yanıtlayabilir. Tehlikeli hiçbir şey otomatik olarak onaylanmaz.
+- Onay isteklerini siz, sıradan istekler için bir iş akışı ya da bot veya bir ajan için seçtiğiniz onay seviyesi yanıtlar. Bir ajanı "Her şey" seviyesine almadıkça tehlikeli hiçbir şey sizin yerinize onaylanmaz.
 - Ön yüzün shell erişimi yoktur: yalnızca AgentDeck'in kendi, kapsamı dar tutulmuş komutlarını çağırabilir.
 
 ## Kaynaktan derleme

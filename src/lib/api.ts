@@ -86,6 +86,7 @@ export function normalizeApi(events: StoredEvent[], ctx: NormalizeContext, name 
             const d = str(p.decision);
             obj(perm.payload).state = d === "deny" ? "denied" : d === "allow_session" ? "allowed_session" : "allowed";
             obj(perm.payload).decidedAt = e.ts;
+            if (p.auto === "approvals") obj(perm.payload).autoReason = t("Allowed by your approval setting");
           }
           break;
         }

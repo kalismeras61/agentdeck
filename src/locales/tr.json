@@ -1531,5 +1531,15 @@
   "In a project that's a git repository, every task gets a fresh worktree on a new branch, so several bots can work on one project at once. You (or a reviewer bot) merge the branch.": "Git deposu olan bir projede her görev yeni bir dalda, yepyeni bir worktree'de çalışır; böylece birkaç bot aynı projede aynı anda çalışabilir. Dalı sen (ya da bir inceleme botu) birleştirirsin.",
   "No tasks finished": "Biten görev yok",
   "This agent doesn't report what a task used.": "Bu ajan bir görevin ne kadar kullandığını bildirmiyor.",
-  "Usage": "Kullanım"
+  "Usage": "Kullanım",
+  "Allowed by your approval setting": "Onay ayarınızla izin verildi",
+  "Applies right away to every {agent} session you run, including requests already waiting. Bots and workflows keep their own rules.": "Çalıştırdığınız her {agent} oturumunda hemen geçerli olur, bekleyen istekler dahil. Botlar ve iş akışları kendi kurallarını korur.",
+  "Ask every time": "Her seferinde sor",
+  "Click again to turn it on for every {agent} session.": "Tüm {agent} oturumlarında açmak için yeniden tıklayın.",
+  "Edits and ordinary commands go ahead. Risky ones (deleting, pushing, deploying, secrets, sudo…) and anything outside the project wait for you.": "Düzenlemeler ve sıradan komutlar onaysız ilerler. Riskli olanlar (silme, push, deploy, gizli bilgiler, sudo…) ve proje dışındaki her şey onayınızı bekler.",
+  "Edits inside the project go ahead; commands and everything else wait for you.": "Proje içindeki düzenlemeler onaysız ilerler; komutlar ve diğer her şey onayınızı bekler.",
+  "Every edit and command waits for your OK.": "Her düzenleme ve komut onayınızı bekler.",
+  "Nothing waits: deletions, pushes and deploys run without asking. Only for projects you can afford to lose work in.": "Hiçbir şey beklemez: silme, push ve deploy sormadan çalışır. Yalnızca iş kaybetmeyi göze alabileceğiniz projeler için.",
+  "What {agent} may do without asking you": "{agent} size sormadan neler yapabilir",
+  "What {agent} may do without asking you. Questions and plans always wait for you.": "{agent} size sormadan neler yapabilir. Sorular ve planlar her zaman sizi bekler."
 }

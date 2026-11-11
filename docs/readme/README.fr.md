@@ -50,7 +50,7 @@ Les captures d'écran et images qu'un agent prend ou consulte (une capture du si
 
 ### Approuvez, refusez, ou laissez-le poser la question
 
-Les commandes et modifications qui nécessitent votre accord apparaissent sous forme de cartes qui indiquent ce qui va s'exécuter, où, ce que cela affecte et quel est le niveau de risque. Le mode plan permet à un agent de lire et de proposer avant de modifier quoi que ce soit. Quand un agent a une question (AskUserQuestion de Claude Code, request_user_input de Codex), vous obtenez un vrai formulaire : choisissez une option, plusieurs, ou écrivez votre propre réponse.
+Les commandes et modifications qui nécessitent votre accord apparaissent sous forme de cartes qui indiquent ce qui va s'exécuter, où, ce que cela affecte et quel est le niveau de risque. Le mode plan permet à un agent de lire et de proposer avant de modifier quoi que ce soit. Chaque agent a aussi un niveau d'approbation, dans la zone de saisie et dans les Réglages : demander à chaque fois, laisser passer les modifications de fichiers, Auto (les modifications et commandes ordinaires passent, les risquées et tout ce qui sort du projet vous attendent toujours) ou tout. Quand un agent a une question (AskUserQuestion de Claude Code, request_user_input de Codex), vous obtenez un vrai formulaire : choisissez une option, plusieurs, ou écrivez votre propre réponse.
 
 ![Un agent qui pose deux questions, l'une à choix unique et l'autre à choix multiples](../screenshots/readme/question.png)
 
@@ -162,7 +162,7 @@ macOS 12 ou ultérieur, Apple Silicon ou Intel.
 
 - Chaque agent tourne comme processus enfant dans le dossier de la session, avec l'environnement de votre shell de connexion.
 - Leur sortie est stockée telle quelle, puis normalisée en un flux d'événements unique (messages, appels d'outils, diffs, approbations, questions, plans) et validée avant tout affichage. Tout ce qui est mal formé s'affiche comme une erreur explicite, et n'est jamais exécuté.
-- Les demandes d'approbation ne sont tranchées que par vous, ou par un workflow pour les demandes ordinaires ; rien de dangereux n'est approuvé automatiquement.
+- Les demandes d'approbation sont tranchées par vous, par un workflow ou un bot pour les demandes ordinaires, ou par le niveau d'approbation choisi pour un agent. Rien de dangereux n'est approuvé à votre place, sauf si vous réglez un agent sur « Tout ».
 - Le frontend n'a pas accès au shell : il ne peut appeler que les commandes restreintes d'AgentDeck.
 
 ## Compiler depuis les sources

@@ -8,6 +8,7 @@ mod acp;
 mod agents;
 mod agy;
 mod api;
+mod approvals;
 mod attach;
 mod bots;
 mod claude;
@@ -64,6 +65,7 @@ struct AppState {
     remote: Arc<remote::Remote>,
     telegram: Arc<telegram::Telegram>,
     triggers: Arc<triggers::Triggers>,
+    approvals: Arc<approvals::Approvals>,
 }
 
 const MAX_HANDOFF_BYTES: usize = 200_000;
@@ -2027,6 +2029,29 @@ fn term_sign_in(state: State<'_, AppState>, term_id: String, agent: String) -> C
     Ok(cmd.to_string())
 }
 
+/// How much each agent may do without asking in your own sessions, by provider.
+#[tauri::command]
+fn agent_approvals(
+    state: State<'_, AppState>,
+) -> CmdResult<serde_json::Map<String, serde_json::Value>> {
+    Ok(approvals::levels(&state.db))
+}
+
+/// Sets an agent's level; requests already waiting that it lets go ahead are answered.
+/// Returns how many were.
+#[tauri::command]
+async fn set_agent_approvals(
+    state: State<'_, AppState>,
+    provider: String,
+    level: String,
+) -> CmdResult<usize> {
+    approvals::set_level(&state.db, &provider, &level)?;
+    let ap = state.approvals.clone();
+    tauri::async_runtime::spawn_blocking(move || ap.apply_waiting(&provider))
+        .await
+        .map_err(err)
+}
+
 /// How much Antigravity may do without asking: "edits", "auto" or "all".
 #[tauri::command]
 fn antigravity_approvals(state: State<'_, AppState>) -> CmdResult<String> {
@@ -2365,7 +2390,7 @@ pub fn run() {
             db.recover_after_restart()?;
             let handle = app.handle().clone();
             // Relays, workflows and bots listen to every stored event; set once the managers exist.
-            type Listeners = (Arc<Relay>, Arc<Flow>, Arc<Bots>);
+            type Listeners = (Arc<Relay>, Arc<Flow>, Arc<Bots>, Arc<approvals::Approvals>);
             let relay_cell: Arc<OnceLock<Listeners>> = Arc::new(OnceLock::new());
             let cell = relay_cell.clone();
             // Telegram reports bots' results and requests (set once it exists).
@@ -2383,7 +2408,7 @@ pub fn run() {
                                 std::thread::spawn(move || tg.on_event(&e));
                             }
                         }
-                        if let Some((r, f, b)) = cell.get() {
+                        if let Some((r, f, b, ap)) = cell.get() {
                             if relay::turn_end(&e).is_some() {
                                 let (r, f, b, e) = (r.clone(), f.clone(), b.clone(), e.clone());
                                 // Off the agent's reader thread: forwarding may start a process.
@@ -2395,10 +2420,11 @@ pub fn run() {
                             } else if e.kind == "control_request/can_use_tool"
                                 || e.kind == "approval"
                             {
-                                let (f, b, e) = (f.clone(), b.clone(), e.clone());
+                                let (f, b, ap, e) = (f.clone(), b.clone(), ap.clone(), e.clone());
                                 std::thread::spawn(move || {
                                     f.on_approval(&e);
                                     b.on_request(&e);
+                                    ap.on_request(&e);
                                 });
                             } else if bots::wants(&e) {
                                 let (b, e) = (b.clone(), e.clone());
@@ -2476,7 +2502,12 @@ pub fn run() {
             hub.set_bots(&bots);
             bots.delegation
                 .store(hub_up, std::sync::atomic::Ordering::SeqCst);
-            let _ = relay_cell.set((relay.clone(), flow.clone(), bots.clone()));
+            let approvals = Arc::new(approvals::Approvals::new(
+                db.clone(),
+                agents.clone(),
+                sink.clone(),
+            ));
+            let _ = relay_cell.set((relay.clone(), flow.clone(), bots.clone(), approvals.clone()));
             let telegram = Arc::new(telegram::Telegram::new(
                 db.clone(),
                 bots.clone(),
@@ -2549,6 +2580,7 @@ pub fn run() {
                 remote,
                 telegram,
                 triggers,
+                approvals,
             });
             Ok(())
         })
@@ -2591,6 +2623,8 @@ pub fn run() {
             remove_session_worktree,
             term_sign_in,
             allow_antigravity_rules,
+            agent_approvals,
+            set_agent_approvals,
             antigravity_approvals,
             set_antigravity_approvals,
             open_link,
@@ -2726,6 +2760,11 @@ mod handoff_tests {
             sink.clone(),
         ));
         let triggers = Arc::new(triggers::Triggers::new(db.clone(), bots.clone()));
+        let approvals = Arc::new(approvals::Approvals::new(
+            db.clone(),
+            agents.clone(),
+            sink.clone(),
+        ));
         let state = AppState {
             db: db.clone(),
             relay: Arc::new(Relay::new(db.clone(), sink.clone(), agents.clone())),
@@ -2737,6 +2776,7 @@ mod handoff_tests {
             remote,
             telegram,
             triggers,
+            approvals,
         };
         let p = db.add_project("demo", "/tmp/demo").unwrap();
         let from = db
