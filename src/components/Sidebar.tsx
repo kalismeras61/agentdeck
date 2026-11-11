@@ -14,6 +14,7 @@ import {
   FolderGit2,
   GitBranch,
   GitGraph,
+  FolderMinus,
   FolderPlus,
   GitCompareArrows,
   LayoutList,
@@ -28,7 +29,7 @@ import {
   X,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { providerLabel, workspaces, type Session } from "../data/demo";
+import { providerLabel, workspaces, type Project, type Session } from "../data/demo";
 import { useWorkspaceProjects, useWorkspaceSessions } from "../hooks/useWorkspace";
 import { t } from "../lib/i18n";
 import { liveApi } from "../lib/live";
@@ -38,6 +39,7 @@ import { stageState, useFlowFor } from "../lib/workflows";
 import { useStore, type AppView } from "../state/store";
 import { AgentMark, cx, IconButton, Kbd, StatusDot, statusLabel, Tip } from "./ui";
 import { NewProjectDialog } from "./NewProjectDialog";
+import { RemoveProjectDialog } from "./RemoveProjectDialog";
 import { ImportDialog } from "./ImportDialog";
 import { RenameField } from "./RenameField";
 import { UpdateNotice } from "./UpdateNotice";
@@ -62,6 +64,7 @@ export function Sidebar() {
   const sessions = useWorkspaceSessions();
   const projects = useWorkspaceProjects();
   const addProjectFolder = useStore((s) => s.addProjectFolder);
+  const [removingProject, setRemovingProject] = useState<Project | null>(null);
   const liveState = useStore((s) => s.liveState);
   const liveError = useStore((s) => s.liveError);
   const selectedId = useStore((s) => s.selectedId);
@@ -369,6 +372,18 @@ export function Sidebar() {
                     <span className="ms-auto tabular-nums opacity-0 transition-opacity group-hover:opacity-100">{list.length || ""}</span>
                   </button>
                   {isLocal && !isChats && (
+                    <Tip label={t("Remove {name} from AgentDeck", { name: project!.name })}>
+                      <button
+                        type="button"
+                        onClick={() => setRemovingProject(project!)}
+                        aria-label={t("Remove {name} from AgentDeck", { name: project!.name })}
+                        className="mt-1 rounded p-0.5 text-fg-3 opacity-0 hover:bg-surface hover:text-error focus-visible:opacity-100 group-hover:opacity-100"
+                      >
+                        <FolderMinus size={13} />
+                      </button>
+                    </Tip>
+                  )}
+                  {isLocal && !isChats && (
                     <Tip label={t("Instructions, skills and commands for {name}", { name: project!.name })}>
                       <button
                         type="button"
@@ -472,6 +487,7 @@ export function Sidebar() {
         </button>
       </div>
       <NewProjectDialog />
+      {removingProject && <RemoveProjectDialog project={removingProject} onClose={() => setRemovingProject(null)} />}
       <BotEditor />
       {isLocal && <ImportDialog />}
     </nav>

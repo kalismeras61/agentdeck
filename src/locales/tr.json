@@ -1541,5 +1541,13 @@
   "Every edit and command waits for your OK.": "Her düzenleme ve komut onayınızı bekler.",
   "Nothing waits: deletions, pushes and deploys run without asking. Only for projects you can afford to lose work in.": "Hiçbir şey beklemez: silme, push ve deploy sormadan çalışır. Yalnızca iş kaybetmeyi göze alabileceğiniz projeler için.",
   "What {agent} may do without asking you": "{agent} size sormadan neler yapabilir",
-  "What {agent} may do without asking you. Questions and plans always wait for you.": "{agent} size sormadan neler yapabilir. Sorular ve planlar her zaman sizi bekler."
+  "What {agent} may do without asking you. Questions and plans always wait for you.": "{agent} size sormadan neler yapabilir. Sorular ve planlar her zaman sizi bekler.",
+  "It has no sessions.": "Hiç oturumu yok.",
+  "Nothing in the folder itself is touched, and you can add it again any time.": "Klasörün kendisine dokunulmaz; istediğiniz zaman yeniden ekleyebilirsiniz.",
+  "Remove {name} from AgentDeck": "{name} projesini AgentDeck'ten kaldır",
+  "Remove {name} from AgentDeck?": "{name} AgentDeck'ten kaldırılsın mı?",
+  "Its {n} session is deleted from AgentDeck, and a running agent there is stopped.|Its {n} sessions are deleted from AgentDeck, and running agents there are stopped.": {
+    "one": "{n} oturumu AgentDeck'ten silinir ve orada çalışan ajan durdurulur.",
+    "other": "{n} oturumu AgentDeck'ten silinir ve orada çalışan ajanlar durdurulur."
+  }
 }

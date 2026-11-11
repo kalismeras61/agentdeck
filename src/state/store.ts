@@ -196,7 +196,8 @@ interface Actions {
   appendLiveEvent: (e: StoredEvent) => void;
   applyDelta: (sessionId: string, text: string, reset: boolean) => void;
   addProjectFolder: () => Promise<void>;
-  removeProject: (projectId: string) => void;
+  /** Takes a project out of AgentDeck (its sessions too); the folder isn't touched. */
+  removeProject: (projectId: string) => Promise<void>;
   /* bots */
   /** Bots by id: the desktop app's, plus the labeled demo ones. */
   bots: Record<string, Bot>;
@@ -1340,10 +1341,8 @@ export const useStore = create<UiState & Actions>()(
             .catch((e: unknown) => set((s) => ({ botErrors: { ...s.botErrors, [botId]: errorText(e) } })));
         },
 
-        removeProject: (projectId) => {
-          liveApi
-            .removeProject(projectId)
-            .then(() =>
+        removeProject: (projectId) =>
+          liveApi.removeProject(projectId).then(() => {
               set((s) => ({
                 projects: s.projects.filter((p) => p.id !== projectId),
                 // Bots stay; the ones that worked there by default now work in their workspace.
@@ -1356,10 +1355,8 @@ export const useStore = create<UiState & Actions>()(
                 botPlace: Object.fromEntries(Object.entries(s.botPlace).filter(([, p]) => p !== projectId)),
                 sessions: s.sessions.filter((x) => x.projectId !== projectId),
                 selectedId: s.sessions.find((x) => x.id === s.selectedId)?.projectId === projectId ? null : s.selectedId,
-              })),
-            )
-            .catch((e: unknown) => set({ liveError: errorText(e) }));
-        },
+              }));
+            }),
       };
     },
     {

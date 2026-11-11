@@ -1494,5 +1494,12 @@
   "Every edit and command waits for your OK.": "모든 편집과 명령이 승인을 기다립니다.",
   "Nothing waits: deletions, pushes and deploys run without asking. Only for projects you can afford to lose work in.": "아무것도 기다리지 않습니다: 삭제, 푸시, 배포도 묻지 않고 실행됩니다. 작업을 잃어도 괜찮은 프로젝트에서만 쓰세요.",
   "What {agent} may do without asking you": "{agent}이(가) 묻지 않고 할 수 있는 일",
-  "What {agent} may do without asking you. Questions and plans always wait for you.": "{agent}이(가) 묻지 않고 할 수 있는 일. 질문과 계획은 항상 기다립니다."
+  "What {agent} may do without asking you. Questions and plans always wait for you.": "{agent}이(가) 묻지 않고 할 수 있는 일. 질문과 계획은 항상 기다립니다.",
+  "It has no sessions.": "세션이 없습니다.",
+  "Nothing in the folder itself is touched, and you can add it again any time.": "폴더 자체는 건드리지 않으며, 언제든 다시 추가할 수 있습니다.",
+  "Remove {name} from AgentDeck": "AgentDeck에서 {name} 제거",
+  "Remove {name} from AgentDeck?": "AgentDeck에서 {name}을(를) 제거할까요?",
+  "Its {n} session is deleted from AgentDeck, and a running agent there is stopped.|Its {n} sessions are deleted from AgentDeck, and running agents there are stopped.": {
+    "other": "세션 {n}개가 AgentDeck에서 삭제되고, 그곳에서 실행 중인 에이전트는 중지됩니다."
+  }
 }

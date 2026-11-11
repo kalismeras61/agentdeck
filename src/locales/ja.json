@@ -1494,5 +1494,12 @@
   "Every edit and command waits for your OK.": "すべての編集とコマンドがあなたの承認を待ちます。",
   "Nothing waits: deletions, pushes and deploys run without asking. Only for projects you can afford to lose work in.": "何も待ちません：削除、プッシュ、デプロイも確認なしで実行します。作業を失っても構わないプロジェクト専用です。",
   "What {agent} may do without asking you": "{agent}が確認なしでできること",
-  "What {agent} may do without asking you. Questions and plans always wait for you.": "{agent}が確認なしでできること。質問とプランは常にあなたを待ちます。"
+  "What {agent} may do without asking you. Questions and plans always wait for you.": "{agent}が確認なしでできること。質問とプランは常にあなたを待ちます。",
+  "It has no sessions.": "セッションはありません。",
+  "Nothing in the folder itself is touched, and you can add it again any time.": "フォルダ自体には何も変更を加えません。いつでも再追加できます。",
+  "Remove {name} from AgentDeck": "{name} を AgentDeck から削除",
+  "Remove {name} from AgentDeck?": "{name} を AgentDeck から削除しますか？",
+  "Its {n} session is deleted from AgentDeck, and a running agent there is stopped.|Its {n} sessions are deleted from AgentDeck, and running agents there are stopped.": {
+    "other": "{n} 件のセッションが AgentDeck から削除され、そこで実行中のエージェントは停止します。"
+  }
 }

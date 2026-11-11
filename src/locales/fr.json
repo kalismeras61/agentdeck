@@ -1588,5 +1588,14 @@
   "Every edit and command waits for your OK.": "Chaque modification et commande attend votre accord.",
   "Nothing waits: deletions, pushes and deploys run without asking. Only for projects you can afford to lose work in.": "Rien n'attend : suppressions, pushs et déploiements s'exécutent sans demander. Seulement pour des projets où vous pouvez vous permettre de perdre du travail.",
   "What {agent} may do without asking you": "Ce que {agent} peut faire sans vous demander",
-  "What {agent} may do without asking you. Questions and plans always wait for you.": "Ce que {agent} peut faire sans vous demander. Les questions et les plans vous attendent toujours."
+  "What {agent} may do without asking you. Questions and plans always wait for you.": "Ce que {agent} peut faire sans vous demander. Les questions et les plans vous attendent toujours.",
+  "It has no sessions.": "Il n'a aucune session.",
+  "Nothing in the folder itself is touched, and you can add it again any time.": "Rien n'est modifié dans le dossier lui-même, et vous pouvez le rajouter à tout moment.",
+  "Remove {name} from AgentDeck": "Retirer {name} d'AgentDeck",
+  "Remove {name} from AgentDeck?": "Retirer {name} d'AgentDeck ?",
+  "Its {n} session is deleted from AgentDeck, and a running agent there is stopped.|Its {n} sessions are deleted from AgentDeck, and running agents there are stopped.": {
+    "one": "Sa {n} session est supprimée d'AgentDeck, et l'agent qui y tourne est arrêté.",
+    "many": "Ses {n} sessions sont supprimées d'AgentDeck, et les agents qui y tournent sont arrêtés.",
+    "other": "Ses {n} sessions sont supprimées d'AgentDeck, et les agents qui y tournent sont arrêtés."
+  }
 }

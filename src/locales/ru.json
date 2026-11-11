@@ -1635,5 +1635,15 @@
   "Every edit and command waits for your OK.": "Каждая правка и команда ждёт вашего подтверждения.",
   "Nothing waits: deletions, pushes and deploys run without asking. Only for projects you can afford to lose work in.": "Ничего не ждёт: удаление, push и деплой выполняются без вопроса. Только для проектов, где потеря работы допустима.",
   "What {agent} may do without asking you": "Что {agent} может делать, не спрашивая вас",
-  "What {agent} may do without asking you. Questions and plans always wait for you.": "Что {agent} может делать, не спрашивая вас. Вопросы и планы всегда ждут вас."
+  "What {agent} may do without asking you. Questions and plans always wait for you.": "Что {agent} может делать, не спрашивая вас. Вопросы и планы всегда ждут вас.",
+  "It has no sessions.": "Сессий нет.",
+  "Nothing in the folder itself is touched, and you can add it again any time.": "Сама папка не затрагивается, и её можно добавить снова в любой момент.",
+  "Remove {name} from AgentDeck": "Убрать {name} из AgentDeck",
+  "Remove {name} from AgentDeck?": "Убрать {name} из AgentDeck?",
+  "Its {n} session is deleted from AgentDeck, and a running agent there is stopped.|Its {n} sessions are deleted from AgentDeck, and running agents there are stopped.": {
+    "one": "Его {n} сессия удаляется из AgentDeck, а запущенный там агент останавливается.",
+    "few": "Его {n} сессии удаляются из AgentDeck, а запущенные там агенты останавливаются.",
+    "many": "Его {n} сессий удаляются из AgentDeck, а запущенные там агенты останавливаются.",
+    "other": "Его {n} сессии удаляются из AgentDeck, а запущенные там агенты останавливаются."
+  }
 }

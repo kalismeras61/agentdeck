@@ -1494,5 +1494,12 @@
   "Every edit and command waits for your OK.": "每次编辑和命令都等你确认。",
   "Nothing waits: deletions, pushes and deploys run without asking. Only for projects you can afford to lose work in.": "什么都不等：删除、推送和部署都不询问直接执行。只适合丢了也无妨的项目。",
   "What {agent} may do without asking you": "{agent} 无需询问你就能做的事",
-  "What {agent} may do without asking you. Questions and plans always wait for you.": "{agent} 无需询问你就能做的事。提问和计划始终等你处理。"
+  "What {agent} may do without asking you. Questions and plans always wait for you.": "{agent} 无需询问你就能做的事。提问和计划始终等你处理。",
+  "It has no sessions.": "没有会话。",
+  "Nothing in the folder itself is touched, and you can add it again any time.": "文件夹本身不会有任何改动，你随时可以再次添加它。",
+  "Remove {name} from AgentDeck": "从 AgentDeck 中移除 {name}",
+  "Remove {name} from AgentDeck?": "从 AgentDeck 中移除 {name}？",
+  "Its {n} session is deleted from AgentDeck, and a running agent there is stopped.|Its {n} sessions are deleted from AgentDeck, and running agents there are stopped.": {
+    "other": "它的 {n} 个会话会从 AgentDeck 中删除，正在那里运行的智能体会被停止。"
+  }
 }

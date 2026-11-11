@@ -168,6 +168,7 @@ export function Settings() {
   const [confirmReset, setConfirmReset] = useState(false);
   const [copied, setCopied] = useState(false);
   const [removing, setRemoving] = useState<string | null>(null);
+  const [removeError, setRemoveError] = useState<string | null>(null);
   const localProjects = st.projects.filter((p) => p.workspaceId === "local" && p.kind !== "chats" && !p.hidden);
 
   const check = useCallback(async () => {
@@ -484,8 +485,11 @@ export function Settings() {
                             <button
                               type="button"
                               onClick={() => {
-                                st.removeProject(p.id);
-                                setRemoving(null);
+                                setRemoveError(null);
+                                st.removeProject(p.id).then(
+                                  () => setRemoving(null),
+                                  (e: unknown) => setRemoveError(errorText(e)),
+                                );
                               }}
                               className="h-7 rounded-md bg-error/90 px-2 text-xs font-medium text-white hover:bg-error"
                             >
@@ -508,6 +512,7 @@ export function Settings() {
                 {removing && (
                   <p className="mt-2 text-xs text-fg-3">{t("Removing a folder deletes its sessions from AgentDeck. Nothing in the folder itself is touched.")}</p>
                 )}
+                {removing && removeError && <p className="mt-1 text-xs text-error">{removeError}</p>}
               </div>
             </Section>
 
