@@ -63,9 +63,12 @@ export function WorktreeBadge({ session }: { session: Session }) {
               <SquareTerminal size={14} className="text-fg-3" /> {t("Open a terminal there")}
             </Dropdown.Item>
             <Dropdown.Separator className="my-1 h-px bg-line" />
-            <Dropdown.Item className={item} disabled={!state?.base} onSelect={() => setDialog("merge")}>
-              <GitMerge size={14} className="text-fg-3" /> {t("Merge into {base}…", { base: state?.base ?? t("the project's branch") })}
-            </Dropdown.Item>
+            {/* A review checkout holds a teammate's branch: they merge it, not you. */}
+            {!session.branch?.startsWith("agentdeck/review-") && (
+              <Dropdown.Item className={item} disabled={!state?.base} onSelect={() => setDialog("merge")}>
+                <GitMerge size={14} className="text-fg-3" /> {t("Merge into {base}…", { base: state?.base ?? t("the project's branch") })}
+              </Dropdown.Item>
+            )}
             <Dropdown.Item className={cx(item, "text-error")} onSelect={() => setDialog("remove")}>
               <Trash2 size={14} /> {t("Remove the worktree…")}
             </Dropdown.Item>

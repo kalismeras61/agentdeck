@@ -11,7 +11,7 @@ use std::process::{Command, Stdio};
 
 const MAX_FILE_BYTES: usize = 2 * 1024 * 1024;
 
-fn git(dir: &str, args: &[&str]) -> Result<String, String> {
+pub(crate) fn git(dir: &str, args: &[&str]) -> Result<String, String> {
     let out = Command::new("git")
         .arg("-C")
         .arg(dir)
@@ -354,7 +354,7 @@ pub fn log(dir: &str, skip: usize, limit: usize) -> Result<Vec<Commit>, String> 
     Ok(parse_log(&out))
 }
 
-fn name_status(out: &str) -> Vec<ChangedFile> {
+pub(crate) fn name_status(out: &str) -> Vec<ChangedFile> {
     let mut v = Vec::new();
     let mut parts = out.split('\0').filter(|s| !s.is_empty());
     while let Some(code) = parts.next() {
@@ -464,7 +464,7 @@ pub fn file_pair(
 
 /* ---------------------------------------------------------------- worktrees for sessions */
 
-fn slug(s: &str) -> String {
+pub(crate) fn slug(s: &str) -> String {
     let mut out: String = s
         .to_lowercase()
         .chars()

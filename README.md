@@ -28,7 +28,7 @@ AgentDeck keeps the agents exactly as they are and gives them a proper workspace
 
 - **It runs the real CLIs.** `claude`, `codex`, `gemini` start from your own install, with the same PATH, config and sign-in as in Terminal. If it works in your terminal, it works here.
 - **It never touches your credentials.** Each agent signs in through its own flow. AgentDeck doesn't read, store or send tokens; the API keys you add for your own models stay in the macOS Keychain.
-- **Everything stays on your Mac.** Sessions live in a local SQLite database. No account, no telemetry, no server.
+- **Everything stays on your Mac.** Sessions live in a local SQLite database. No account, no telemetry, no server. Team features go through the git remote you already push to, and only when you turn sharing on.
 
 ## What you can do
 
@@ -84,6 +84,17 @@ A bot is an agent that stays. Give it a name, a job, instructions and an agent a
 Start a session in its own worktree and branch, so an agent can't step on your working copy. See the branch graph in the Git view, then merge the worktree back (with a clear warning when both sides changed the same lines) or throw it away.
 
 ![Merging an agent's worktree back into master](docs/screenshots/readme/worktree.png)
+
+### See your team's branches, and review them locally
+
+The Team view (⌘⇧U) reads the project's own git remote, so there's no server and no account. For every branch on the remote it shows who has commits on it, how far it is from `main`, which files it changes and, most usefully, **which other branches change the same files**, so you see a conflict coming before anyone merges.
+
+- **Who is on what, right now.** Turn on *Share my work* and AgentDeck pushes a tiny file to `refs/agentdeck/presence/<you>` (outside your branches, never in a pull request): the branch you're on and what your agent sessions are doing. Teammates who share too show up online, with their agents working, waiting or idle on each branch. You see exactly what will be shared before it's turned on; turning it off removes it from the remote.
+- **Read any branch without switching.** Pick a branch for its commits and a diff of every file against where it forked.
+- **Check it out to run it.** *Check out locally* puts the branch in its own folder next to the project (`<project>.worktrees/review-<branch>`), so your working copy isn't touched. When the teammate pushes again, *Update* fast-forwards it.
+- **Let an agent review it.** *Review with Claude Code* (or your default agent) checks it out and opens a session there with a review request ready to send.
+
+![The Team view: teammates and their agents, branches that touch the same files, and a branch's diff](docs/screenshots/readme/team.png)
 
 ### Every command at your fingertips
 
@@ -199,7 +210,7 @@ Releases (signed, notarized, universal, self-updating) are described in [docs/RE
 | Focus message box | ⌘L |
 | Commands | / at the start of a message |
 | Rich / Terminal view | ⌘⇧R / ⌘⇧T |
-| All sessions / Review / Permissions / Git / Agent setup / Gallery | ⌘⇧S / ⌘⇧D / ⌘⇧A / ⌘⇧H / ⌘⇧E / ⌘⇧G |
+| All sessions / Review / Permissions / Git / Team / Agent setup / Gallery | ⌘⇧S / ⌘⇧D / ⌘⇧A / ⌘⇧H / ⌘⇧U / ⌘⇧E / ⌘⇧G |
 | Settings | ⌘, |
 | Rename session | double-click the title, or F2 in the sidebar |
 | Review: next/prev file, change, mark viewed | J / K, N / P, V |

@@ -1501,5 +1501,82 @@
   "Remove {name} from AgentDeck?": "从 AgentDeck 中移除 {name}？",
   "Its {n} session is deleted from AgentDeck, and a running agent there is stopped.|Its {n} sessions are deleted from AgentDeck, and running agents there are stopped.": {
     "other": "它的 {n} 个会话会从 AgentDeck 中删除，正在那里运行的智能体会被停止。"
-  }
+  },
+  "{ahead} ahead, {behind} behind {base}": "领先 {ahead}，落后 {base} {behind}",
+  "{branch} is checked out in {path}.": "{branch} 已检出到 {path}。",
+  "{n} agent working|{n} agents working": {
+    "other": "{n} 个智能体在工作"
+  },
+  "{n} branch|{n} branches": {
+    "other": "{n} 个分支"
+  },
+  "{n} commit behind {base}|{n} commits behind {base}": {
+    "other": "落后 {base} {n} 个提交"
+  },
+  "{n} commit not in {base}|{n} commits not in {base}": {
+    "other": "{n} 个提交不在 {base} 中"
+  },
+  "{n} new|{n} new": {
+    "other": "{n} 个新提交"
+  },
+  "Active": "活跃",
+  "Add a project folder to see who works on which branch.": "添加一个项目文件夹，查看谁在哪个分支上工作。",
+  "agent working": "智能体工作中",
+  "AgentDeck pushes a small file to {remote} under refs/agentdeck/presence, outside your branches, so teammates who fetch see it. It's updated every few minutes while AgentDeck runs and removed when you turn sharing off.": "AgentDeck 会把一个小文件推送到 {remote} 的 refs/agentdeck/presence 下，不在你的分支里，队友 fetch 后就能看到。AgentDeck 运行时每隔几分钟更新一次，关闭共享时删除。",
+  "Also changed on {branches}": "也在 {branches} 中修改",
+  "Away": "离开",
+  "Branch details": "分支详情",
+  "Branch, person or commit": "分支、成员或提交",
+  "Changes the same files as {branches}": "与 {branches} 修改了相同的文件",
+  "Check out locally": "检出到本地",
+  "Checked out in {path}": "已检出到 {path}",
+  "Checking out…": "正在检出…",
+  "Checks it out and opens a session with {agent} there, with a review request ready to send.": "检出该分支并在其中打开一个 {agent} 会话，审查请求已准备好发送。",
+  "Checks the branch out in its own folder next to the project; your working copy isn't touched.": "把分支检出到项目旁的独立文件夹；你的工作副本不受影响。",
+  "Everything on this branch is already in {base}.": "此分支的所有内容都已在 {base} 中。",
+  "Fetch": "Fetch",
+  "Fetched {when}": "更新于：{when}",
+  "Git doesn't know who you are here. Set user.name and user.email first.": "Git 不知道你在这里的身份。请先设置 user.name 和 user.email。",
+  "May conflict with": "可能冲突的分支",
+  "merged": "已合并",
+  "Mine": "我的",
+  "More files than shown; check it out to see them all.": "文件比显示的多；检出后可查看全部。",
+  "No branch had commits in the last few days. Pick All to see older ones.": "最近几天没有分支有提交。选择“全部”查看更早的分支。",
+  "No branches match.": "没有匹配的分支。",
+  "Nobody has unmerged work yet.": "还没有人有未合并的工作。",
+  "not pushed": "未推送",
+  "on {n} branch|on {n} branches": {
+    "other": "在 {n} 个分支上"
+  },
+  "On it now": "正在处理",
+  "Online": "在线",
+  "Open the checkout in Git": "在 Git 中打开副本",
+  "Overlapping": "有重叠",
+  "People": "成员",
+  "Pick a branch to see who's on it, what it changes and where it touches other branches. Check it out to run it locally, or let an agent review it.": "选择一个分支，查看谁在处理它、它改了什么、与哪些分支有交集。检出到本地运行，或让智能体审查。",
+  "Preparing…": "正在准备…",
+  "Reading the repository…": "正在读取仓库…",
+  "Remove the review checkout": "移除审查副本",
+  "Review checkouts": "审查副本",
+  "Review with {agent}": "用 {agent} 审查",
+  "Same files, different branches": "相同文件，不同分支",
+  "Search branches": "搜索分支",
+  "Seen {when}": "最近在线：{when}",
+  "Share": "共享",
+  "Share my work": "共享我的工作",
+  "Share what you're working on": "共享你正在做的事",
+  "Sharing…": "正在共享…",
+  "Showing what was fetched before. {error}": "显示的是之前获取的内容。{error}",
+  "Team": "团队",
+  "Teammates see your branches and what your agents are doing, through {remote}.": "队友通过 {remote} 能看到你的分支和你的智能体在做什么。",
+  "The review checkout has changes that aren't committed. Remove it anyway? They'll be lost.": "审查副本中有未提交的更改。仍要移除吗？这些更改会丢失。",
+  "This is what they'll see:": "他们将看到这些：",
+  "This repository has no remote, so only your own branches show here. Add the remote your team pushes to with git remote add origin <url>.": "此仓库没有 remote，所以这里只显示你自己的分支。用 git remote add origin <url> 添加团队推送的 remote。",
+  "This works in the desktop app, on your own repositories.": "此功能在桌面应用中、针对你自己的仓库可用。",
+  "Turn on “Share my work” and ask teammates to do the same to see each other's agents live.": "打开“共享我的工作”，并请队友也打开，就能实时看到彼此的智能体。",
+  "Update": "更新",
+  "Which branches": "哪些分支",
+  "you": "你",
+  "Your copy: {up} to push, {down} to pull": "你的副本：{up} 个待推送，{down} 个待拉取",
+  "yours": "你的"
 }

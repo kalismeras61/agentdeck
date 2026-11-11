@@ -32,6 +32,7 @@ mod schedule;
 mod secrets;
 mod setup;
 mod shellenv;
+mod team;
 mod telegram;
 mod triggers;
 mod unattended;
@@ -372,6 +373,291 @@ async fn git_file_pair(
     .map_err(err)?
 }
 
+/* ---------------------------------------------------------------- team */
+
+fn team_key(project_id: &str, what: &str) -> String {
+    format!("team.{what}.{project_id}")
+}
+
+/// What you share with your team about a project: who you are (git's user.name and email), the
+/// branch the project folder is on, your worktrees' branches and your recent sessions there.
+fn team_presence_of(db: &Db, project_id: &str, dir: &str) -> CmdResult<team::Presence> {
+    let root = git::root(dir).ok_or("This project isn't a git repository")?;
+    let me = team::me(&root);
+    let current = git::git(&root, &["symbolic-ref", "-q", "--short", "HEAD"])
+        .ok()
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty());
+    let day_ago = team::now_ms() - 86_400_000;
+    let mut sessions: Vec<SessionRow> = db
+        .list_sessions()
+        .map_err(err)?
+        .into_iter()
+        .filter(|s| s.project_id == project_id)
+        .filter(|s| s.updated_at > day_ago || s.status == "running" || s.status == "waiting")
+        .collect();
+    sessions.sort_by_key(|s| std::cmp::Reverse(s.updated_at));
+    let worktrees = git::worktrees(&root)
+        .into_iter()
+        .filter(|w| !w.main)
+        .filter_map(|w| w.branch)
+        .take(30)
+        .collect();
+    Ok(team::Presence {
+        version: 1,
+        name: me.name,
+        email: me.email,
+        branch: current.clone(),
+        worktrees,
+        sessions: sessions
+            .into_iter()
+            .take(20)
+            .map(|s| team::PresenceSession {
+                agent: agents::label(&s.provider).into(),
+                branch: s.branch.clone().or_else(|| current.clone()),
+                title: s.title,
+                status: s.status,
+                updated_at: s.updated_at,
+            })
+            .collect(),
+        updated_at: team::now_ms(),
+    })
+}
+
+fn team_state(
+    db: &Db,
+    project_id: &str,
+    dir: &str,
+    days: u32,
+    sync_error: Option<String>,
+) -> CmdResult<team::TeamOverview> {
+    let mut o = team::overview(dir, days)?;
+    o.sharing = db
+        .meta(&team_key(project_id, "share"))
+        .map_err(err)?
+        .as_deref()
+        == Some("1");
+    o.fetched_at = db
+        .meta(&team_key(project_id, "fetched"))
+        .map_err(err)?
+        .and_then(|v| v.parse().ok());
+    o.sync_error = sync_error;
+    Ok(o)
+}
+
+/// Branches, teammates and review checkouts of a project, from what was last fetched.
+#[tauri::command]
+async fn team_overview(
+    state: State<'_, AppState>,
+    project_id: String,
+    days: Option<u32>,
+) -> CmdResult<team::TeamOverview> {
+    let d = repo_dir(&state.db, &project_id, None)?;
+    let db = state.db.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        team_state(&db, &project_id, &d, days.unwrap_or(30), None)
+    })
+    .await
+    .map_err(err)?
+}
+
+/// Fetches the remote (branches and everyone's presence), shares yours again when you share,
+/// then returns the overview. A failed fetch still returns what's known, with the reason.
+#[tauri::command]
+async fn team_fetch(
+    state: State<'_, AppState>,
+    project_id: String,
+    days: Option<u32>,
+) -> CmdResult<team::TeamOverview> {
+    let d = repo_dir(&state.db, &project_id, None)?;
+    let db = state.db.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let mut problem = team::fetch(&d).err();
+        if problem.is_none() {
+            db.set_meta(
+                &team_key(&project_id, "fetched"),
+                &team::now_ms().to_string(),
+            )
+            .map_err(err)?;
+            if db
+                .meta(&team_key(&project_id, "share"))
+                .map_err(err)?
+                .as_deref()
+                == Some("1")
+            {
+                let p = team_presence_of(&db, &project_id, &d)?;
+                problem = team::publish(&d, &p, true).err();
+            }
+        }
+        team_state(&db, &project_id, &d, days.unwrap_or(30), problem)
+    })
+    .await
+    .map_err(err)?
+}
+
+/// Exactly what sharing would put on the remote, shown before it's turned on.
+#[tauri::command]
+async fn team_presence_preview(
+    state: State<'_, AppState>,
+    project_id: String,
+) -> CmdResult<team::Presence> {
+    let d = repo_dir(&state.db, &project_id, None)?;
+    let db = state.db.clone();
+    tauri::async_runtime::spawn_blocking(move || team_presence_of(&db, &project_id, &d))
+        .await
+        .map_err(err)?
+}
+
+/// Turns sharing on (pushes your presence now) or off (takes it off the remote).
+#[tauri::command]
+async fn team_set_sharing(
+    state: State<'_, AppState>,
+    project_id: String,
+    on: bool,
+    days: Option<u32>,
+) -> CmdResult<team::TeamOverview> {
+    let d = repo_dir(&state.db, &project_id, None)?;
+    let db = state.db.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let p = team_presence_of(&db, &project_id, &d)?;
+        if on {
+            team::publish(&d, &p, true)?;
+            db.set_meta(&team_key(&project_id, "share"), "1")
+                .map_err(err)?;
+        } else {
+            db.set_meta(&team_key(&project_id, "share"), "0")
+                .map_err(err)?;
+            if !p.email.is_empty() {
+                team::unpublish(&d, &p.email, true)?;
+            }
+        }
+        team_state(&db, &project_id, &d, days.unwrap_or(30), None)
+    })
+    .await
+    .map_err(err)?
+}
+
+/// Shares your presence again in every project you share (called every few minutes and when
+/// your sessions change). Projects that fail are skipped quietly; the Team view says why.
+#[tauri::command]
+async fn team_heartbeat(state: State<'_, AppState>) -> CmdResult<u32> {
+    let db = state.db.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let mut n = 0;
+        for p in db.list_projects().map_err(err)? {
+            if db.meta(&team_key(&p.id, "share")).map_err(err)?.as_deref() != Some("1") {
+                continue;
+            }
+            if let Ok(pr) = team_presence_of(&db, &p.id, &p.path) {
+                if team::publish(&p.path, &pr, true).is_ok() {
+                    n += 1;
+                }
+            }
+        }
+        Ok(n)
+    })
+    .await
+    .map_err(err)?
+}
+
+/// A teammate's branch compared with the base: its commits and the files it changed.
+#[tauri::command]
+async fn team_branch(
+    state: State<'_, AppState>,
+    project_id: String,
+    branch: String,
+    base: String,
+) -> CmdResult<team::BranchDetail> {
+    let d = repo_dir(&state.db, &project_id, None)?;
+    tauri::async_runtime::spawn_blocking(move || team::branch_detail(&d, &branch, &base))
+        .await
+        .map_err(err)?
+}
+
+#[tauri::command]
+async fn team_review_checkout(
+    state: State<'_, AppState>,
+    project_id: String,
+    branch: String,
+) -> CmdResult<team::ReviewCheckout> {
+    let d = repo_dir(&state.db, &project_id, None)?;
+    tauri::async_runtime::spawn_blocking(move || team::checkout_review(&d, &branch))
+        .await
+        .map_err(err)?
+}
+
+#[tauri::command]
+async fn team_review_update(
+    state: State<'_, AppState>,
+    project_id: String,
+    path: String,
+) -> CmdResult<team::ReviewCheckout> {
+    let d = repo_dir(&state.db, &project_id, None)?;
+    tauri::async_runtime::spawn_blocking(move || team::update_review(&d, &path))
+        .await
+        .map_err(err)?
+}
+
+/// Removes a review checkout and its local review branch. Sessions that worked in it keep their
+/// conversation; their worktree is shown as gone.
+#[tauri::command]
+async fn team_review_remove(
+    state: State<'_, AppState>,
+    project_id: String,
+    path: String,
+) -> CmdResult<()> {
+    let d = repo_dir(&state.db, &project_id, None)?;
+    if state.db.list_sessions().map_err(err)?.iter().any(|s| {
+        s.worktree.as_deref() == Some(path.as_str())
+            && state.agents.is_running(&s.id)
+            && (s.status == "running" || s.status == "waiting")
+    }) {
+        return Err("An agent is still working in this checkout. Stop it first.".into());
+    }
+    tauri::async_runtime::spawn_blocking(move || team::remove_review(&d, &path))
+        .await
+        .map_err(err)?
+}
+
+/// Checks a teammate's branch out for review (or updates the checkout) and starts a session in
+/// it, titled after the branch. The interface then puts a review request in its message box.
+#[tauri::command]
+#[allow(clippy::too_many_arguments)]
+async fn team_review_session(
+    state: State<'_, AppState>,
+    project_id: String,
+    branch: String,
+    provider: String,
+    model: String,
+    profile_id: Option<String>,
+    effort: Option<String>,
+) -> CmdResult<SessionRow> {
+    let model = check_agent(&state.db, &provider, &model, profile_id.as_deref())?;
+    let effort = match profile_id {
+        Some(_) => None,
+        None => check_effort(&provider, effort.as_deref())?,
+    };
+    let d = repo_dir(&state.db, &project_id, None)?;
+    let b = branch.clone();
+    let r = tauri::async_runtime::spawn_blocking(move || team::checkout_review(&d, &b))
+        .await
+        .map_err(err)??;
+    let short = r.upstream.as_deref().unwrap_or(&branch);
+    let db = &state.db;
+    let s = db
+        .create_session(&project_id, &provider, &model, &format!("Review {short}"))
+        .map_err(err)?;
+    db.set_session_worktree(&s.id, Some(&r.path), Some(&r.branch))
+        .map_err(err)?;
+    if effort.is_some() {
+        db.set_session_effort(&s.id, effort.as_deref())
+            .map_err(err)?;
+    }
+    db.set_session_profile(&s.id, profile_id.as_deref())
+        .map_err(err)?
+        .ok_or_else(|| "Session not found".into())
+}
+
 fn session_worktree_of(
     db: &Db,
     session_id: &str,
@@ -462,6 +748,9 @@ async fn merge_session_worktree(
     session_id: String,
 ) -> CmdResult<git::MergeResult> {
     let (s, project, path, branch) = session_worktree_of(&state.db, &session_id)?;
+    if team::is_review_branch(&branch) {
+        return Err("This is a checkout of a teammate's branch for review. It isn't merged from here: the teammate merges their branch (for example through a pull request).".into());
+    }
     if state.agents.is_running(&session_id) && (s.status == "running" || s.status == "waiting") {
         return Err(
             "The agent is still working. Wait for it to finish, or stop it, then merge.".into(),
@@ -2621,6 +2910,16 @@ pub fn run() {
             set_session_worktree,
             merge_session_worktree,
             remove_session_worktree,
+            team_overview,
+            team_fetch,
+            team_presence_preview,
+            team_set_sharing,
+            team_heartbeat,
+            team_branch,
+            team_review_checkout,
+            team_review_update,
+            team_review_remove,
+            team_review_session,
             term_sign_in,
             allow_antigravity_rules,
             agent_approvals,

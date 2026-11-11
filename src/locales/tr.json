@@ -1549,5 +1549,88 @@
   "Its {n} session is deleted from AgentDeck, and a running agent there is stopped.|Its {n} sessions are deleted from AgentDeck, and running agents there are stopped.": {
     "one": "{n} oturumu AgentDeck'ten silinir ve orada çalışan ajan durdurulur.",
     "other": "{n} oturumu AgentDeck'ten silinir ve orada çalışan ajanlar durdurulur."
-  }
+  },
+  "{ahead} ahead, {behind} behind {base}": "{base} dalının {ahead} önünde, {behind} gerisinde",
+  "{branch} is checked out in {path}.": "{branch}, {path} klasörüne çekildi.",
+  "{n} agent working|{n} agents working": {
+    "one": "{n} ajan çalışıyor",
+    "other": "{n} ajan çalışıyor"
+  },
+  "{n} branch|{n} branches": {
+    "one": "{n} dal",
+    "other": "{n} dal"
+  },
+  "{n} commit behind {base}|{n} commits behind {base}": {
+    "one": "{base} dalının {n} commit gerisinde",
+    "other": "{base} dalının {n} commit gerisinde"
+  },
+  "{n} commit not in {base}|{n} commits not in {base}": {
+    "one": "{base} dalında olmayan {n} commit",
+    "other": "{base} dalında olmayan {n} commit"
+  },
+  "{n} new|{n} new": {
+    "one": "{n} yeni",
+    "other": "{n} yeni"
+  },
+  "Active": "Aktif",
+  "Add a project folder to see who works on which branch.": "Kimin hangi dalda çalıştığını görmek için bir proje klasörü ekleyin.",
+  "agent working": "ajan çalışıyor",
+  "AgentDeck pushes a small file to {remote} under refs/agentdeck/presence, outside your branches, so teammates who fetch see it. It's updated every few minutes while AgentDeck runs and removed when you turn sharing off.": "AgentDeck, {remote} üzerine dallarınızın dışında, refs/agentdeck/presence altında küçük bir dosya gönderir; fetch yapan ekip arkadaşlarınız bunu görür. AgentDeck açıkken birkaç dakikada bir güncellenir, paylaşımı kapattığınızda silinir.",
+  "Also changed on {branches}": "{branches} dallarında da değişti",
+  "Away": "Uzakta",
+  "Branch details": "Dal ayrıntıları",
+  "Branch, person or commit": "Dal, kişi veya commit",
+  "Changes the same files as {branches}": "{branches} ile aynı dosyaları değiştiriyor",
+  "Check out locally": "Yerele çek",
+  "Checked out in {path}": "{path} klasöründe açık",
+  "Checking out…": "Çekiliyor…",
+  "Checks it out and opens a session with {agent} there, with a review request ready to send.": "Dalı çeker ve orada {agent} ile bir oturum açar; inceleme isteği gönderilmeye hazır olur.",
+  "Checks the branch out in its own folder next to the project; your working copy isn't touched.": "Dalı projenin yanındaki ayrı bir klasöre çeker; çalışma kopyanıza dokunulmaz.",
+  "Everything on this branch is already in {base}.": "Bu daldaki her şey zaten {base} dalında.",
+  "Fetch": "Fetch",
+  "Fetched {when}": "Son çekme: {when}",
+  "Git doesn't know who you are here. Set user.name and user.email first.": "Git burada kim olduğunuzu bilmiyor. Önce user.name ve user.email ayarlayın.",
+  "May conflict with": "Çakışabileceği dallar",
+  "merged": "birleşti",
+  "Mine": "Benimkiler",
+  "More files than shown; check it out to see them all.": "Gösterilenden fazla dosya var; hepsini görmek için yerele çekin.",
+  "No branch had commits in the last few days. Pick All to see older ones.": "Son birkaç günde hiçbir dalda commit yok. Daha eskileri görmek için Tümü'nü seçin.",
+  "No branches match.": "Eşleşen dal yok.",
+  "Nobody has unmerged work yet.": "Henüz birleştirilmemiş iş yok.",
+  "not pushed": "push edilmedi",
+  "on {n} branch|on {n} branches": {
+    "one": "{n} dalda",
+    "other": "{n} dalda"
+  },
+  "On it now": "Şu an üzerinde",
+  "Online": "Çevrimiçi",
+  "Open the checkout in Git": "Kopyayı Git'te aç",
+  "Overlapping": "Çakışan",
+  "People": "Kişiler",
+  "Pick a branch to see who's on it, what it changes and where it touches other branches. Check it out to run it locally, or let an agent review it.": "Kimin üzerinde çalıştığını, neyi değiştirdiğini ve başka dallarla nerede kesiştiğini görmek için bir dal seçin. Yerelde çalıştırmak için çekin ya da bir ajana inceletin.",
+  "Preparing…": "Hazırlanıyor…",
+  "Reading the repository…": "Depo okunuyor…",
+  "Remove the review checkout": "İnceleme kopyasını kaldır",
+  "Review checkouts": "İnceleme kopyaları",
+  "Review with {agent}": "{agent} ile incele",
+  "Same files, different branches": "Aynı dosyalar, farklı dallar",
+  "Search branches": "Dallarda ara",
+  "Seen {when}": "Son görülme: {when}",
+  "Share": "Paylaş",
+  "Share my work": "Çalışmamı paylaş",
+  "Share what you're working on": "Ne üzerinde çalıştığınızı paylaşın",
+  "Sharing…": "Paylaşılıyor…",
+  "Showing what was fetched before. {error}": "Daha önce çekilenler gösteriliyor. {error}",
+  "Team": "Ekip",
+  "Teammates see your branches and what your agents are doing, through {remote}.": "Ekip arkadaşlarınız dallarınızı ve ajanlarınızın ne yaptığını {remote} üzerinden görür.",
+  "The review checkout has changes that aren't committed. Remove it anyway? They'll be lost.": "İnceleme kopyasında commit edilmemiş değişiklikler var. Yine de kaldırılsın mı? Kaybolacaklar.",
+  "This is what they'll see:": "Görecekleri bu:",
+  "This repository has no remote, so only your own branches show here. Add the remote your team pushes to with git remote add origin <url>.": "Bu deponun remote'u yok, bu yüzden yalnızca kendi dallarınız görünüyor. Ekibinizin push ettiği remote'u git remote add origin <url> ile ekleyin.",
+  "This works in the desktop app, on your own repositories.": "Bu, masaüstü uygulamasında kendi depolarınızda çalışır.",
+  "Turn on “Share my work” and ask teammates to do the same to see each other's agents live.": "Birbirinizin ajanlarını canlı görmek için “Çalışmamı paylaş”ı açın ve ekip arkadaşlarınızdan da açmalarını isteyin.",
+  "Update": "Güncelle",
+  "Which branches": "Hangi dallar",
+  "you": "siz",
+  "Your copy: {up} to push, {down} to pull": "Sizin kopyanız: {up} push edilecek, {down} çekilecek",
+  "yours": "sizin"
 }

@@ -3,7 +3,7 @@ import { isMac } from "../lib/format";
 import { inWorkspace, useStore, type AppView, type ContextTab } from "../state/store";
 
 const TAB_KEYS: Record<string, ContextTab> = { "1": "files", "2": "changes", "3": "preview", "4": "activity" };
-const VIEW_KEYS: Record<string, AppView> = { s: "overview", d: "review", a: "permissions", g: "gallery", e: "setup", h: "git" };
+const VIEW_KEYS: Record<string, AppView> = { s: "overview", d: "review", a: "permissions", g: "gallery", e: "setup", h: "git", u: "team" };
 
 /** Ordered as the sidebar shows them, so ⌥↑/↓ moves visually. */
 function orderedIds(): string[] {

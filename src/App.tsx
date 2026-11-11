@@ -5,6 +5,7 @@ import { Monitor } from "lucide-react";
 import { Composer } from "./components/Composer";
 
 const GitView = lazy(() => import("./views/GitView").then((m) => ({ default: m.GitView })));
+const TeamView = lazy(() => import("./views/TeamView").then((m) => ({ default: m.TeamView })));
 const AgentSetup = lazy(() => import("./views/AgentSetup").then((m) => ({ default: m.AgentSetup })));
 const Gallery = lazy(() => import("./views/Gallery").then((m) => ({ default: m.Gallery })));
 const Review = lazy(() => import("./views/review/Review").then((m) => ({ default: m.Review })));
@@ -20,6 +21,7 @@ import { Sidebar } from "./components/Sidebar";
 import { useSelectedSession } from "./hooks/useSession";
 import { useLiveBridge } from "./hooks/useLiveBridge";
 import { useShortcuts } from "./hooks/useShortcuts";
+import { useTeamHeartbeat } from "./hooks/useTeamHeartbeat";
 import { useMedia } from "./hooks/useTheme";
 import { CONTEXT, SIDEBAR, useStore } from "./state/store";
 import { Overview } from "./views/Overview";
@@ -58,6 +60,7 @@ function Workspace({ width }: { width: number }) {
   const prefersLight = useMedia("(prefers-color-scheme: light)");
   const prefersReduced = useMedia("(prefers-reduced-motion: reduce)");
   useShortcuts();
+  useTeamHeartbeat();
   useLiveBridge();
   useEffect(() => startUpdateChecks(), []);
   // First run: show Get started. Also learns whether Antigravity is turned on.
@@ -123,6 +126,8 @@ function Workspace({ width }: { width: number }) {
                 <AgentSetup />
               ) : view === "git" ? (
                 <GitView />
+              ) : view === "team" ? (
+                <TeamView />
               ) : view === "settings" ? (
                 <Settings />
               ) : view === "bot" ? (

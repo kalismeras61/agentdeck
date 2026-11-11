@@ -9,7 +9,7 @@ import { childrenOf, mergeSchedule, mergeTask, soonest } from "../lib/bots";
 import type { ProviderId } from "../lib/events";
 import { botExtrasApi, connectionsApi, errorText, liveApi, pickFolder, remoteApi, type LiveProject, type LiveProvider, type LiveSessionRow, type BotOptions } from "../lib/live";
 
-export type AppView = "workspace" | "overview" | "review" | "permissions" | "gallery" | "settings" | "setup" | "git" | "welcome" | "bot";
+export type AppView = "workspace" | "overview" | "review" | "permissions" | "gallery" | "settings" | "setup" | "git" | "team" | "welcome" | "bot";
 export type ContextTab = "files" | "changes" | "preview" | "activity";
 export type ViewMode = "rich" | "terminal";
 export type ThemePref = "dark" | "light" | "system";

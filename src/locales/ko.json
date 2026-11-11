@@ -1501,5 +1501,82 @@
   "Remove {name} from AgentDeck?": "AgentDeck에서 {name}을(를) 제거할까요?",
   "Its {n} session is deleted from AgentDeck, and a running agent there is stopped.|Its {n} sessions are deleted from AgentDeck, and running agents there are stopped.": {
     "other": "세션 {n}개가 AgentDeck에서 삭제되고, 그곳에서 실행 중인 에이전트는 중지됩니다."
-  }
+  },
+  "{ahead} ahead, {behind} behind {base}": "{base}보다 {ahead} 앞섬, {behind} 뒤처짐",
+  "{branch} is checked out in {path}.": "{branch}을(를) {path}에 체크아웃했습니다.",
+  "{n} agent working|{n} agents working": {
+    "other": "에이전트 {n}개 작업 중"
+  },
+  "{n} branch|{n} branches": {
+    "other": "브랜치 {n}개"
+  },
+  "{n} commit behind {base}|{n} commits behind {base}": {
+    "other": "{base}보다 커밋 {n}개 뒤처짐"
+  },
+  "{n} commit not in {base}|{n} commits not in {base}": {
+    "other": "{base}에 없는 커밋 {n}개"
+  },
+  "{n} new|{n} new": {
+    "other": "새 커밋 {n}개"
+  },
+  "Active": "활성",
+  "Add a project folder to see who works on which branch.": "프로젝트 폴더를 추가하면 누가 어떤 브랜치에서 작업하는지 볼 수 있습니다.",
+  "agent working": "에이전트 작업 중",
+  "AgentDeck pushes a small file to {remote} under refs/agentdeck/presence, outside your branches, so teammates who fetch see it. It's updated every few minutes while AgentDeck runs and removed when you turn sharing off.": "AgentDeck은 {remote}의 refs/agentdeck/presence 아래에 작은 파일을 푸시합니다. 브랜치 밖에 있으며, 팀원은 fetch하면 볼 수 있습니다. AgentDeck이 실행되는 동안 몇 분마다 갱신되고 공유를 끄면 삭제됩니다.",
+  "Also changed on {branches}": "{branches}에서도 변경됨",
+  "Away": "자리 비움",
+  "Branch details": "브랜치 세부 정보",
+  "Branch, person or commit": "브랜치, 사람 또는 커밋",
+  "Changes the same files as {branches}": "{branches}와(과) 같은 파일을 변경합니다",
+  "Check out locally": "로컬에 체크아웃",
+  "Checked out in {path}": "{path}에 체크아웃됨",
+  "Checking out…": "체크아웃 중…",
+  "Checks it out and opens a session with {agent} there, with a review request ready to send.": "체크아웃한 뒤 그곳에서 {agent} 세션을 열고, 리뷰 요청을 보낼 준비를 해 둡니다.",
+  "Checks the branch out in its own folder next to the project; your working copy isn't touched.": "브랜치를 프로젝트 옆 별도 폴더에 체크아웃합니다. 작업 사본은 건드리지 않습니다.",
+  "Everything on this branch is already in {base}.": "이 브랜치의 모든 내용이 이미 {base}에 있습니다.",
+  "Fetch": "Fetch",
+  "Fetched {when}": "업데이트: {when}",
+  "Git doesn't know who you are here. Set user.name and user.email first.": "이 저장소에서 Git이 사용자를 알지 못합니다. 먼저 user.name과 user.email을 설정하세요.",
+  "May conflict with": "충돌 가능",
+  "merged": "병합됨",
+  "Mine": "내 브랜치",
+  "More files than shown; check it out to see them all.": "표시된 것보다 파일이 많습니다. 모두 보려면 체크아웃하세요.",
+  "No branch had commits in the last few days. Pick All to see older ones.": "최근 며칠 동안 커밋이 있는 브랜치가 없습니다. 이전 브랜치를 보려면 전체를 선택하세요.",
+  "No branches match.": "일치하는 브랜치가 없습니다.",
+  "Nobody has unmerged work yet.": "아직 병합되지 않은 작업이 없습니다.",
+  "not pushed": "푸시 안 됨",
+  "on {n} branch|on {n} branches": {
+    "other": "브랜치 {n}개에서"
+  },
+  "On it now": "지금 작업 중",
+  "Online": "온라인",
+  "Open the checkout in Git": "Git에서 사본 열기",
+  "Overlapping": "겹침",
+  "People": "사람",
+  "Pick a branch to see who's on it, what it changes and where it touches other branches. Check it out to run it locally, or let an agent review it.": "브랜치를 선택하면 누가 작업 중인지, 무엇을 바꾸는지, 다른 브랜치와 어디서 겹치는지 볼 수 있습니다. 로컬에서 실행하려면 체크아웃하거나 에이전트에게 리뷰를 맡기세요.",
+  "Preparing…": "준비 중…",
+  "Reading the repository…": "저장소 읽는 중…",
+  "Remove the review checkout": "리뷰 사본 제거",
+  "Review checkouts": "리뷰 사본",
+  "Review with {agent}": "{agent}로 리뷰",
+  "Same files, different branches": "같은 파일, 다른 브랜치",
+  "Search branches": "브랜치 검색",
+  "Seen {when}": "마지막 접속: {when}",
+  "Share": "공유",
+  "Share my work": "내 작업 공유",
+  "Share what you're working on": "작업 중인 내용 공유",
+  "Sharing…": "공유 중…",
+  "Showing what was fetched before. {error}": "이전에 가져온 내용을 표시합니다. {error}",
+  "Team": "팀",
+  "Teammates see your branches and what your agents are doing, through {remote}.": "팀원은 {remote}를 통해 내 브랜치와 에이전트가 하는 일을 볼 수 있습니다.",
+  "The review checkout has changes that aren't committed. Remove it anyway? They'll be lost.": "리뷰 사본에 커밋하지 않은 변경 사항이 있습니다. 그래도 제거할까요? 변경 사항은 사라집니다.",
+  "This is what they'll see:": "팀원에게 보이는 내용:",
+  "This repository has no remote, so only your own branches show here. Add the remote your team pushes to with git remote add origin <url>.": "이 저장소에는 remote가 없어서 내 브랜치만 표시됩니다. git remote add origin <url>로 팀의 remote를 추가하세요.",
+  "This works in the desktop app, on your own repositories.": "이 기능은 데스크톱 앱에서 내 저장소에 대해 작동합니다.",
+  "Turn on “Share my work” and ask teammates to do the same to see each other's agents live.": "“내 작업 공유”를 켜고 팀원에게도 켜 달라고 하면 서로의 에이전트를 실시간으로 볼 수 있습니다.",
+  "Update": "업데이트",
+  "Which branches": "표시할 브랜치",
+  "you": "나",
+  "Your copy: {up} to push, {down} to pull": "내 사본: 푸시할 커밋 {up}개, 가져올 커밋 {down}개",
+  "yours": "내 것"
 }

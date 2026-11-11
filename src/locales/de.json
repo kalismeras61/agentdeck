@@ -1549,5 +1549,88 @@
   "Its {n} session is deleted from AgentDeck, and a running agent there is stopped.|Its {n} sessions are deleted from AgentDeck, and running agents there are stopped.": {
     "one": "Seine {n} Sitzung wird aus AgentDeck gelöscht, und ein dort laufender Agent wird gestoppt.",
     "other": "Seine {n} Sitzungen werden aus AgentDeck gelöscht, und dort laufende Agenten werden gestoppt."
-  }
+  },
+  "{ahead} ahead, {behind} behind {base}": "{ahead} voraus, {behind} hinter {base}",
+  "{branch} is checked out in {path}.": "{branch} ist in {path} ausgecheckt.",
+  "{n} agent working|{n} agents working": {
+    "one": "{n} Agent arbeitet",
+    "other": "{n} Agents arbeiten"
+  },
+  "{n} branch|{n} branches": {
+    "one": "{n} Branch",
+    "other": "{n} Branches"
+  },
+  "{n} commit behind {base}|{n} commits behind {base}": {
+    "one": "{n} Commit hinter {base}",
+    "other": "{n} Commits hinter {base}"
+  },
+  "{n} commit not in {base}|{n} commits not in {base}": {
+    "one": "{n} Commit nicht in {base}",
+    "other": "{n} Commits nicht in {base}"
+  },
+  "{n} new|{n} new": {
+    "one": "{n} neu",
+    "other": "{n} neu"
+  },
+  "Active": "Aktiv",
+  "Add a project folder to see who works on which branch.": "Füge einen Projektordner hinzu, um zu sehen, wer an welchem Branch arbeitet.",
+  "agent working": "Agent arbeitet",
+  "AgentDeck pushes a small file to {remote} under refs/agentdeck/presence, outside your branches, so teammates who fetch see it. It's updated every few minutes while AgentDeck runs and removed when you turn sharing off.": "AgentDeck pusht eine kleine Datei nach {remote} unter refs/agentdeck/presence, außerhalb deiner Branches, damit Teammitglieder sie beim Fetch sehen. Sie wird alle paar Minuten aktualisiert, solange AgentDeck läuft, und entfernt, wenn du das Teilen ausschaltest.",
+  "Also changed on {branches}": "Auch geändert in {branches}",
+  "Away": "Abwesend",
+  "Branch details": "Branch-Details",
+  "Branch, person or commit": "Branch, Person oder Commit",
+  "Changes the same files as {branches}": "Ändert dieselben Dateien wie {branches}",
+  "Check out locally": "Lokal auschecken",
+  "Checked out in {path}": "Ausgecheckt in {path}",
+  "Checking out…": "Wird ausgecheckt…",
+  "Checks it out and opens a session with {agent} there, with a review request ready to send.": "Checkt ihn aus und öffnet dort eine Sitzung mit {agent}, mit einer fertigen Review-Anfrage.",
+  "Checks the branch out in its own folder next to the project; your working copy isn't touched.": "Checkt den Branch in einem eigenen Ordner neben dem Projekt aus; deine Arbeitskopie bleibt unberührt.",
+  "Everything on this branch is already in {base}.": "Alles auf diesem Branch ist schon in {base}.",
+  "Fetch": "Fetch",
+  "Fetched {when}": "Abgerufen: {when}",
+  "Git doesn't know who you are here. Set user.name and user.email first.": "Git weiß hier nicht, wer du bist. Setze zuerst user.name und user.email.",
+  "May conflict with": "Kann kollidieren mit",
+  "merged": "gemergt",
+  "Mine": "Meine",
+  "More files than shown; check it out to see them all.": "Mehr Dateien als angezeigt; checke ihn aus, um alle zu sehen.",
+  "No branch had commits in the last few days. Pick All to see older ones.": "Kein Branch hatte in den letzten Tagen Commits. Wähle Alle, um ältere zu sehen.",
+  "No branches match.": "Keine passenden Branches.",
+  "Nobody has unmerged work yet.": "Noch niemand hat ungemergte Arbeit.",
+  "not pushed": "nicht gepusht",
+  "on {n} branch|on {n} branches": {
+    "one": "in {n} Branch",
+    "other": "in {n} Branches"
+  },
+  "On it now": "Gerade dran",
+  "Online": "Online",
+  "Open the checkout in Git": "Kopie in Git öffnen",
+  "Overlapping": "Überschneidend",
+  "People": "Personen",
+  "Pick a branch to see who's on it, what it changes and where it touches other branches. Check it out to run it locally, or let an agent review it.": "Wähle einen Branch, um zu sehen, wer daran arbeitet, was er ändert und wo er andere Branches berührt. Checke ihn aus, um ihn lokal auszuführen, oder lass einen Agent ihn reviewen.",
+  "Preparing…": "Wird vorbereitet…",
+  "Reading the repository…": "Repository wird gelesen…",
+  "Remove the review checkout": "Review-Kopie entfernen",
+  "Review checkouts": "Review-Kopien",
+  "Review with {agent}": "Review mit {agent}",
+  "Same files, different branches": "Gleiche Dateien, verschiedene Branches",
+  "Search branches": "Branches durchsuchen",
+  "Seen {when}": "Zuletzt gesehen: {when}",
+  "Share": "Teilen",
+  "Share my work": "Meine Arbeit teilen",
+  "Share what you're working on": "Teile, woran du arbeitest",
+  "Sharing…": "Wird geteilt…",
+  "Showing what was fetched before. {error}": "Zeigt den zuletzt abgerufenen Stand. {error}",
+  "Team": "Team",
+  "Teammates see your branches and what your agents are doing, through {remote}.": "Teammitglieder sehen über {remote} deine Branches und was deine Agents tun.",
+  "The review checkout has changes that aren't committed. Remove it anyway? They'll be lost.": "Die Review-Kopie hat nicht committete Änderungen. Trotzdem entfernen? Sie gehen verloren.",
+  "This is what they'll see:": "Das sehen sie:",
+  "This repository has no remote, so only your own branches show here. Add the remote your team pushes to with git remote add origin <url>.": "Dieses Repository hat kein Remote, daher siehst du nur deine eigenen Branches. Füge das Remote deines Teams mit git remote add origin <url> hinzu.",
+  "This works in the desktop app, on your own repositories.": "Das funktioniert in der Desktop-App mit deinen eigenen Repositories.",
+  "Turn on “Share my work” and ask teammates to do the same to see each other's agents live.": "Schalte „Meine Arbeit teilen“ ein und bitte dein Team, dasselbe zu tun, um die Agents der anderen live zu sehen.",
+  "Update": "Aktualisieren",
+  "Which branches": "Welche Branches",
+  "you": "du",
+  "Your copy: {up} to push, {down} to pull": "Deine Kopie: {up} zu pushen, {down} zu pullen",
+  "yours": "deiner"
 }

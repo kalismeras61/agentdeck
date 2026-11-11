@@ -87,6 +87,17 @@ Bir oturumu kendi worktree'si ve dalında başlatın; böylece ajan çalışma k
 
 ![Bir ajanın worktree'sini master dalına geri birleştirmek](../screenshots/readme/worktree.png)
 
+### Ekibinizin dallarını görün, yerelde inceleyin
+
+Ekip görünümü (⌘⇧U) projenin kendi git remote'unu okur; sunucu ya da hesap gerekmez. Remote'taki her dal için kimin commit attığını, `main`'den ne kadar uzaklaştığını, hangi dosyaları değiştirdiğini ve en önemlisi **aynı dosyaları başka hangi dalların değiştirdiğini** gösterir; böylece çakışmayı kimse birleştirmeden önce görürsünüz.
+
+- **Şu an kim neyin üzerinde.** *Çalışmamı paylaş*'ı açınca AgentDeck `refs/agentdeck/presence/<siz>` altına küçük bir dosya push eder (dallarınızın dışında, hiçbir pull request'te görünmez): üzerinde olduğunuz dal ve ajan oturumlarınızın ne yaptığı. Paylaşan ekip arkadaşlarınız çevrimiçi görünür; her dalda ajanlarının çalıştığını, onay beklediğini ya da boşta olduğunu görürsünüz. Neyin paylaşılacağını açmadan önce görürsünüz; kapatınca remote'tan silinir.
+- **Dal değiştirmeden okuyun.** Bir dal seçin; commit'lerini ve ayrıldığı noktaya göre her dosyanın diff'ini görün.
+- **Çalıştırmak için yerele çekin.** *Yerele çek*, dalı projenin yanındaki ayrı bir klasöre koyar (`<proje>.worktrees/review-<dal>`), çalışma kopyanıza dokunulmaz. Ekip arkadaşınız yeniden push edince *Güncelle* ile ileri sarılır.
+- **Bir ajana inceletin.** *Claude Code ile incele* (veya varsayılan ajanınız) dalı çeker ve orada inceleme isteği hazır bir oturum açar.
+
+![Ekip görünümü: ekip arkadaşları ve ajanları, aynı dosyalara dokunan dallar ve bir dalın diff'i](../screenshots/readme/team.png)
+
 ### Tüm komutlar parmaklarınızın ucunda
 
 Mesaj kutusuna `/` yazdığınızda, o klasörde ajanın kendi komutları (Claude Code'un yerleşik komutları, özel komutlarınız ve becerileriniz, Gemini CLI'ın komutları, Codex prompt'larınız) ile AgentDeck'in komutları (`/plan`, `/terminal`, `/workflow`, `/git` …) listelenir.
@@ -201,7 +212,7 @@ Sürüm yayınlama süreci (imzalı, Apple onaylı, universal, kendini güncelle
 | Mesaj kutusuna odaklan | ⌘L |
 | Komutlar | mesajın başında / |
 | Zengin / Terminal görünümü | ⌘⇧R / ⌘⇧T |
-| Tüm oturumlar / İnceleme / İzinler / Git / Ajan kurulumu / Galeri | ⌘⇧S / ⌘⇧D / ⌘⇧A / ⌘⇧H / ⌘⇧E / ⌘⇧G |
+| Tüm oturumlar / İnceleme / İzinler / Git / Ekip / Ajan kurulumu / Galeri | ⌘⇧S / ⌘⇧D / ⌘⇧A / ⌘⇧H / ⌘⇧U / ⌘⇧E / ⌘⇧G |
 | Ayarlar | ⌘, |
 | Oturumu yeniden adlandır | başlığa çift tıklayın ya da kenar çubuğunda F2'ye basın |
 | İnceleme: sonraki/önceki dosya, değişiklik, görüldü olarak işaretle | J / K, N / P, V |

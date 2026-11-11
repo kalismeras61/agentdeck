@@ -1501,5 +1501,82 @@
   "Remove {name} from AgentDeck?": "{name} を AgentDeck から削除しますか？",
   "Its {n} session is deleted from AgentDeck, and a running agent there is stopped.|Its {n} sessions are deleted from AgentDeck, and running agents there are stopped.": {
     "other": "{n} 件のセッションが AgentDeck から削除され、そこで実行中のエージェントは停止します。"
-  }
+  },
+  "{ahead} ahead, {behind} behind {base}": "{base} より {ahead} 進み、{behind} 遅れ",
+  "{branch} is checked out in {path}.": "{branch} を {path} にチェックアウトしました。",
+  "{n} agent working|{n} agents working": {
+    "other": "{n} 個のエージェントが作業中"
+  },
+  "{n} branch|{n} branches": {
+    "other": "{n} ブランチ"
+  },
+  "{n} commit behind {base}|{n} commits behind {base}": {
+    "other": "{base} より {n} コミット遅れ"
+  },
+  "{n} commit not in {base}|{n} commits not in {base}": {
+    "other": "{base} にない {n} コミット"
+  },
+  "{n} new|{n} new": {
+    "other": "{n} 件の新着"
+  },
+  "Active": "アクティブ",
+  "Add a project folder to see who works on which branch.": "プロジェクトフォルダを追加すると、誰がどのブランチで作業しているかが見られます。",
+  "agent working": "エージェント作業中",
+  "AgentDeck pushes a small file to {remote} under refs/agentdeck/presence, outside your branches, so teammates who fetch see it. It's updated every few minutes while AgentDeck runs and removed when you turn sharing off.": "AgentDeck は {remote} の refs/agentdeck/presence に小さなファイルをプッシュします。ブランチの外にあり、チームメイトは fetch すると見られます。AgentDeck の起動中は数分ごとに更新され、共有をオフにすると削除されます。",
+  "Also changed on {branches}": "{branches} でも変更",
+  "Away": "離席中",
+  "Branch details": "ブランチの詳細",
+  "Branch, person or commit": "ブランチ、人、コミット",
+  "Changes the same files as {branches}": "{branches} と同じファイルを変更しています",
+  "Check out locally": "ローカルにチェックアウト",
+  "Checked out in {path}": "{path} にチェックアウト済み",
+  "Checking out…": "チェックアウト中…",
+  "Checks it out and opens a session with {agent} there, with a review request ready to send.": "チェックアウトしてそこで {agent} のセッションを開き、レビュー依頼をすぐ送れる状態にします。",
+  "Checks the branch out in its own folder next to the project; your working copy isn't touched.": "ブランチをプロジェクト横の専用フォルダにチェックアウトします。作業コピーには触れません。",
+  "Everything on this branch is already in {base}.": "このブランチの内容はすべて {base} に入っています。",
+  "Fetch": "Fetch",
+  "Fetched {when}": "更新：{when}",
+  "Git doesn't know who you are here. Set user.name and user.email first.": "このリポジトリでは Git があなたを認識していません。先に user.name と user.email を設定してください。",
+  "May conflict with": "競合の可能性",
+  "merged": "マージ済み",
+  "Mine": "自分の",
+  "More files than shown; check it out to see them all.": "表示されている以上のファイルがあります。すべて見るにはチェックアウトしてください。",
+  "No branch had commits in the last few days. Pick All to see older ones.": "ここ数日コミットのあるブランチはありません。古いものを見るには「すべて」を選んでください。",
+  "No branches match.": "一致するブランチはありません。",
+  "Nobody has unmerged work yet.": "まだ未マージの作業はありません。",
+  "not pushed": "未プッシュ",
+  "on {n} branch|on {n} branches": {
+    "other": "{n} ブランチで変更"
+  },
+  "On it now": "作業中",
+  "Online": "オンライン",
+  "Open the checkout in Git": "コピーを Git で開く",
+  "Overlapping": "重複あり",
+  "People": "メンバー",
+  "Pick a branch to see who's on it, what it changes and where it touches other branches. Check it out to run it locally, or let an agent review it.": "ブランチを選ぶと、誰が作業中か、何を変更しているか、他のブランチとどこが重なるかが見られます。ローカルで動かすならチェックアウト、またはエージェントにレビューさせましょう。",
+  "Preparing…": "準備中…",
+  "Reading the repository…": "リポジトリを読み込み中…",
+  "Remove the review checkout": "レビュー用コピーを削除",
+  "Review checkouts": "レビュー用コピー",
+  "Review with {agent}": "{agent} でレビュー",
+  "Same files, different branches": "同じファイル、別のブランチ",
+  "Search branches": "ブランチを検索",
+  "Seen {when}": "最終確認：{when}",
+  "Share": "共有",
+  "Share my work": "作業を共有",
+  "Share what you're working on": "作業内容を共有",
+  "Sharing…": "共有中…",
+  "Showing what was fetched before. {error}": "前回取得した内容を表示しています。{error}",
+  "Team": "チーム",
+  "Teammates see your branches and what your agents are doing, through {remote}.": "チームメイトは {remote} を通じて、あなたのブランチとエージェントの作業内容を見られます。",
+  "The review checkout has changes that aren't committed. Remove it anyway? They'll be lost.": "レビュー用コピーに未コミットの変更があります。それでも削除しますか？変更は失われます。",
+  "This is what they'll see:": "相手に見える内容：",
+  "This repository has no remote, so only your own branches show here. Add the remote your team pushes to with git remote add origin <url>.": "このリポジトリには remote がないため、自分のブランチだけが表示されます。git remote add origin <url> でチームの remote を追加してください。",
+  "This works in the desktop app, on your own repositories.": "これはデスクトップアプリで、自分のリポジトリに対して使えます。",
+  "Turn on “Share my work” and ask teammates to do the same to see each other's agents live.": "「作業を共有」をオンにし、チームメイトにも頼むと、お互いのエージェントをリアルタイムで見られます。",
+  "Update": "更新",
+  "Which branches": "表示するブランチ",
+  "you": "自分",
+  "Your copy: {up} to push, {down} to pull": "あなたのコピー：プッシュ待ち {up}、プル待ち {down}",
+  "yours": "自分の"
 }
