@@ -1657,5 +1657,21 @@
   "What should they look at?": "何を見てほしいですか？",
   "Write a reply": "返信を書く",
   "Yesterday": "昨日",
-  "You": "あなた"
+  "You": "あなた",
+  "{url}, as {repo}. Instant, no push access needed.": "{url}（{repo} として）。即時、プッシュ権限は不要。",
+  "A relay your team runs (or a hosted one). Instant delivery, no push access needed, several repositories per team. It carries presence and messages, never code.": "チームが運用する（またはホストされた）リレー。即時配信、プッシュ権限不要、チームごとに複数リポジトリ。在席情報とメッセージだけを運び、コードは運びません。",
+  "AgentDeck Relay": "AgentDeck Relay",
+  "AgentDeck Relay: {team}": "AgentDeck Relay：{team}",
+  "AgentDeck sends this to the {team} team on your relay. It's updated every few minutes while AgentDeck runs and removed when you turn sharing off.": "AgentDeck はこれをリレー上の {team} チームに送ります。AgentDeck の起動中は数分ごとに更新され、共有をオフにすると削除されます。",
+  "Git remote": "Git remote",
+  "Git remote (free)": "Git remote（無料）",
+  "How your presence and messages reach teammates in this project. Branches always come from git.": "このプロジェクトで在席情報とメッセージがチームメイトに届く経路。ブランチは常に git から取得します。",
+  "Invite code": "招待コード",
+  "Join the team": "チームに参加",
+  "Joining shares your work with that team: your name and email from git, your branch and what your agents are doing. The relay's token is kept in your keychain.": "参加すると、そのチームと作業を共有します：git の名前とメール、あなたのブランチ、エージェントの作業内容。リレーのトークンはキーチェーンに保存されます。",
+  "Joining…": "参加中…",
+  "Leave the relay": "リレーから抜ける",
+  "Relay address": "リレーのアドレス",
+  "Team connection": "チームの接続",
+  "Through {remote} under refs/agentdeck. No server; updates every couple of minutes; needs push access.": "{remote} の refs/agentdeck 経由。サーバー不要、数分ごとに更新、プッシュ権限が必要です。"
 }

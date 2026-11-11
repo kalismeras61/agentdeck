@@ -1773,5 +1773,21 @@
   "What should they look at?": "O que eles devem olhar?",
   "Write a reply": "Escreva uma resposta",
   "Yesterday": "Ontem",
-  "You": "Você"
+  "You": "Você",
+  "{url}, as {repo}. Instant, no push access needed.": "{url}, como {repo}. Instantâneo, sem permissão de push.",
+  "A relay your team runs (or a hosted one). Instant delivery, no push access needed, several repositories per team. It carries presence and messages, never code.": "Um relay que sua equipe roda (ou um hospedado). Entrega instantânea, sem permissão de push, vários repositórios por equipe. Leva presença e mensagens, nunca código.",
+  "AgentDeck Relay": "AgentDeck Relay",
+  "AgentDeck Relay: {team}": "AgentDeck Relay: {team}",
+  "AgentDeck sends this to the {team} team on your relay. It's updated every few minutes while AgentDeck runs and removed when you turn sharing off.": "O AgentDeck envia isto para a equipe {team} no seu relay. É atualizado a cada poucos minutos enquanto o AgentDeck está aberto e removido quando você desliga o compartilhamento.",
+  "Git remote": "Remote do git",
+  "Git remote (free)": "Remote do git (grátis)",
+  "How your presence and messages reach teammates in this project. Branches always come from git.": "Como sua presença e suas mensagens chegam aos colegas neste projeto. As branches sempre vêm do git.",
+  "Invite code": "Código de convite",
+  "Join the team": "Entrar na equipe",
+  "Joining shares your work with that team: your name and email from git, your branch and what your agents are doing. The relay's token is kept in your keychain.": "Entrar compartilha seu trabalho com essa equipe: nome e e-mail do git, sua branch e o que seus agentes fazem. O token do relay fica no seu chaveiro.",
+  "Joining…": "Entrando…",
+  "Leave the relay": "Sair do relay",
+  "Relay address": "Endereço do relay",
+  "Team connection": "Conexão da equipe",
+  "Through {remote} under refs/agentdeck. No server; updates every couple of minutes; needs push access.": "Pelo {remote} em refs/agentdeck. Sem servidor; atualiza a cada poucos minutos; exige permissão de push."
 }

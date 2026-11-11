@@ -20,6 +20,13 @@ describe("team", () => {
     expect(z.branches.map((b) => b.short).sort()).toEqual(["chore/deps", "fix/payment-timeout"]);
   });
 
+  it("a relay's members are listed even before they share anything", () => {
+    const ps = people({ ...team(), members: [{ name: "Deniz Şahin", email: "Deniz@acme.dev" }] }, NOW);
+    const d = ps.find((p) => p.email === "deniz@acme.dev")!;
+    expect(d.name).toBe("Deniz Şahin");
+    expect([d.online, d.branches.length]).toEqual([false, 0]);
+  });
+
   it("presence goes stale", () => {
     const p = team().presence[0]!;
     expect(isOnline({ ...p, updatedAt: NOW - ONLINE_MS + 1 }, NOW)).toBe(true);

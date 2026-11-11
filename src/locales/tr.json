@@ -1715,5 +1715,21 @@
   "What should they look at?": "Neye bakmalılar?",
   "Write a reply": "Bir cevap yazın",
   "Yesterday": "Dün",
-  "You": "Siz"
+  "You": "Siz",
+  "{url}, as {repo}. Instant, no push access needed.": "{url}, {repo} olarak. Anında, push yetkisi gerekmez.",
+  "A relay your team runs (or a hosted one). Instant delivery, no push access needed, several repositories per team. It carries presence and messages, never code.": "Ekibinizin çalıştırdığı (ya da barındırılan) bir relay. Anında iletim, push yetkisi gerekmez, ekip başına birden çok depo. Presence ve mesaj taşır, asla kod taşımaz.",
+  "AgentDeck Relay": "AgentDeck Relay",
+  "AgentDeck Relay: {team}": "AgentDeck Relay: {team}",
+  "AgentDeck sends this to the {team} team on your relay. It's updated every few minutes while AgentDeck runs and removed when you turn sharing off.": "AgentDeck bunu relay'inizdeki {team} ekibine gönderir. AgentDeck açıkken birkaç dakikada bir güncellenir, paylaşımı kapattığınızda silinir.",
+  "Git remote": "Git remote",
+  "Git remote (free)": "Git remote (ücretsiz)",
+  "How your presence and messages reach teammates in this project. Branches always come from git.": "Bu projede presence'ınızın ve mesajlarınızın ekip arkadaşlarınıza nasıl ulaştığı. Dallar her zaman git'ten gelir.",
+  "Invite code": "Davet kodu",
+  "Join the team": "Ekibe katıl",
+  "Joining shares your work with that team: your name and email from git, your branch and what your agents are doing. The relay's token is kept in your keychain.": "Katılmak çalışmanızı o ekiple paylaşır: git'teki adınız ve e-postanız, dalınız ve ajanlarınızın ne yaptığı. Relay token'ı Anahtar Zinciri'nizde saklanır.",
+  "Joining…": "Katılınıyor…",
+  "Leave the relay": "Relay'den ayrıl",
+  "Relay address": "Relay adresi",
+  "Team connection": "Ekip bağlantısı",
+  "Through {remote} under refs/agentdeck. No server; updates every couple of minutes; needs push access.": "{remote} üzerinden, refs/agentdeck altında. Sunucu yok; birkaç dakikada bir güncellenir; push yetkisi gerekir."
 }

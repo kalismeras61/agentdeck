@@ -44,6 +44,10 @@ export type TeamOverview = {
   sharing: boolean;
   fetchedAt: number | null;
   syncError: string | null;
+  /** The relay presence and messages go through; null: the git remote. */
+  relay?: { url: string; team: string; repo: string } | null;
+  /** Everyone in the relay's team besides you. */
+  members?: { name: string; email: string }[];
 };
 export type BranchDetail = { branch: string; base: string; mergeBase: string; commits: GitCommit[]; files: GitChangedFile[] };
 
@@ -65,6 +69,11 @@ export const teamApi = {
   checkout: (projectId: string, branch: string) => call<ReviewCheckout>("team_review_checkout", { projectId, branch }),
   update: (projectId: string, path: string) => call<ReviewCheckout>("team_review_update", { projectId, path }),
   remove: (projectId: string, path: string) => call<void>("team_review_remove", { projectId, path }),
+  /** Joins a team on an AgentDeck Relay for this project (shares your work with it). */
+  relayJoin: (projectId: string, url: string, invite: string, days: number) => call<TeamOverview>("team_relay_join", { projectId, url, invite, days }),
+  relayLeave: (projectId: string, days: number) => call<TeamOverview>("team_relay_leave", { projectId, days }),
+  /** Long polls the relays (≈25 s); relay false: no project uses one. */
+  wait: () => call<{ relay: boolean; events: import("./teamchat").FeedEvent[] }>("team_wait"),
   reviewSession: (projectId: string, branch: string, provider: LiveProvider, model: string, profileId: string | null, effort: string | null) =>
     call<LiveSessionRow>("team_review_session", { projectId, branch, provider, model, profileId, effort }),
 };
@@ -91,7 +100,7 @@ export type Person = {
 };
 
 /** Everyone who has unmerged commits on a branch or shares their presence, the active first. */
-export function people(o: Pick<TeamOverview, "branches" | "presence" | "me">, now = Date.now()): Person[] {
+export function people(o: Pick<TeamOverview, "branches" | "presence" | "me" | "members">, now = Date.now()): Person[] {
   const byEmail = new Map<string, Person>();
   const meEmail = o.me.email.toLowerCase();
   const get = (email: string, name: string) => {
@@ -110,6 +119,7 @@ export function people(o: Pick<TeamOverview, "branches" | "presence" | "me">, no
       p.last = Math.max(p.last, a.last);
     }
   }
+  for (const m of o.members ?? []) get(m.email, m.name);
   for (const pr of o.presence) {
     const p = get(pr.email, pr.name);
     p.presence = pr;

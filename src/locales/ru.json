@@ -1831,5 +1831,21 @@
   "What should they look at?": "На что им посмотреть?",
   "Write a reply": "Написать ответ",
   "Yesterday": "Вчера",
-  "You": "Вы"
+  "You": "Вы",
+  "{url}, as {repo}. Instant, no push access needed.": "{url}, как {repo}. Мгновенно, без прав на push.",
+  "A relay your team runs (or a hosted one). Instant delivery, no push access needed, several repositories per team. It carries presence and messages, never code.": "Relay, который запускает ваша команда (или размещённый). Мгновенная доставка, без прав на push, несколько репозиториев на команду. Передаёт присутствие и сообщения, никогда не код.",
+  "AgentDeck Relay": "AgentDeck Relay",
+  "AgentDeck Relay: {team}": "AgentDeck Relay: {team}",
+  "AgentDeck sends this to the {team} team on your relay. It's updated every few minutes while AgentDeck runs and removed when you turn sharing off.": "AgentDeck отправляет это команде {team} на вашем relay. Обновляется каждые несколько минут, пока AgentDeck запущен, и удаляется, когда вы выключаете общий доступ.",
+  "Git remote": "Git remote",
+  "Git remote (free)": "Git remote (бесплатно)",
+  "How your presence and messages reach teammates in this project. Branches always come from git.": "Как ваше присутствие и сообщения доходят до коллег в этом проекте. Ветки всегда берутся из git.",
+  "Invite code": "Код приглашения",
+  "Join the team": "Присоединиться",
+  "Joining shares your work with that team: your name and email from git, your branch and what your agents are doing. The relay's token is kept in your keychain.": "Присоединение делится вашей работой с этой командой: имя и email из git, ваша ветка и что делают ваши агенты. Токен relay хранится в связке ключей.",
+  "Joining…": "Присоединение…",
+  "Leave the relay": "Покинуть relay",
+  "Relay address": "Адрес relay",
+  "Team connection": "Подключение команды",
+  "Through {remote} under refs/agentdeck. No server; updates every couple of minutes; needs push access.": "Через {remote} в refs/agentdeck. Без сервера; обновление раз в пару минут; нужны права на push."
 }

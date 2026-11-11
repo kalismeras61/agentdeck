@@ -1,4 +1,4 @@
-import { AlertTriangle, Bot, Check, ChevronRight, Clock, GitPullRequestArrow, MessageSquare, Radio as Pulse, CloudOff, Copy, Download, FolderGit2, GitBranch, GitCommitHorizontal, Radio, RefreshCw, Search, Trash2, Users } from "lucide-react";
+import { AlertTriangle, Server, Bot, Check, ChevronRight, Clock, GitPullRequestArrow, MessageSquare, Radio as Pulse, CloudOff, Copy, Download, FolderGit2, GitBranch, GitCommitHorizontal, Radio, RefreshCw, Search, Trash2, Users } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { AgentMark, cx, StatusDot, Switch } from "../components/ui";
 import { demoBranchDetail, demoFilePair, demoTeam } from "../data/teamDemo";
@@ -34,6 +34,7 @@ import { hm, lastDays, sharedIn, sum, timeApi, total, type TimeRow } from "../li
 import { demoTimeRows } from "../data/teamDemo";
 import { MonacoDiff } from "./review/MonacoDiff";
 import { TimeTab } from "./team/TimeTab";
+import { ConnectionDialog } from "./team/ConnectionDialog";
 import { ActivityTab } from "./team/ActivityTab";
 import { MessagesTab } from "./team/MessagesTab";
 import { chatApi, threads, unreadCount, type FeedEvent, type MessageKind, type TeamMessages } from "../lib/teamchat";
@@ -119,13 +120,15 @@ function Section({ title, count, open, onToggle, children, extra }: { title: str
 }
 
 /** What sharing puts on the remote, shown before it's turned on. */
-function ShareDialog({ preview, remote, onCancel, onConfirm, busy }: { preview: Presence; remote: string; onCancel: () => void; onConfirm: () => void; busy: boolean }) {
+function ShareDialog({ preview, remote, relayTeam, onCancel, onConfirm, busy }: { preview: Presence; remote: string; relayTeam: string | null; onCancel: () => void; onConfirm: () => void; busy: boolean }) {
   return (
     <div role="dialog" aria-modal aria-label={t("Share what you're working on")} className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-6">
       <div className="w-full max-w-[520px] rounded-xl border border-line bg-surface p-5 shadow-xl">
         <h2 className="text-[15px] font-semibold">{t("Share what you're working on")}</h2>
         <p className="mt-2 text-[13px] leading-[1.6] text-fg-2">
-          {t("AgentDeck pushes a small file to {remote} under refs/agentdeck/presence, outside your branches, so teammates who fetch see it. It's updated every few minutes while AgentDeck runs and removed when you turn sharing off.", { remote })}
+          {relayTeam
+            ? t("AgentDeck sends this to the {team} team on your relay. It's updated every few minutes while AgentDeck runs and removed when you turn sharing off.", { team: relayTeam })
+            : t("AgentDeck pushes a small file to {remote} under refs/agentdeck/presence, outside your branches, so teammates who fetch see it. It's updated every few minutes while AgentDeck runs and removed when you turn sharing off.", { remote })}
         </p>
         <p className="mt-3 text-[12px] font-medium text-fg-2">{t("This is what they'll see:")}</p>
         <pre dir="ltr" className="scroll-quiet mt-1.5 max-h-[220px] overflow-auto rounded-lg border border-line-soft bg-bg p-3 font-mono text-[11.5px] leading-[1.5] text-fg-2">
@@ -192,11 +195,19 @@ export function TeamView() {
   const [focusThread, setFocusThread] = useState<string | null>(null);
   const [draftMsg, setDraftMsg] = useState<{ to: string; kind: MessageKind; branch: string } | null>(null);
   const setTeamUnread = useStore((s) => s.setTeamUnread);
+  const teamTick = useStore((s) => s.teamTick);
+  const [connection, setConnection] = useState(false);
   const loadChat = useCallback(() => {
     if (demo || !projectId) return;
     chatApi.feed(projectId).then(setFeed).catch(() => setFeed([]));
     chatApi.messages(projectId).then(setChat).catch(() => setChat(null));
   }, [demo, projectId]);
+  // A relay brought news: show it now.
+  useEffect(() => {
+    if (teamTick) {
+      load(false);
+    }
+  }, [teamTick]); // eslint-disable-line react-hooks/exhaustive-deps
   const unread = useMemo(() => (chat ? unreadCount(threads(chat.messages, chat.me.email, new Set(chat.read))) : 0), [chat]);
   useEffect(() => setTeamUnread(unread), [unread, setTeamUnread]);
   // Your own tracked time, the last 7 days, for the branch panel.
@@ -465,8 +476,19 @@ export function TeamView() {
             </select>
           </label>
         )}
-        {o?.remote && (
-          <label className="no-drag flex items-center gap-2 text-[12.5px] text-fg-3" title={t("Teammates see your branches and what your agents are doing, through {remote}.", { remote: o.remote })}>
+        {o && (
+          <button
+            type="button"
+            onClick={() => setConnection(true)}
+            title={t("Team connection")}
+            className="no-drag flex h-7 items-center gap-1.5 rounded-md px-2 text-[12.5px] text-fg-3 hover:bg-elevated hover:text-fg"
+          >
+            {o.relay ? <Server size={13} className="text-success" /> : <GitBranch size={13} />}
+            <span className="max-w-[140px] truncate">{o.relay ? o.relay.team : t("Git remote")}</span>
+          </button>
+        )}
+        {(o?.remote || o?.relay) && (
+          <label className="no-drag flex items-center gap-2 text-[12.5px] text-fg-3" title={t("Teammates see your branches and what your agents are doing, through {remote}.", { remote: o.relay ? o.relay.team : (o.remote ?? "") })}>
             <Radio size={13} className={o.sharing ? "text-success" : ""} />
             {t("Share my work")}
             <Switch checked={o.sharing} onChange={toggleSharing} label={t("Share what you're working on")} />
@@ -918,10 +940,32 @@ export function TeamView() {
         </div>
       )}
 
-      {share && o?.remote && (
+      {connection && o && (
+        <ConnectionDialog
+          o={o}
+          busy={busy === "relay"}
+          onClose={() => setConnection(false)}
+          onJoin={(url, invite) =>
+            void act("relay", async () => {
+              setO(await teamApi.relayJoin(projectId!, url, invite, DAYS));
+              setConnection(false);
+              loadChat();
+            })
+          }
+          onLeave={() =>
+            void act("relay", async () => {
+              setO(await teamApi.relayLeave(projectId!, DAYS));
+              setConnection(false);
+              loadChat();
+            })
+          }
+        />
+      )}
+      {share && (o?.remote || o?.relay) && (
         <ShareDialog
           preview={share}
-          remote={o.remote}
+          remote={o.remote ?? ""}
+          relayTeam={o.relay?.team ?? null}
           busy={busy === "share"}
           onCancel={() => setShare(null)}
           onConfirm={() =>

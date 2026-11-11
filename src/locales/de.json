@@ -1715,5 +1715,21 @@
   "What should they look at?": "Was sollen sie sich ansehen?",
   "Write a reply": "Antwort schreiben",
   "Yesterday": "Gestern",
-  "You": "Du"
+  "You": "Du",
+  "{url}, as {repo}. Instant, no push access needed.": "{url}, als {repo}. Sofort, ohne Push-Rechte.",
+  "A relay your team runs (or a hosted one). Instant delivery, no push access needed, several repositories per team. It carries presence and messages, never code.": "Ein Relay, das dein Team betreibt (oder ein gehostetes). Sofortige Zustellung, keine Push-Rechte nötig, mehrere Repositories pro Team. Es trägt Präsenz und Nachrichten, nie Code.",
+  "AgentDeck Relay": "AgentDeck Relay",
+  "AgentDeck Relay: {team}": "AgentDeck Relay: {team}",
+  "AgentDeck sends this to the {team} team on your relay. It's updated every few minutes while AgentDeck runs and removed when you turn sharing off.": "AgentDeck sendet das an das Team {team} auf deinem Relay. Es wird alle paar Minuten aktualisiert, solange AgentDeck läuft, und entfernt, wenn du das Teilen ausschaltest.",
+  "Git remote": "Git-Remote",
+  "Git remote (free)": "Git-Remote (kostenlos)",
+  "How your presence and messages reach teammates in this project. Branches always come from git.": "Wie deine Präsenz und Nachrichten dein Team in diesem Projekt erreichen. Branches kommen immer aus Git.",
+  "Invite code": "Einladungscode",
+  "Join the team": "Dem Team beitreten",
+  "Joining shares your work with that team: your name and email from git, your branch and what your agents are doing. The relay's token is kept in your keychain.": "Beitreten teilt deine Arbeit mit diesem Team: Name und E-Mail aus Git, dein Branch und was deine Agents tun. Das Token des Relays liegt in deinem Schlüsselbund.",
+  "Joining…": "Wird beigetreten…",
+  "Leave the relay": "Relay verlassen",
+  "Relay address": "Relay-Adresse",
+  "Team connection": "Team-Verbindung",
+  "Through {remote} under refs/agentdeck. No server; updates every couple of minutes; needs push access.": "Über {remote} unter refs/agentdeck. Kein Server; Aktualisierung alle paar Minuten; braucht Push-Rechte."
 }

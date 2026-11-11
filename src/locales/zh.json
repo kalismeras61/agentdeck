@@ -1657,5 +1657,21 @@
   "What should they look at?": "他们应该看什么？",
   "Write a reply": "写回复",
   "Yesterday": "昨天",
-  "You": "你"
+  "You": "你",
+  "{url}, as {repo}. Instant, no push access needed.": "{url}，仓库标识 {repo}。即时送达，无需推送权限。",
+  "A relay your team runs (or a hosted one). Instant delivery, no push access needed, several repositories per team. It carries presence and messages, never code.": "由你的团队运行（或托管）的中继。即时送达，无需推送权限，每个团队可有多个仓库。只传递在线状态和消息，从不传递代码。",
+  "AgentDeck Relay": "AgentDeck Relay",
+  "AgentDeck Relay: {team}": "AgentDeck Relay：{team}",
+  "AgentDeck sends this to the {team} team on your relay. It's updated every few minutes while AgentDeck runs and removed when you turn sharing off.": "AgentDeck 会把这些发送给你中继上的 {team} 团队。AgentDeck 运行时每隔几分钟更新一次，关闭共享时删除。",
+  "Git remote": "Git remote",
+  "Git remote (free)": "Git remote（免费）",
+  "How your presence and messages reach teammates in this project. Branches always come from git.": "你的在线状态和消息如何送达此项目中的队友。分支始终来自 git。",
+  "Invite code": "邀请码",
+  "Join the team": "加入团队",
+  "Joining shares your work with that team: your name and email from git, your branch and what your agents are doing. The relay's token is kept in your keychain.": "加入后会与该团队共享你的工作：git 中的姓名和邮箱、你的分支以及你的智能体在做什么。中继令牌保存在你的钥匙串中。",
+  "Joining…": "正在加入…",
+  "Leave the relay": "离开中继",
+  "Relay address": "中继地址",
+  "Team connection": "团队连接",
+  "Through {remote} under refs/agentdeck. No server; updates every couple of minutes; needs push access.": "通过 {remote} 的 refs/agentdeck。无需服务器；每隔几分钟更新；需要推送权限。"
 }

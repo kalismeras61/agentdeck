@@ -42,3 +42,7 @@ keyring = { version = "3", features = ["linux-native"] }
 
 [dev-dependencies]
 tempfile = "3.27.0"
+# The relay server, to test the app against the real thing.
+agentdeck-relay = { path = "../relay" }
+axum = "0.8"
+tokio = { version = "1", features = ["rt-multi-thread", "net", "macros"] }

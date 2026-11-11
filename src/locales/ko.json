@@ -1657,5 +1657,21 @@
   "What should they look at?": "무엇을 봐 주길 원하나요?",
   "Write a reply": "답장 쓰기",
   "Yesterday": "어제",
-  "You": "나"
+  "You": "나",
+  "{url}, as {repo}. Instant, no push access needed.": "{url}, {repo}로. 즉시 전달, 푸시 권한 불필요.",
+  "A relay your team runs (or a hosted one). Instant delivery, no push access needed, several repositories per team. It carries presence and messages, never code.": "팀이 운영하는(또는 호스팅된) 릴레이. 즉시 전달, 푸시 권한 불필요, 팀당 여러 저장소. 상태와 메시지만 전달하고 코드는 절대 전달하지 않습니다.",
+  "AgentDeck Relay": "AgentDeck Relay",
+  "AgentDeck Relay: {team}": "AgentDeck Relay: {team}",
+  "AgentDeck sends this to the {team} team on your relay. It's updated every few minutes while AgentDeck runs and removed when you turn sharing off.": "AgentDeck은 이것을 릴레이의 {team} 팀에 보냅니다. AgentDeck이 실행되는 동안 몇 분마다 갱신되고 공유를 끄면 삭제됩니다.",
+  "Git remote": "Git remote",
+  "Git remote (free)": "Git remote (무료)",
+  "How your presence and messages reach teammates in this project. Branches always come from git.": "이 프로젝트에서 내 상태와 메시지가 팀원에게 전달되는 방식. 브랜치는 항상 git에서 가져옵니다.",
+  "Invite code": "초대 코드",
+  "Join the team": "팀 참여",
+  "Joining shares your work with that team: your name and email from git, your branch and what your agents are doing. The relay's token is kept in your keychain.": "참여하면 그 팀과 작업을 공유합니다: git의 이름과 이메일, 내 브랜치, 에이전트가 하는 일. 릴레이 토큰은 키체인에 보관됩니다.",
+  "Joining…": "참여 중…",
+  "Leave the relay": "릴레이에서 나가기",
+  "Relay address": "릴레이 주소",
+  "Team connection": "팀 연결",
+  "Through {remote} under refs/agentdeck. No server; updates every couple of minutes; needs push access.": "{remote}의 refs/agentdeck을 통해. 서버 없음, 몇 분마다 갱신, 푸시 권한 필요."
 }

@@ -41,7 +41,9 @@ A typical exchange: your agent, working on checkout, calls `ask_teammate` ("Is t
 
 Everything a teammate sees goes through one interface (`teamchat::Transport`): `fetch`, `publish_presence`, `presence`, `send`, `messages`. Today's implementation is `GitTransport` (the project's remote): free, private to people with repository access, no account, no server — but as fast as the fetch interval (two minutes in the background, immediately when you press Fetch or an agent is waiting for an answer).
 
-A hosted relay is a second implementation of the same interface, and the natural paid tier:
+`RelayTransport` is the second implementation: the [AgentDeck Relay](../relay/README.md), a small server a team runs (or that's offered hosted). Team view → connection button → AgentDeck Relay, with the relay's address and an invite code. Presence and messages then go to the relay, instantly (the app keeps a long poll open); branches still come from git. Teammates on the relay are reachable by agents even before they share anything (the relay knows the team's members).
+
+As a hosted product, the relay is the natural paid tier:
 
 | | Git (free) | Hosted relay (paid) |
 |---|---|---|
@@ -51,5 +53,7 @@ A hosted relay is a second implementation of the same interface, and the natural
 | Web dashboard for leads (who's on what, time, reviews) | No | Yes |
 | SSO, roles, audit log, retention policy | No | Yes |
 | History beyond two weeks | No | Yes |
+
+Built so far: teams, invites, per-member tokens, presence, messages, long polling, retention, rate limits, a CLI to manage it all, and a Dockerfile. Still to build for a hosted offering: a web dashboard for leads, SSO, an admin API instead of the CLI, billing, and history beyond the retention period.
 
 What a relay should keep from the git design: end-to-end the same message format, the user approving every outgoing message, and the receiving app never treating content as instructions. Code and diffs stay on developers' Macs and the remote; the relay only carries presence, messages and time summaries.

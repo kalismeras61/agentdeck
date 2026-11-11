@@ -100,6 +100,8 @@ pub trait Transport {
     /// Brings in what teammates published since last time.
     fn fetch(&self) -> Result<(), String>;
     fn publish_presence(&self, p: &team::Presence) -> Result<(), String>;
+    /// Takes your presence off (you stopped sharing).
+    fn unpublish_presence(&self, email: &str) -> Result<(), String>;
     /// Everyone's presence. (The git transport's overview reads it directly.)
     #[allow(dead_code)]
     fn presence(&self) -> Vec<team::Presence>;
@@ -107,6 +109,40 @@ pub trait Transport {
     fn send(&self, me: &Person, m: Message) -> Result<(), String>;
     /// Every message anyone sent (newest last), checked.
     fn messages(&self) -> Vec<Message>;
+    /// Presence comes from here rather than from `refs/agentdeck/presence/*`.
+    fn is_relay(&self) -> bool {
+        false
+    }
+    /// Everyone in the team, when the transport knows (a relay does; git knows only authors).
+    fn members(&self) -> Vec<Person> {
+        Vec::new()
+    }
+}
+
+/// The project's transport: its relay when it joined a team on one, else its git remote.
+pub fn transport_for(db: &Db, project_id: &str, root: &str) -> Box<dyn Transport + Send + Sync> {
+    match crate::teamrelay::RelayTransport::for_project(db, project_id, root) {
+        Some(r) => Box::new(r),
+        None => Box::new(GitTransport {
+            root: root.into(),
+            push: true,
+        }),
+    }
+}
+
+/// The team overview, with presence from the transport that carries it.
+pub fn overview_with(
+    tr: &dyn Transport,
+    dir: &str,
+    days: u32,
+) -> Result<team::TeamOverview, String> {
+    let mut o = team::overview(dir, days)?;
+    if tr.is_relay() {
+        o.presence = tr.presence();
+        let me = o.me.email.to_lowercase();
+        o.members = tr.members().into_iter().filter(|p| p.email != me).collect();
+    }
+    Ok(o)
 }
 
 /// The project's git remote as the transport.
@@ -121,6 +157,9 @@ impl Transport for GitTransport {
     }
     fn publish_presence(&self, p: &team::Presence) -> Result<(), String> {
         team::publish(&self.root, p, self.push)
+    }
+    fn unpublish_presence(&self, email: &str) -> Result<(), String> {
+        team::unpublish(&self.root, email, self.push)
     }
     fn presence(&self) -> Vec<team::Presence> {
         team::read_presence(&self.root)
@@ -655,6 +694,7 @@ fn place(db: &Db, session_id: &str) -> Result<(String, String, String), String> 
 }
 
 fn find_person(o: &team::TeamOverview, to: &str) -> Result<String, String> {
+    let extra = &o.members;
     let t = to.trim().to_lowercase();
     if t == "everyone" || t == "*" || t == "all" {
         return Ok("*".into());
@@ -669,6 +709,7 @@ fn find_person(o: &team::TeamOverview, to: &str) -> Result<String, String> {
             people.push((a.name.clone(), a.email.clone()));
         }
     }
+    people.extend(extra.iter().map(|p| (p.name.clone(), p.email.clone())));
     people
         .iter()
         .find(|(n, e)| e.to_lowercase() == t || n.to_lowercase() == t)
@@ -693,14 +734,16 @@ pub fn call(
     max_wait: u64,
 ) -> Result<Value, String> {
     let (project_id, root, agent) = place(db, session_id)?;
-    let tr = GitTransport {
-        root: root.clone(),
-        push: true,
+    let tr = transport_for(db, &project_id, &root);
+    let poll = if tr.is_relay() {
+        Duration::from_secs(3)
+    } else {
+        ASK_POLL
     };
     match tool {
         "team_members" => {
             let _ = tr.fetch();
-            let o = team::overview(&root, 30)?;
+            let o = overview_with(tr.as_ref(), &root, 30)?;
             let people = crate::team::people_of(&o);
             Ok(
                 json!({ "you": format!("{} <{}>", o.me.name, o.me.email), "base": o.base, "teammates": people }),
@@ -724,7 +767,7 @@ pub fn call(
                 return Err("Write the question".into());
             }
             let _ = tr.fetch();
-            let o = team::overview(&root, 30)?;
+            let o = overview_with(tr.as_ref(), &root, 30)?;
             let to = find_person(&o, args["to"].as_str().unwrap_or(""))?;
             let id = new_id();
             let m = Message {
@@ -746,7 +789,7 @@ pub fn call(
             let wait = args["wait_seconds"].as_u64().unwrap_or(0).min(max_wait);
             let until = Instant::now() + Duration::from_secs(wait);
             while Instant::now() < until {
-                std::thread::sleep(ASK_POLL.min(until.saturating_duration_since(Instant::now())));
+                std::thread::sleep(poll.min(until.saturating_duration_since(Instant::now())));
                 let _ = tr.fetch();
                 let answers: Vec<Value> = tr
                     .messages()

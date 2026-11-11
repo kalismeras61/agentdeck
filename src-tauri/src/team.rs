@@ -153,6 +153,18 @@ pub struct TeamOverview {
     pub fetched_at: Option<i64>,
     /// Why the last fetch or share didn't work (offline, no access…); what's shown is from before.
     pub sync_error: Option<String>,
+    /// The relay presence and messages go through; None: the git remote.
+    pub relay: Option<RelayInfo>,
+    /// Everyone in the relay's team (besides you), shared or not.
+    pub members: Vec<Person>,
+}
+
+#[derive(Serialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct RelayInfo {
+    pub url: String,
+    pub team: String,
+    pub repo: String,
 }
 
 #[derive(Serialize, Debug, Clone)]
@@ -665,6 +677,11 @@ pub fn people_of(o: &TeamOverview) -> Vec<serde_json::Value> {
             }
         }
     }
+    for p in &o.members {
+        by.entry(p.email.clone()).or_insert_with(|| {
+            serde_json::json!({ "name": p.name, "email": p.email, "online": false, "branches": [], "agents": [] })
+        });
+    }
     let now = now_ms();
     for p in o.presence.iter().filter(|p| p.email != me) {
         let e = by.entry(p.email.clone()).or_insert_with(
@@ -900,6 +917,8 @@ pub fn overview(dir: &str, days: u32) -> Result<TeamOverview, String> {
         sharing: false,
         fetched_at: None,
         sync_error: None,
+        relay: None,
+        members: Vec::new(),
     })
 }
 

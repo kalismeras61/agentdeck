@@ -108,6 +108,8 @@ interface Actions {
   /** Unread team messages (Team view), for the sidebar. */
   teamUnread: number;
   setTeamUnread: (n: number) => void;
+  /** Bumped when a relay brings news, so an open Team view reloads. */
+  teamTick: number;
   openGit: (projectId: string | null, dir?: string | null) => void;
   /** A session without a project: it runs in ~/AgentDeck/Chats. */
   newChat: (provider?: ProviderId, profileId?: string) => void;
@@ -471,6 +473,7 @@ export const useStore = create<UiState & Actions>()(
         gitTarget: { projectId: null, dir: null },
         teamUnread: 0,
         setTeamUnread: (n) => set({ teamUnread: n }),
+        teamTick: 0,
         openGit: (projectId, dir) => set({ view: "git", gitTarget: { projectId, dir: dir ?? null } }),
         newSession: (projectId, provider, profileId, worktree) => {
           const st = get();

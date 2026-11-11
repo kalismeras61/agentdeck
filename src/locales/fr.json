@@ -1773,5 +1773,21 @@
   "What should they look at?": "Que doivent-ils regarder ?",
   "Write a reply": "Écrire une réponse",
   "Yesterday": "Hier",
-  "You": "Vous"
+  "You": "Vous",
+  "{url}, as {repo}. Instant, no push access needed.": "{url}, en tant que {repo}. Instantané, sans droits de push.",
+  "A relay your team runs (or a hosted one). Instant delivery, no push access needed, several repositories per team. It carries presence and messages, never code.": "Un relay géré par votre équipe (ou hébergé). Livraison instantanée, sans droits de push, plusieurs dépôts par équipe. Il transporte la présence et les messages, jamais le code.",
+  "AgentDeck Relay": "AgentDeck Relay",
+  "AgentDeck Relay: {team}": "AgentDeck Relay : {team}",
+  "AgentDeck sends this to the {team} team on your relay. It's updated every few minutes while AgentDeck runs and removed when you turn sharing off.": "AgentDeck envoie ceci à l'équipe {team} sur votre relay. Mis à jour toutes les quelques minutes tant qu'AgentDeck tourne, supprimé quand vous arrêtez le partage.",
+  "Git remote": "Remote git",
+  "Git remote (free)": "Remote git (gratuit)",
+  "How your presence and messages reach teammates in this project. Branches always come from git.": "Comment votre présence et vos messages atteignent vos coéquipiers dans ce projet. Les branches viennent toujours de git.",
+  "Invite code": "Code d'invitation",
+  "Join the team": "Rejoindre l'équipe",
+  "Joining shares your work with that team: your name and email from git, your branch and what your agents are doing. The relay's token is kept in your keychain.": "Rejoindre partage votre travail avec cette équipe : nom et e-mail de git, votre branche et ce que font vos agents. Le jeton du relay est gardé dans votre trousseau.",
+  "Joining…": "Connexion…",
+  "Leave the relay": "Quitter le relay",
+  "Relay address": "Adresse du relay",
+  "Team connection": "Connexion de l'équipe",
+  "Through {remote} under refs/agentdeck. No server; updates every couple of minutes; needs push access.": "Via {remote} sous refs/agentdeck. Pas de serveur ; mis à jour toutes les deux minutes ; nécessite les droits de push."
 }

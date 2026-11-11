@@ -10,6 +10,7 @@ const EVERY_MS = 2 * 60_000;
 
 /** Tells you about what matters in the team (a message to you, a branch touching yours…). */
 function announce(events: FeedEvent[]) {
+  if (events.length) useStore.setState((s) => ({ teamTick: s.teamTick + 1 }));
   const important = events.filter((e) => e.notify);
   const msgs = important.filter((e) => e.kind === "message" || e.kind === "review").length;
   if (msgs) useStore.setState((s) => ({ teamUnread: s.teamUnread + msgs }));
@@ -47,7 +48,23 @@ export function useTeamHeartbeat() {
       window.clearTimeout(timer);
       timer = window.setTimeout(beat, SETTLE_MS);
     });
+    // Relays answer the moment something arrives: keep one long poll open.
+    let stopped = false;
+    const poll = async () => {
+      while (!stopped) {
+        try {
+          const r = await teamApi.wait();
+          if (stopped) return;
+          announce(r.events);
+          if (!r.relay) await new Promise((res) => setTimeout(res, 60_000));
+        } catch {
+          await new Promise((res) => setTimeout(res, 15_000));
+        }
+      }
+    };
+    void poll();
     return () => {
+      stopped = true;
       window.clearTimeout(first);
       window.clearInterval(id);
       window.clearTimeout(timer);

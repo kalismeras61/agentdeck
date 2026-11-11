@@ -5,3 +5,4 @@ dist-preview
 .DS_Store
 src-tauri/target
 src-tauri/gen/schemas
+relay/target

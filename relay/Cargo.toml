@@ -1,0 +1,30 @@
+[package]
+name = "agentdeck-relay"
+version = "0.1.0"
+license = "AGPL-3.0-only"
+edition = "2021"
+rust-version = "1.80"
+description = "AgentDeck Relay: instant team presence and messages for AgentDeck, self-hosted"
+
+[lib]
+name = "agentdeck_relay"
+path = "src/lib.rs"
+
+[[bin]]
+name = "agentdeck-relay"
+path = "src/main.rs"
+
+[dependencies]
+axum = "0.8"
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "sync", "time", "signal"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+rusqlite = { version = "0.37", features = ["bundled"] }
+sha2 = "0.10"
+uuid = { version = "1", features = ["v4"] }
+base64 = "0.22"
+tower-http = { version = "0.6", features = ["limit", "trace"] }
+
+[dev-dependencies]
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+tempfile = "3"

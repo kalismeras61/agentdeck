@@ -1947,5 +1947,21 @@
   "What should they look at?": "ما الذي يجب أن ينظروا إليه؟",
   "Write a reply": "اكتب ردًا",
   "Yesterday": "أمس",
-  "You": "أنت"
+  "You": "أنت",
+  "{url}, as {repo}. Instant, no push access needed.": "{url}، باسم {repo}. فوري، بلا صلاحية رفع.",
+  "A relay your team runs (or a hosted one). Instant delivery, no push access needed, several repositories per team. It carries presence and messages, never code.": "مُرحِّل يشغّله فريقك (أو مستضاف). تسليم فوري، بلا صلاحية رفع، عدة مستودعات لكل فريق. ينقل الحضور والرسائل، ولا ينقل الشيفرة أبدًا.",
+  "AgentDeck Relay": "AgentDeck Relay",
+  "AgentDeck Relay: {team}": "AgentDeck Relay: {team}",
+  "AgentDeck sends this to the {team} team on your relay. It's updated every few minutes while AgentDeck runs and removed when you turn sharing off.": "يرسل AgentDeck هذا إلى فريق {team} على المُرحِّل. يُحدَّث كل بضع دقائق ما دام AgentDeck يعمل، ويُحذف عند إيقاف المشاركة.",
+  "Git remote": "Git remote",
+  "Git remote (free)": "Git remote (مجاني)",
+  "How your presence and messages reach teammates in this project. Branches always come from git.": "كيف يصل حضورك ورسائلك إلى زملائك في هذا المشروع. الفروع تأتي دائمًا من git.",
+  "Invite code": "رمز الدعوة",
+  "Join the team": "الانضمام إلى الفريق",
+  "Joining shares your work with that team: your name and email from git, your branch and what your agents are doing. The relay's token is kept in your keychain.": "الانضمام يشارك عملك مع ذلك الفريق: اسمك وبريدك من git وفرعك وما يفعله وكلاؤك. يُحفظ رمز المُرحِّل في سلسلة مفاتيحك.",
+  "Joining…": "جارٍ الانضمام…",
+  "Leave the relay": "مغادرة المُرحِّل",
+  "Relay address": "عنوان المُرحِّل",
+  "Team connection": "اتصال الفريق",
+  "Through {remote} under refs/agentdeck. No server; updates every couple of minutes; needs push access.": "عبر {remote} تحت refs/agentdeck. بلا خادم؛ يُحدَّث كل دقيقتين تقريبًا؛ يتطلب صلاحية الرفع."
 }

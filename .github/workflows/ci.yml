@@ -43,3 +43,6 @@ jobs:
         run: |
           mkdir -p ../dist && [ -f ../dist/index.html ] || echo '<!doctype html>' > ../dist/index.html
           cargo test --lib
+      - name: Relay tests
+        working-directory: relay
+        run: cargo test
