@@ -49,6 +49,40 @@ export type TeamOverview = {
   /** Everyone in the relay's team besides you. */
   members?: { name: string; email: string }[];
 };
+/** A relay team's plan (relay `GET /v1/billing`). */
+export type RelayBilling = {
+  enabled: boolean;
+  plan: { status: string; seats: number | null; trialEndsAt: number | null; renewsAt: number | null; endsAt: number | null };
+  access: { canWrite: boolean; seats: number | null; note: string | null };
+  used: number;
+  admin: boolean;
+  subscribed: boolean;
+  portalUrl: string | null;
+  paymentUrl: string | null;
+};
+
+const PLAN_LABELS: Record<string, string> = /* i18n */ {
+  off: "No billing on this relay",
+  trialing: "Free trial",
+  on_trial: "Free trial",
+  active: "Active",
+  past_due: "Payment failed",
+  cancelled: "Cancelled",
+  ended: "Ended",
+  paused: "Paused",
+  unpaid: "Unpaid",
+  expired: "Expired",
+  comp: "Complimentary",
+  none: "No plan",
+};
+
+/** How a plan's status reads (English; pass it through t() where shown). */
+export function planLabel(b: RelayBilling): string {
+  if (!b.enabled) return PLAN_LABELS.off!;
+  if (b.plan.status === "cancelled" && !b.access.canWrite) return PLAN_LABELS.ended!;
+  return PLAN_LABELS[b.plan.status] ?? PLAN_LABELS.none!;
+}
+
 export type BranchDetail = { branch: string; base: string; mergeBase: string; commits: GitCommit[]; files: GitChangedFile[] };
 
 async function call<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
@@ -71,6 +105,12 @@ export const teamApi = {
   remove: (projectId: string, path: string) => call<void>("team_review_remove", { projectId, path }),
   /** Joins a team on an AgentDeck Relay for this project (shares your work with it). */
   relayJoin: (projectId: string, url: string, invite: string, days: number) => call<TeamOverview>("team_relay_join", { projectId, url, invite, days }),
+  /** Creates a team on a relay that takes signups; returns the overview and the invite to share. */
+  relayCreate: (projectId: string, url: string, teamName: string, days: number) => call<[TeamOverview, string]>("team_relay_create", { projectId, url, teamName, days }),
+  relayBilling: (projectId: string) => call<RelayBilling>("team_relay_billing", { projectId }),
+  /** The checkout page's address (team admins). */
+  relayCheckout: (projectId: string, seats: number) => call<string>("team_relay_checkout", { projectId, seats }),
+  relaySeats: (projectId: string, seats: number) => call<RelayBilling>("team_relay_seats", { projectId, seats }),
   relayLeave: (projectId: string, days: number) => call<TeamOverview>("team_relay_leave", { projectId, days }),
   /** Long polls the relays (≈25 s); relay false: no project uses one. */
   wait: () => call<{ relay: boolean; events: import("./teamchat").FeedEvent[] }>("team_wait"),

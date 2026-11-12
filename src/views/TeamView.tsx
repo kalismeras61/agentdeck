@@ -197,6 +197,17 @@ export function TeamView() {
   const setTeamUnread = useStore((s) => s.setTeamUnread);
   const teamTick = useStore((s) => s.teamTick);
   const [connection, setConnection] = useState(false);
+  const [newInvite, setNewInvite] = useState<string | null>(null);
+  const [plan, setPlan] = useState<import("../lib/team").RelayBilling | null>(null);
+  // The relay team's plan, for the banner when it needs attention.
+  useEffect(() => {
+    setPlan(null);
+    if (demo || !projectId || !o?.relay) return;
+    teamApi
+      .relayBilling(projectId)
+      .then(setPlan)
+      .catch(() => setPlan(null));
+  }, [demo, projectId, o?.relay?.url, o?.fetchedAt]); // eslint-disable-line react-hooks/exhaustive-deps
   const loadChat = useCallback(() => {
     if (demo || !projectId) return;
     chatApi.feed(projectId).then(setFeed).catch(() => setFeed([]));
@@ -506,6 +517,15 @@ export function TeamView() {
         </button>
       </ViewHeader>
 
+      {plan?.enabled && plan.access.note && (
+        <div role="status" className={cx("flex items-center gap-2 border-b border-line-soft px-4 py-2 text-[12.5px]", plan.access.canWrite ? "text-warning" : "text-error")}>
+          <AlertTriangle size={14} className="shrink-0" />
+          <span className="min-w-0 flex-1">{plan.access.note}</span>
+          <button type="button" onClick={() => setConnection(true)} className="shrink-0 rounded px-2 py-0.5 text-fg-2 hover:bg-elevated hover:text-fg">
+            {t("Plan")}
+          </button>
+        </div>
+      )}
       {(o?.syncError || notice) && (
         <div role="status" className={cx("flex items-start gap-2 border-b border-line-soft px-4 py-2 text-[12.5px]", o?.syncError ? "text-warning" : "text-fg-2")}>
           {o?.syncError ? <CloudOff size={14} className="mt-px shrink-0" /> : <Check size={14} className="mt-px shrink-0 text-success" />}
@@ -943,8 +963,21 @@ export function TeamView() {
       {connection && o && (
         <ConnectionDialog
           o={o}
+          projectId={projectId}
+          invite={newInvite}
           busy={busy === "relay"}
-          onClose={() => setConnection(false)}
+          onClose={() => {
+            setConnection(false);
+            setNewInvite(null);
+          }}
+          onCreate={(url, name) =>
+            void act("relay", async () => {
+              const [x, inv] = await teamApi.relayCreate(projectId!, url, name, DAYS);
+              setO(x);
+              setNewInvite(inv);
+              loadChat();
+            })
+          }
           onJoin={(url, invite) =>
             void act("relay", async () => {
               setO(await teamApi.relayJoin(projectId!, url, invite, DAYS));

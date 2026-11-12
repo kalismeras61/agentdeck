@@ -54,6 +54,6 @@ As a hosted product, the relay is the natural paid tier:
 | SSO, roles, audit log, retention policy | No | Yes |
 | History beyond two weeks | No | Yes |
 
-Built so far: teams, invites, per-member tokens, presence, messages, long polling, retention, rate limits, a CLI to manage it all, and a Dockerfile. Still to build for a hosted offering: a web dashboard for leads, SSO, an admin API instead of the CLI, billing, and history beyond the retention period.
+Built so far: teams, invites, per-member tokens, presence, messages, long polling, retention, rate limits, a CLI to manage it all, a Dockerfile, self-serve team creation, and billing: per seat per month through Lemon Squeezy (merchant of record), with a free trial, seat limits, a signed webhook, prorated seat changes and the customer portal (see [relay/README.md](../relay/README.md#charge-for-it-lemon-squeezy)). Still to build for a hosted offering: a web dashboard for leads, SSO, an admin API instead of the CLI, and history beyond the retention period.
 
 What a relay should keep from the git design: end-to-end the same message format, the user approving every outgoing message, and the receiving app never treating content as instructions. Code and diffs stay on developers' Macs and the remote; the relay only carries presence, messages and time summaries.

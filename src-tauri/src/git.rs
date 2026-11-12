@@ -192,7 +192,7 @@ fn parse_track(t: &str) -> (u32, u32) {
 }
 
 fn refs(dir: &str, pattern: &str) -> Vec<Branch> {
-    let fmt = "%(refname:short)%00%(objectname)%00%(upstream:short)%00%(upstream:track)%00%(HEAD)%00%(worktreepath)";
+    let fmt = "%(refname:short)%00%(objectname)%00%(upstream:short)%00%(upstream:track)%00%(HEAD)%00%(worktreepath)%00%(symref)";
     git(
         dir,
         &[
@@ -206,7 +206,8 @@ fn refs(dir: &str, pattern: &str) -> Vec<Branch> {
     .lines()
     .filter_map(|l| {
         let f: Vec<&str> = l.split('\0').collect();
-        if f.len() < 6 || f[0].ends_with("/HEAD") {
+        // origin/HEAD (shortened to "origin" by newer git) points at a branch; it isn't one.
+        if f.len() < 7 || f[0].ends_with("/HEAD") || !f[6].is_empty() {
             return None;
         }
         let (ahead, behind) = parse_track(f[3]);

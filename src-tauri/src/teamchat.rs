@@ -977,6 +977,8 @@ mod tests {
         commit(&mert, "app/login.ts", "fix\n", "fix login");
         run(&mert, &["push", "-q", "-u", "origin", "fix/login-api"]);
         team::fetch(&m).unwrap();
+        // As newer git does on fetch: origin/HEAD, which isn't a branch.
+        run(&mert, &["remote", "set-head", "origin", "main"]);
         // The first time only remembers.
         assert!(update_feed(&db, &pid, &team::overview(&m, 0).unwrap(), &[]).is_empty());
 

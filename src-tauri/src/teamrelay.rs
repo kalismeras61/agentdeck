@@ -153,6 +153,45 @@ pub fn join(
             .send(),
         &url,
     )?;
+    remember(db, project_id, url, &v, me, repo)
+}
+
+/// Creates a team on a relay that takes signups (a hosted one), with you as its admin.
+/// Returns the config and the team's invite to share.
+pub fn create_team(
+    db: &Db,
+    project_id: &str,
+    url: &str,
+    team_name: &str,
+    me: &team::Person,
+    repo: &str,
+) -> Result<(RelayConfig, String), String> {
+    let url = check_url(url)?;
+    if me.email.trim().is_empty() {
+        return Err(
+            "Git doesn't know who you are in this repository. Set user.name and user.email first."
+                .into(),
+        );
+    }
+    let v = answer(
+        client()?
+            .post(format!("{url}/v1/teams"))
+            .json(&json!({ "team": team_name.trim(), "name": if me.name.is_empty() { &me.email } else { &me.name }, "email": me.email }))
+            .send(),
+        &url,
+    )?;
+    let invite = v["invite"].as_str().unwrap_or("").to_string();
+    Ok((remember(db, project_id, url, &v, me, repo)?, invite))
+}
+
+fn remember(
+    db: &Db,
+    project_id: &str,
+    url: String,
+    v: &Value,
+    me: &team::Person,
+    repo: &str,
+) -> Result<RelayConfig, String> {
     let token = v["token"].as_str().ok_or("The relay sent no token")?;
     crate::secrets::set_named(&token_name(project_id), token)?;
     let c = RelayConfig {
@@ -216,6 +255,36 @@ impl RelayTransport {
                 .send(),
             &self.config.url,
         )
+    }
+
+    fn post(&self, path: &str, body: Value) -> Result<Value, String> {
+        answer(
+            client()?
+                .post(format!("{}{path}", self.config.url))
+                .bearer_auth(&self.token)
+                .json(&body)
+                .send(),
+            &self.config.url,
+        )
+    }
+
+    /// The team's plan, as the relay reports it (`GET /v1/billing`).
+    pub fn billing(&self) -> Result<Value, String> {
+        self.get("/v1/billing", &[])
+    }
+
+    /// A checkout page for `seats` seats (team admins).
+    pub fn checkout(&self, seats: i64) -> Result<String, String> {
+        self.post("/v1/billing/checkout", json!({ "seats": seats }))?["url"]
+            .as_str()
+            .map(str::to_owned)
+            .ok_or_else(|| "The relay sent no checkout address".into())
+    }
+
+    /// Changes the subscription's seats (team admins).
+    pub fn set_seats(&self, seats: i64) -> Result<(), String> {
+        self.post("/v1/billing/seats", json!({ "seats": seats }))
+            .map(|_| ())
     }
 
     fn pull(&self) -> Result<(Vec<Presence>, Vec<Message>), String> {
@@ -556,5 +625,100 @@ mod tests {
         // Leaving goes back to git.
         leave(&db_a, &pid_a).unwrap();
         assert!(!transport_for(&db_a, &pid_a, &ra).is_relay());
+    }
+
+    #[test]
+    fn a_hosted_team_is_created_paid_for_and_stops_when_it_lapses() {
+        use axum::{routing::post, Json};
+        // Lemon Squeezy's checkout API, standing in.
+        let (tx, rx) = std::sync::mpsc::channel();
+        std::thread::spawn(move || {
+            tokio::runtime::Runtime::new().unwrap().block_on(async move {
+                let ls = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+                let ls_url = format!("http://{}", ls.local_addr().unwrap());
+                let app = axum::Router::new().route(
+                    "/v1/checkouts",
+                    post(|| async { Json(json!({ "data": { "attributes": { "url": "https://acme.lemonsqueezy.com/checkout/x" } } })) }),
+                );
+                tokio::spawn(async move { axum::serve(ls, app).await.unwrap() });
+                let billing = agentdeck_relay::billing::Billing {
+                    api_key: "k".into(),
+                    store_id: "1".into(),
+                    variant_id: "2".into(),
+                    webhook_secret: "s".into(),
+                    trial_days: 14,
+                    trial_seats: 3,
+                    redirect_url: None,
+                    api_base: ls_url,
+                };
+                let relay = agentdeck_relay::Relay::with(agentdeck_relay::Store::open_in_memory().unwrap(), Some(billing), true);
+                let l = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+                tx.send((format!("http://{}", l.local_addr().unwrap()), relay.clone())).unwrap();
+                axum::serve(l, agentdeck_relay::router(relay)).await.unwrap();
+            });
+        });
+        let (url, relay) = rx.recv().unwrap();
+        let (_d, ayse, mert) = crate::team::tests::team();
+        let db = Db::open_in_memory().unwrap();
+        let p = db.add_project("shop", &ayse.to_string_lossy()).unwrap();
+        let me = team::me(&ayse.to_string_lossy());
+        let (c, invite) =
+            create_team(&db, &p.id, &url, "Acme", &me, "github.com/acme/shop").unwrap();
+        assert_eq!(c.team, "Acme");
+        assert!(invite.starts_with("adi_"));
+        let tr = RelayTransport::for_project(&db, &p.id, &ayse.to_string_lossy()).unwrap();
+        let b = tr.billing().unwrap();
+        assert_eq!(
+            (
+                b["plan"]["status"].as_str(),
+                b["admin"].as_bool(),
+                b["used"].as_i64()
+            ),
+            (Some("trialing"), Some(true), Some(1))
+        );
+        assert_eq!(
+            tr.checkout(3).unwrap(),
+            "https://acme.lemonsqueezy.com/checkout/x"
+        );
+        assert!(tr.checkout(0).unwrap_err().contains("seats"));
+
+        // Mert joins with the invite and isn't an admin.
+        let db_m = Db::open_in_memory().unwrap();
+        let pm = db_m.add_project("shop", &mert.to_string_lossy()).unwrap();
+        join(
+            &db_m,
+            &pm.id,
+            &url,
+            &invite,
+            &team::me(&mert.to_string_lossy()),
+            "github.com/acme/shop",
+        )
+        .unwrap();
+        let tm = RelayTransport::for_project(&db_m, &pm.id, &mert.to_string_lossy()).unwrap();
+        assert_eq!(tm.billing().unwrap()["admin"], false);
+        assert!(tm.checkout(3).unwrap_err().contains("admin"));
+
+        // The trial ends: sending says why.
+        let mut plan = relay
+            .store
+            .plan(&relay.store.teams().unwrap()[0].0.id)
+            .unwrap();
+        plan.trial_ends_at = Some(1);
+        relay
+            .store
+            .set_plan(&relay.store.teams().unwrap()[0].0.id, &plan)
+            .unwrap();
+        let m = crate::teamchat::Message {
+            id: "n1".into(),
+            thread: "n1".into(),
+            from: me.clone(),
+            to: "*".into(),
+            kind: "note".into(),
+            text: "hi".into(),
+            branch: None,
+            agent: None,
+            created_at: 1,
+        };
+        assert!(tr.send(&me, m).unwrap_err().contains("trial has ended"));
     }
 }

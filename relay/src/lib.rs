@@ -26,6 +26,8 @@
 //!   up to `wait` (≤ 30) seconds for something new: long polling, so it passes any proxy.
 //! - `GET  /healthz`
 
+pub mod billing;
+
 use axum::{
     extract::{Query, State},
     http::{HeaderMap, StatusCode},
@@ -77,6 +79,15 @@ pub fn secret(prefix: &str) -> String {
     )
 }
 
+/// A team's subscription: (subscription id, item id, portal, payment page, email).
+pub type SubscriptionRef = (
+    Option<String>,
+    Option<String>,
+    Option<String>,
+    Option<String>,
+    Option<String>,
+);
+
 /// An event's sequence number, repository and kind.
 pub type EventRef = (i64, String, String);
 
@@ -98,6 +109,22 @@ pub struct Member {
     pub email: String,
     pub created_at: i64,
     pub revoked: bool,
+    /// Manages the team's plan (the team's first member, or one the operator made admin).
+    pub admin: bool,
+}
+
+const MEMBER_COLS: &str = "id, team_id, name, email, created_at, revoked, admin";
+
+fn member_row(r: &rusqlite::Row) -> rusqlite::Result<Member> {
+    Ok(Member {
+        id: r.get(0)?,
+        team_id: r.get(1)?,
+        name: r.get(2)?,
+        email: r.get(3)?,
+        created_at: r.get(4)?,
+        revoked: r.get::<_, i64>(5)? != 0,
+        admin: r.get::<_, i64>(6)? != 0,
+    })
 }
 
 impl Store {
@@ -130,6 +157,29 @@ impl Store {
                team_id TEXT NOT NULL, repo TEXT NOT NULL, email TEXT NOT NULL, body TEXT NOT NULL,
                updated_at INTEGER NOT NULL, PRIMARY KEY (team_id, repo, email));",
         )?;
+        // Billing (later versions): a team's plan, a member's admin flag.
+        for (table, col, ty) in [
+            ("teams", "status", "TEXT NOT NULL DEFAULT ''"),
+            ("teams", "seats", "INTEGER"),
+            ("teams", "trial_ends_at", "INTEGER"),
+            ("teams", "renews_at", "INTEGER"),
+            ("teams", "ends_at", "INTEGER"),
+            ("teams", "subscription_id", "TEXT"),
+            ("teams", "item_id", "TEXT"),
+            ("teams", "portal_url", "TEXT"),
+            ("teams", "payment_url", "TEXT"),
+            ("teams", "billing_email", "TEXT"),
+            ("members", "admin", "INTEGER NOT NULL DEFAULT 0"),
+        ] {
+            let has = conn
+                .prepare(&format!(
+                    "SELECT 1 FROM pragma_table_info('{table}') WHERE name = ?1"
+                ))?
+                .exists(params![col])?;
+            if !has {
+                conn.execute(&format!("ALTER TABLE {table} ADD COLUMN {col} {ty}"), [])?;
+            }
+        }
         Ok(Self {
             conn: Mutex::new(conn),
         })
@@ -211,9 +261,40 @@ impl Store {
     }
 
     /// Joins with an invite: a new member and their token (shown once).
+    /// The team an invite lets you into, if it's good.
+    pub fn team_for_invite(&self, invite: &str) -> rusqlite::Result<Option<Team>> {
+        let id: Option<String> = self
+            .c()
+            .query_row(
+                "SELECT team_id FROM invites WHERE code_hash = ?1 AND revoked = 0 AND (expires_at IS NULL OR expires_at > ?2)",
+                params![hash(invite.trim()), now_ms()],
+                |r| r.get(0),
+            )
+            .optional()?;
+        match id {
+            Some(id) => self.team(&id),
+            None => Ok(None),
+        }
+    }
+
+    /// Joins with an invite: a new member and their token (shown once). The team's first member
+    /// is its admin.
     pub fn join(
         &self,
         invite: &str,
+        name: &str,
+        email: &str,
+    ) -> Result<(String, Team, Member), String> {
+        let team = self
+            .team_for_invite(invite)
+            .map_err(|e| e.to_string())?
+            .ok_or("That invite isn't valid (wrong, expired or revoked)")?;
+        self.add_member(&team, name, email)
+    }
+
+    pub fn add_member(
+        &self,
+        team: &Team,
         name: &str,
         email: &str,
     ) -> Result<(String, Team, Member), String> {
@@ -222,22 +303,7 @@ impl Store {
         if name.is_empty() || !email.contains('@') {
             return Err("A name and an email are needed".into());
         }
-        let team_id: Option<String> = self
-            .c()
-            .query_row(
-                "SELECT team_id FROM invites WHERE code_hash = ?1 AND revoked = 0 AND (expires_at IS NULL OR expires_at > ?2)",
-                params![hash(invite.trim()), now_ms()],
-                |r| r.get(0),
-            )
-            .optional()
-            .map_err(|e| e.to_string())?;
-        let team = match team_id {
-            Some(id) => self
-                .team(&id)
-                .map_err(|e| e.to_string())?
-                .ok_or("No such team")?,
-            None => return Err("That invite isn't valid (wrong, expired or revoked)".into()),
-        };
+        let first = self.active_members(&team.id).map_err(|e| e.to_string())? == 0;
         let token = secret("adr");
         let m = Member {
             id: format!("m_{}", &uuid::Uuid::new_v4().simple().to_string()[..12]),
@@ -246,23 +312,112 @@ impl Store {
             email,
             created_at: now_ms(),
             revoked: false,
+            admin: first,
         };
         self.c()
             .execute(
-                "INSERT INTO members(id, team_id, name, email, token_hash, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
-                params![m.id, m.team_id, m.name, m.email, hash(&token), m.created_at],
+                "INSERT INTO members(id, team_id, name, email, token_hash, created_at, admin) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+                params![m.id, m.team_id, m.name, m.email, hash(&token), m.created_at, m.admin as i64],
             )
             .map_err(|e| e.to_string())?;
-        Ok((token, team, m))
+        Ok((token, team.clone(), m))
+    }
+
+    /// People with a seat: distinct emails of members who aren't revoked.
+    pub fn active_members(&self, team_id: &str) -> rusqlite::Result<i64> {
+        self.c().query_row(
+            "SELECT COUNT(DISTINCT email) FROM members WHERE team_id = ?1 AND revoked = 0",
+            params![team_id],
+            |r| r.get(0),
+        )
+    }
+
+    pub fn is_member_email(&self, team_id: &str, email: &str) -> rusqlite::Result<bool> {
+        Ok(self
+            .c()
+            .query_row(
+                "SELECT 1 FROM members WHERE team_id = ?1 AND email = ?2 AND revoked = 0",
+                params![team_id, email.trim().to_lowercase()],
+                |_| Ok(()),
+            )
+            .optional()?
+            .is_some())
+    }
+
+    pub fn set_admin(&self, member_id: &str, admin: bool) -> rusqlite::Result<bool> {
+        Ok(self.c().execute(
+            "UPDATE members SET admin = ?2 WHERE id = ?1",
+            params![member_id, admin as i64],
+        )? > 0)
+    }
+
+    pub fn plan(&self, team_id: &str) -> rusqlite::Result<billing::Plan> {
+        self.c().query_row(
+            "SELECT status, seats, trial_ends_at, renews_at, ends_at FROM teams WHERE id = ?1",
+            params![team_id],
+            |r| {
+                Ok(billing::Plan {
+                    status: r.get(0)?,
+                    seats: r.get(1)?,
+                    trial_ends_at: r.get(2)?,
+                    renews_at: r.get(3)?,
+                    ends_at: r.get(4)?,
+                })
+            },
+        )
+    }
+
+    pub fn set_plan(&self, team_id: &str, p: &billing::Plan) -> rusqlite::Result<bool> {
+        Ok(self.c().execute(
+            "UPDATE teams SET status = ?2, seats = ?3, trial_ends_at = ?4, renews_at = ?5, ends_at = ?6 WHERE id = ?1",
+            params![team_id, p.status, p.seats, p.trial_ends_at, p.renews_at, p.ends_at],
+        )? > 0)
+    }
+
+    /// Billing addresses and ids: (subscription, item, portal, payment page, email).
+    pub fn subscription(&self, team_id: &str) -> rusqlite::Result<SubscriptionRef> {
+        self.c().query_row(
+            "SELECT subscription_id, item_id, portal_url, payment_url, billing_email FROM teams WHERE id = ?1",
+            params![team_id],
+            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?)),
+        )
+    }
+
+    /// Applies a subscription webhook: to the team in its custom data, else the one with that
+    /// subscription. Returns the team it applied to.
+    pub fn apply_subscription(
+        &self,
+        u: &billing::SubscriptionUpdate,
+    ) -> rusqlite::Result<Option<String>> {
+        let by_sub: Option<String> = self
+            .c()
+            .query_row(
+                "SELECT id FROM teams WHERE subscription_id = ?1",
+                params![u.subscription_id],
+                |r| r.get(0),
+            )
+            .optional()?;
+        let team = match (&u.team_id, by_sub) {
+            (_, Some(t)) => t,
+            (Some(t), None) if self.team(t)?.is_some() => t.clone(),
+            _ => return Ok(None),
+        };
+        self.c().execute(
+            "UPDATE teams SET status = ?2, seats = COALESCE(?3, seats), trial_ends_at = ?4, renews_at = ?5, ends_at = ?6,
+               subscription_id = ?7, item_id = COALESCE(?8, item_id), portal_url = COALESCE(?9, portal_url),
+               payment_url = COALESCE(?10, payment_url), billing_email = COALESCE(?11, billing_email) WHERE id = ?1",
+            params![team, u.plan.status, u.plan.seats, u.plan.trial_ends_at, u.plan.renews_at, u.plan.ends_at, u.subscription_id, u.item_id, u.portal_url, u.payment_url, u.email],
+        )?;
+        Ok(Some(team))
     }
 
     pub fn member_by_token(&self, token: &str) -> rusqlite::Result<Option<Member>> {
         let c = self.c();
         let m = c
             .query_row(
-                "SELECT id, team_id, name, email, created_at, revoked FROM members WHERE token_hash = ?1 AND revoked = 0",
+                &format!("SELECT {MEMBER_COLS} FROM members WHERE token_hash = ?1 AND revoked = 0"),
                 params![hash(token)],
-                |r| Ok(Member { id: r.get(0)?, team_id: r.get(1)?, name: r.get(2)?, email: r.get(3)?, created_at: r.get(4)?, revoked: r.get::<_, i64>(5)? != 0 }),
+                member_row,
             )
             .optional()?;
         if let Some(m) = &m {
@@ -276,20 +431,10 @@ impl Store {
 
     pub fn members(&self, team_id: &str) -> rusqlite::Result<Vec<(Member, Option<i64>)>> {
         let c = self.c();
-        let mut st = c.prepare("SELECT id, team_id, name, email, created_at, revoked, last_seen FROM members WHERE team_id = ?1 ORDER BY created_at")?;
-        let rows = st.query_map(params![team_id], |r| {
-            Ok((
-                Member {
-                    id: r.get(0)?,
-                    team_id: r.get(1)?,
-                    name: r.get(2)?,
-                    email: r.get(3)?,
-                    created_at: r.get(4)?,
-                    revoked: r.get::<_, i64>(5)? != 0,
-                },
-                r.get(6)?,
-            ))
-        })?;
+        let mut st = c.prepare(&format!(
+            "SELECT {MEMBER_COLS}, last_seen FROM members WHERE team_id = ?1 ORDER BY created_at"
+        ))?;
+        let rows = st.query_map(params![team_id], |r| Ok((member_row(r)?, r.get(7)?)))?;
         rows.collect()
     }
 
@@ -465,16 +610,83 @@ pub struct Relay {
     tick: watch::Sender<i64>,
     writes: Mutex<HashMap<String, (Instant, u32)>>,
     joins: Mutex<(Instant, u32)>,
+    /// Lemon Squeezy, when this relay charges for teams.
+    pub billing: Option<billing::Billing>,
+    /// Anyone may create a team (`POST /v1/teams`), as on a hosted relay.
+    pub open_signup: bool,
 }
 
 impl Relay {
     pub fn new(store: Store) -> Arc<Self> {
+        Self::with(store, None, false)
+    }
+
+    pub fn with(store: Store, billing: Option<billing::Billing>, open_signup: bool) -> Arc<Self> {
         Arc::new(Self {
             store,
             tick: watch::channel(0).0,
             writes: Mutex::new(HashMap::new()),
             joins: Mutex::new((Instant::now(), 0)),
+            billing,
+            open_signup,
         })
+    }
+
+    /// Makes a team; with billing on it starts on the free trial.
+    pub fn create_team(&self, name: &str) -> rusqlite::Result<Team> {
+        let t = self.store.create_team(name)?;
+        if let Some(b) = &self.billing {
+            self.store.set_plan(
+                &t.id,
+                &billing::Plan {
+                    status: "trialing".into(),
+                    seats: Some(b.trial_seats),
+                    trial_ends_at: Some(now_ms() + b.trial_days as i64 * 86_400_000),
+                    ..Default::default()
+                },
+            )?;
+        }
+        Ok(t)
+    }
+
+    pub fn access(&self, team_id: &str) -> Result<billing::Access, ApiError> {
+        let plan = self.store.plan(team_id).map_err(internal)?;
+        Ok(billing::access(self.billing.is_some(), &plan, now_ms()))
+    }
+
+    fn may_write(&self, m: &Member) -> Result<(), ApiError> {
+        let a = self.access(&m.team_id)?;
+        if a.can_write {
+            Ok(())
+        } else {
+            Err(ApiError(
+                StatusCode::PAYMENT_REQUIRED,
+                a.note
+                    .unwrap_or_else(|| "This team's plan doesn't allow that".into()),
+            ))
+        }
+    }
+
+    /// A new person may join: the plan is good and a seat is free (someone already in, on
+    /// another Mac, doesn't take a second seat).
+    fn may_join(&self, team: &Team, email: &str) -> Result<(), ApiError> {
+        let a = self.access(&team.id)?;
+        if !a.can_write {
+            return Err(ApiError(
+                StatusCode::PAYMENT_REQUIRED,
+                a.note.unwrap_or_default(),
+            ));
+        }
+        if let Some(seats) = a.seats {
+            let already = self
+                .store
+                .is_member_email(&team.id, email)
+                .map_err(internal)?;
+            if !already && self.store.active_members(&team.id).map_err(internal)? >= seats {
+                return Err(ApiError(StatusCode::PAYMENT_REQUIRED, format!("All {seats} seats of {} are taken. A team admin can add seats in AgentDeck.", team.name)));
+            }
+        }
+        Ok(())
     }
 
     fn bump(&self, seq: i64) {
@@ -562,9 +774,20 @@ async fn join(
             "Too many tries; wait a minute".into(),
         ));
     }
+    let team = r
+        .store
+        .team_for_invite(&req.invite)
+        .map_err(internal)?
+        .ok_or_else(|| {
+            ApiError(
+                StatusCode::FORBIDDEN,
+                "That invite isn't valid (wrong, expired or revoked)".into(),
+            )
+        })?;
+    r.may_join(&team, &req.email)?;
     let (token, team, member) = r
         .store
-        .join(&req.invite, &req.name, &req.email)
+        .add_member(&team, &req.name, &req.email)
         .map_err(|e| ApiError(StatusCode::FORBIDDEN, e))?;
     Ok(Json(
         json!({ "token": token, "team": team, "member": member }),
@@ -618,6 +841,7 @@ async fn put_presence(
             "Too many updates; slow down".into(),
         ));
     }
+    r.may_write(&m)?;
     let seq = r.store.put_presence(&m, &q.repo, body).map_err(internal)?;
     r.bump(seq);
     Ok(Json(json!({ "ok": true })))
@@ -667,6 +891,7 @@ async fn post_message(
             "Too many messages; slow down".into(),
         ));
     }
+    r.may_write(&m)?;
     let (seq, msg) = r.store.post_message(&m, &q.repo, body).map_err(bad)?;
     r.bump(seq);
     Ok(Json(msg))
@@ -725,12 +950,187 @@ async fn events(
     }
 }
 
+#[derive(Deserialize)]
+struct NewTeamReq {
+    team: String,
+    name: String,
+    email: String,
+}
+
+/// Creates a team and makes you its admin (only on a relay that allows signups).
+async fn create_team(
+    State(r): State<Arc<Relay>>,
+    Json(req): Json<NewTeamReq>,
+) -> Result<Json<Value>, ApiError> {
+    if !r.open_signup {
+        return Err(ApiError(
+            StatusCode::FORBIDDEN,
+            "This relay doesn't take new teams; ask its operator for an invite".into(),
+        ));
+    }
+    if r.join_limited() {
+        return Err(ApiError(
+            StatusCode::TOO_MANY_REQUESTS,
+            "Too many tries; wait a minute".into(),
+        ));
+    }
+    let name = clip(req.team.trim(), 80);
+    if name.is_empty() {
+        return Err(bad("Name the team"));
+    }
+    let team = r.create_team(&name).map_err(internal)?;
+    let (token, team, member) = r
+        .store
+        .add_member(&team, &req.name, &req.email)
+        .map_err(bad)?;
+    let invite = r
+        .store
+        .create_invite(&team.id, None, "created with the team")
+        .map_err(bad)?;
+    Ok(Json(
+        json!({ "token": token, "team": team, "member": member, "invite": invite }),
+    ))
+}
+
+/// The team's plan: status, seats, dates, and (for admins) where to manage it.
+async fn get_billing(
+    State(r): State<Arc<Relay>>,
+    headers: HeaderMap,
+) -> Result<Json<Value>, ApiError> {
+    let m = auth(&r, &headers)?;
+    let plan = r.store.plan(&m.team_id).map_err(internal)?;
+    let access = billing::access(r.billing.is_some(), &plan, now_ms());
+    let used = r.store.active_members(&m.team_id).map_err(internal)?;
+    let (sub, _, portal, payment, _) = r.store.subscription(&m.team_id).map_err(internal)?;
+    Ok(Json(json!({
+        "enabled": r.billing.is_some(),
+        "plan": plan,
+        "access": access,
+        "used": used,
+        "admin": m.admin,
+        "subscribed": sub.is_some(),
+        "portalUrl": if m.admin { portal } else { None },
+        "paymentUrl": if m.admin { payment } else { None },
+    })))
+}
+
+#[derive(Deserialize)]
+struct SeatsReq {
+    seats: i64,
+}
+
+fn admin_billing<'a>(r: &'a Relay, m: &Member) -> Result<&'a billing::Billing, ApiError> {
+    let b = r
+        .billing
+        .as_ref()
+        .ok_or_else(|| bad("This relay doesn't charge for teams"))?;
+    if !m.admin {
+        return Err(ApiError(
+            StatusCode::FORBIDDEN,
+            "Only a team admin can change the plan".into(),
+        ));
+    }
+    Ok(b)
+}
+
+fn check_seats(r: &Relay, m: &Member, seats: i64) -> Result<(), ApiError> {
+    let used = r.store.active_members(&m.team_id).map_err(internal)?;
+    if seats < used.max(1) || seats > 1000 {
+        return Err(bad(format!(
+            "Pick between {} and 1000 seats (the team has {used} people)",
+            used.max(1)
+        )));
+    }
+    Ok(())
+}
+
+/// A Lemon Squeezy checkout for the team (admins). The app opens it in the browser.
+async fn checkout(
+    State(r): State<Arc<Relay>>,
+    headers: HeaderMap,
+    Json(req): Json<SeatsReq>,
+) -> Result<Json<Value>, ApiError> {
+    let m = auth(&r, &headers)?;
+    let b = admin_billing(&r, &m)?;
+    check_seats(&r, &m, req.seats)?;
+    let url = b
+        .checkout(&m.team_id, &m.email, req.seats)
+        .await
+        .map_err(|e| ApiError(StatusCode::BAD_GATEWAY, e))?;
+    Ok(Json(json!({ "url": url })))
+}
+
+/// Changes the subscription's seats (admins); never below the people in the team.
+async fn set_seats(
+    State(r): State<Arc<Relay>>,
+    headers: HeaderMap,
+    Json(req): Json<SeatsReq>,
+) -> Result<Json<Value>, ApiError> {
+    let m = auth(&r, &headers)?;
+    let b = admin_billing(&r, &m)?;
+    check_seats(&r, &m, req.seats)?;
+    let (_, item, ..) = r.store.subscription(&m.team_id).map_err(internal)?;
+    let item = item.ok_or_else(|| bad("Subscribe first"))?;
+    b.set_seats(&item, req.seats)
+        .await
+        .map_err(|e| ApiError(StatusCode::BAD_GATEWAY, e))?;
+    let mut plan = r.store.plan(&m.team_id).map_err(internal)?;
+    plan.seats = Some(req.seats);
+    r.store.set_plan(&m.team_id, &plan).map_err(internal)?;
+    Ok(Json(json!({ "ok": true, "seats": req.seats })))
+}
+
+/// Lemon Squeezy's webhook: subscription changes, signed with the webhook secret.
+async fn lemonsqueezy(
+    State(r): State<Arc<Relay>>,
+    headers: HeaderMap,
+    body: axum::body::Bytes,
+) -> Result<Json<Value>, ApiError> {
+    let b = r
+        .billing
+        .as_ref()
+        .ok_or_else(|| ApiError(StatusCode::NOT_FOUND, "Billing is off".into()))?;
+    let sig = headers
+        .get("x-signature")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("");
+    if !billing::verify(&b.webhook_secret, &body, sig) {
+        return Err(ApiError(StatusCode::UNAUTHORIZED, "Bad signature".into()));
+    }
+    let v: Value = serde_json::from_slice(&body).map_err(|_| bad("Not JSON"))?;
+    let Some(u) = billing::parse_webhook(&v) else {
+        return Ok(Json(json!({ "ignored": true })));
+    };
+    match r.store.apply_subscription(&u).map_err(internal)? {
+        Some(team) => {
+            eprintln!(
+                "agentdeck-relay: {} for team {team}: {} ({:?} seats)",
+                u.event, u.plan.status, u.plan.seats
+            );
+            Ok(Json(json!({ "ok": true, "team": team })))
+        }
+        // Answer 200 anyway: retrying wouldn't help, and Lemon Squeezy would keep at it.
+        None => {
+            eprintln!(
+                "agentdeck-relay: {} for subscription {} matches no team",
+                u.event, u.subscription_id
+            );
+            Ok(Json(json!({ "ignored": true })))
+        }
+    }
+}
+
 pub fn router(relay: Arc<Relay>) -> Router {
     Router::new()
         .route("/healthz", get(|| async { "ok" }))
         .route("/v1/join", post(join))
         .route("/v1/me", get(me))
         .route("/v1/members", get(members))
+        .route("/v1/teams", post(create_team))
+        .route("/v1/billing", get(get_billing))
+        .route("/v1/billing/checkout", post(checkout))
+        .route("/v1/billing/seats", post(set_seats))
+        .route("/v1/billing/lemonsqueezy", post(lemonsqueezy))
         .route(
             "/v1/presence",
             get(get_presence).put(put_presence).delete(delete_presence),
@@ -746,8 +1146,10 @@ pub async fn serve(
     listener: tokio::net::TcpListener,
     store: Store,
     retention_days: u32,
+    billing: Option<billing::Billing>,
+    open_signup: bool,
 ) -> std::io::Result<()> {
-    let relay = Relay::new(store);
+    let relay = Relay::with(store, billing, open_signup);
     let r = relay.clone();
     tokio::spawn(async move {
         loop {

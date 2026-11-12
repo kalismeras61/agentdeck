@@ -342,7 +342,7 @@ struct RefLine {
 }
 
 fn ref_lines(root: &str, pattern: &str) -> Vec<RefLine> {
-    let fmt = "%(refname:short)%1f%(objectname)%1f%(authorname)%1f%(authoremail:trim)%1f%(committerdate:unix)%1f%(contents:subject)%1f%(upstream:short)%1f%(worktreepath)";
+    let fmt = "%(refname:short)%1f%(objectname)%1f%(authorname)%1f%(authoremail:trim)%1f%(committerdate:unix)%1f%(contents:subject)%1f%(upstream:short)%1f%(worktreepath)%1f%(symref)";
     git::git(
         root,
         &[
@@ -356,7 +356,9 @@ fn ref_lines(root: &str, pattern: &str) -> Vec<RefLine> {
     .lines()
     .filter_map(|l| {
         let f: Vec<&str> = l.split('\u{1f}').collect();
-        if f.len() < 8 || f[0].ends_with("/HEAD") || f[0].is_empty() {
+        // A symbolic ref (origin/HEAD, which newer git makes on fetch and shortens to "origin")
+        // is no branch.
+        if f.len() < 9 || f[0].ends_with("/HEAD") || f[0].is_empty() || !f[8].is_empty() {
             return None;
         }
         Some(RefLine {
@@ -1007,7 +1009,21 @@ pub(crate) mod tests {
 
         let m = mert.to_string_lossy().into_owned();
         fetch(&m).unwrap();
+        // Newer git makes origin/HEAD on fetch; it must not show up as a branch called "origin".
+        run(&mert, &["remote", "set-head", "origin", "main"]);
         let o = overview(&m, 0).unwrap();
+        assert!(
+            !o.branches
+                .iter()
+                .any(|b| b.short == "origin" || b.name == "origin"),
+            "{:?}",
+            o.branches.iter().map(|b| &b.name).collect::<Vec<_>>()
+        );
+        assert!(!crate::git::overview(&m)
+            .unwrap()
+            .remotes
+            .iter()
+            .any(|b| b.name == "origin"));
         assert_eq!(o.remote.as_deref(), Some("origin"));
         assert_eq!(o.base.as_deref(), Some("origin/main"));
         assert_eq!(o.me.email, "mert@team.dev");

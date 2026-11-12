@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { demoTeam } from "../data/teamDemo";
-import { checkoutCommand, filterBranches, hueOf, initials, isOnline, overlaps, overlapsWith, people, reviewPrompt, ONLINE_MS } from "../lib/team";
+import { planLabel, type RelayBilling, checkoutCommand, filterBranches, hueOf, initials, isOnline, overlaps, overlapsWith, people, reviewPrompt, ONLINE_MS } from "../lib/team";
 
 const NOW = 1_800_000_000_000;
 const team = () => demoTeam(NOW);
@@ -25,6 +25,25 @@ describe("team", () => {
     const d = ps.find((p) => p.email === "deniz@acme.dev")!;
     expect(d.name).toBe("Deniz Şahin");
     expect([d.online, d.branches.length]).toEqual([false, 0]);
+  });
+
+  it("names a relay plan", () => {
+    const b = (status: string, canWrite = true, enabled = true): RelayBilling => ({
+      enabled,
+      plan: { status, seats: 5, trialEndsAt: null, renewsAt: null, endsAt: null },
+      access: { canWrite, seats: 5, note: null },
+      used: 2,
+      admin: true,
+      subscribed: true,
+      portalUrl: null,
+      paymentUrl: null,
+    });
+    expect(planLabel(b("trialing"))).toBe("Free trial");
+    expect(planLabel(b("past_due"))).toBe("Payment failed");
+    expect(planLabel(b("cancelled"))).toBe("Cancelled");
+    expect(planLabel(b("cancelled", false))).toBe("Ended");
+    expect(planLabel(b("weird"))).toBe("No plan");
+    expect(planLabel(b("active", true, false))).toBe("No billing on this relay");
   });
 
   it("presence goes stale", () => {

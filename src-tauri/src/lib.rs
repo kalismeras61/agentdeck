@@ -661,6 +661,97 @@ async fn team_relay_join(
     .map_err(err)?
 }
 
+/// Creates a team on a relay that takes signups, with you as its admin (on the free trial when
+/// the relay charges). Returns the overview and the invite to share with the team.
+#[tauri::command]
+async fn team_relay_create(
+    state: State<'_, AppState>,
+    project_id: String,
+    url: String,
+    team_name: String,
+    days: Option<u32>,
+) -> CmdResult<(team::TeamOverview, String)> {
+    let d = repo_dir(&state.db, &project_id, None)?;
+    let db = state.db.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let root = git::root(&d).ok_or("This project isn't a git repository")?;
+        let me = team::me(&root);
+        let name = db
+            .project(&project_id)
+            .map_err(err)?
+            .map(|p| p.name)
+            .unwrap_or_default();
+        let remote = team::remote_of(&root)
+            .and_then(|r| git::git(&root, &["remote", "get-url", &r]).ok())
+            .map(|u| u.trim().to_string());
+        let repo = teamrelay::repo_key(remote.as_deref(), &name);
+        let (_, invite) = teamrelay::create_team(&db, &project_id, &url, &team_name, &me, &repo)?;
+        db.set_meta(&team_key(&project_id, "share"), "1")
+            .map_err(err)?;
+        db.set_meta(&team_key(&project_id, "follow"), "1")
+            .map_err(err)?;
+        let (problem, _) = team_sync(&db, &project_id, &d)?;
+        Ok((
+            team_state(&db, &project_id, &d, days.unwrap_or(30), problem)?,
+            invite,
+        ))
+    })
+    .await
+    .map_err(err)?
+}
+
+fn relay_of(db: &Db, project_id: &str) -> CmdResult<teamrelay::RelayTransport> {
+    let p = db
+        .project(project_id)
+        .map_err(err)?
+        .ok_or("Project not found")?;
+    let root = git::root(&p.path).ok_or("This project isn't a git repository")?;
+    teamrelay::RelayTransport::for_project(db, project_id, &root)
+        .ok_or_else(|| "This project isn't on a relay".into())
+}
+
+/// The relay team's plan: status, seats, dates; for admins where to manage it.
+#[tauri::command]
+async fn team_relay_billing(
+    state: State<'_, AppState>,
+    project_id: String,
+) -> CmdResult<serde_json::Value> {
+    let db = state.db.clone();
+    tauri::async_runtime::spawn_blocking(move || relay_of(&db, &project_id)?.billing())
+        .await
+        .map_err(err)?
+}
+
+/// Opens the relay's checkout for `seats` seats in the browser (team admins).
+#[tauri::command]
+async fn team_relay_checkout(
+    state: State<'_, AppState>,
+    project_id: String,
+    seats: i64,
+) -> CmdResult<String> {
+    let db = state.db.clone();
+    tauri::async_runtime::spawn_blocking(move || relay_of(&db, &project_id)?.checkout(seats))
+        .await
+        .map_err(err)?
+}
+
+/// Changes the relay team's seats (team admins).
+#[tauri::command]
+async fn team_relay_seats(
+    state: State<'_, AppState>,
+    project_id: String,
+    seats: i64,
+) -> CmdResult<serde_json::Value> {
+    let db = state.db.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let r = relay_of(&db, &project_id)?;
+        r.set_seats(seats)?;
+        r.billing()
+    })
+    .await
+    .map_err(err)?
+}
+
 /// Leaves the relay: back to the git remote, sharing off.
 #[tauri::command]
 async fn team_relay_leave(
@@ -3344,6 +3435,10 @@ pub fn run() {
             team_feed,
             team_relay_join,
             team_relay_leave,
+            team_relay_create,
+            team_relay_billing,
+            team_relay_checkout,
+            team_relay_seats,
             team_wait,
             team_messages,
             team_send,

@@ -39,6 +39,30 @@ Long polls stay open up to 30 seconds; give your proxy a read timeout above that
 
 Team view → the connection button next to the title (it says "Git remote") → **AgentDeck Relay**: the relay's address and the invite code. Everyone joins with their own name and email from git and gets their own token, kept in their keychain.
 
+## Charge for it (Lemon Squeezy)
+
+A relay can sell itself: teams pay per seat per month through [Lemon Squeezy](https://www.lemonsqueezy.com), which is the merchant of record (it charges VAT and sales tax worldwide and sends the invoices). Billing is off unless these are set:
+
+| Variable | What |
+|---|---|
+| `LEMONSQUEEZY_API_KEY` | An API key (Settings → API) |
+| `LEMONSQUEEZY_STORE_ID` | Your store's id |
+| `LEMONSQUEEZY_VARIANT_ID` | The variant of a subscription product priced **per unit** (one unit = one seat, monthly) |
+| `LEMONSQUEEZY_WEBHOOK_SECRET` | The signing secret of a webhook pointing at `https://<relay>/v1/billing/lemonsqueezy`, with the `subscription_*` events |
+| `RELAY_TRIAL_DAYS`, `RELAY_TRIAL_SEATS` | The free trial (default 14 days, up to 10 people) |
+| `RELAY_CHECKOUT_REDIRECT` | Optional: where people land after paying |
+
+Run it with `serve --open-signup` to let anyone create a team from AgentDeck (Team view → connection → AgentDeck Relay → Create a team). Without it, you create teams with the CLI.
+
+How it goes:
+
+1. A new team starts on the free trial. Its first member is its admin.
+2. The admin opens **Plan** in AgentDeck, picks the seats and subscribes: the relay makes a checkout with the team's id in it, AgentDeck opens it in the browser, Lemon Squeezy takes the payment.
+3. Lemon Squeezy's webhook (checked against the signing secret) tells the relay the subscription's status, seats, renewal date and the customer portal's address. Admins change seats from AgentDeck (prorated) and reach invoices and the card in the portal.
+4. While the trial or the subscription is good, everything works; a failed payment shows a warning while Lemon Squeezy retries; a cancelled subscription runs to the end of its period. After that, or when the trial ends unpaid, the team can still read but can't share, send or add people until an admin subscribes. Joining needs a free seat; the same person on another Mac doesn't take a second one.
+
+`agentdeck-relay billing <team-id>` shows a team's plan; `billing comp <team-id> [--seats N]` gives one for free; `member admin <member-id>` makes someone an admin.
+
 ## Manage
 
 ```
@@ -68,6 +92,10 @@ agentdeck-relay member revoke <member-id>      # their token stops working at on
 | `PUT` · `GET` · `DELETE /v1/presence?repo=R` | your presence in a repository; everyone's |
 | `POST` · `GET /v1/messages?repo=R[&since=MS]` | send; read |
 | `GET /v1/events?after=SEQ&wait=S` | long poll: `{cursor, events: [{seq, repo, kind}]}` |
+| `POST /v1/teams` `{team, name, email}` | a new team, you as its admin (`--open-signup` only) |
+| `GET /v1/billing` | the team's plan, seats and what it allows |
+| `POST /v1/billing/checkout` · `POST /v1/billing/seats` `{seats}` | subscribe; change seats (admins) |
+| `POST /v1/billing/lemonsqueezy` | Lemon Squeezy's webhook (signed) |
 | `GET /healthz` | `ok` |
 
 Everything but join and health takes `Authorization: Bearer <token>`. `repo` is the repository's remote without scheme, user or `.git` (`github.com/acme/shop-app`), so every clone of it meets in the same place.
