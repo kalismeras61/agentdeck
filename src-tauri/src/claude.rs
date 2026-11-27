@@ -366,6 +366,11 @@ fn args(session: &SessionRow) -> Vec<String> {
     }
     if session.mode == "plan" {
         a.extend(["--permission-mode".into(), "plan".into()]);
+    } else if session.profile_id.is_some() {
+        // A custom endpoint can't run Claude Code's auto mode (its safety check only runs on
+        // Anthropic's API), so a `defaultMode: "auto"` in the user's settings would deny every
+        // command. Ask instead: the requests come to AgentDeck, and its approval level answers.
+        a.extend(["--permission-mode".into(), "default".into()]);
     }
     a
 }
@@ -1237,6 +1242,18 @@ mod tests {
             !args(&s).iter().any(|x| x == "--effort" || x == "--danger"),
             "only known levels are passed"
         );
+        s.profile_id = Some("glm".into());
+        assert!(
+            args(&s).join(" ").ends_with("--permission-mode plan"),
+            "plan mode wins over a profile"
+        );
+        s.mode = "default".into();
+        assert!(
+            args(&s).join(" ").ends_with("--permission-mode default"),
+            "a custom endpoint never inherits auto mode"
+        );
+        s.profile_id = None;
+        assert!(!args(&s).iter().any(|x| x == "--permission-mode"));
     }
 
     #[test]
